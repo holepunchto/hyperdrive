@@ -1,0 +1,5 @@
+node_modules
+*.mp4
+sandbox
+layout.txt
+*.db

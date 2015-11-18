@@ -1,0 +1,40 @@
+message Bitfield {
+  required bytes blocks = 2;
+}
+
+message Have {
+  required uint64 block = 2;
+}
+
+message Request {
+  required uint64 id = 2;
+  required uint64 block = 3;
+  repeated uint64 tree = 4;
+}
+
+message Response {
+  required uint64 id = 1;
+  optional bytes block = 2;
+  repeated bytes tree = 3;
+}
+
+message TreeDB {
+  message File {
+    required string filename = 1;
+    required uint64 start = 2;
+    required uint32 length = 3;
+  }
+
+  required bytes pointer = 1;
+  required uint64 index = 2;
+  optional File block = 3;
+  optional bytes directory = 4;
+}
+
+message FileDB {
+  required string name = 1;
+  optional bytes pointer = 2;
+  required bytes tree = 3;
+  required uint64 blocks = 4;
+  repeated uint64 directories = 5;
+}

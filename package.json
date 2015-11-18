@@ -1,0 +1,28 @@
+{
+  "name": "hyperdrive",
+  "version": "1.0.0",
+  "description": "filesharing system",
+  "main": "index.js",
+  "dependencies": {
+    "duplexify": "^3.4.2",
+    "flat-tree": "^1.2.1",
+    "flush-write-stream": "^1.0.0",
+    "length-prefixed-stream": "^1.4.0",
+    "protocol-buffers": "^3.1.3",
+    "stream-collector": "^1.0.1",
+    "subleveldown": "^2.1.0"
+  },
+  "devDependencies": {
+    "level": "^1.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/hyperdrive.git"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/hyperdrive/issues"
+  },
+  "homepage": "https://github.com/mafintosh/hyperdrive"
+}
