@@ -1,15 +1,15 @@
 message Bitfield {
-  required bytes blocks = 2;
+  required bytes bitfield = 2;
 }
 
 message Have {
-  required uint64 block = 2;
+  required uint64 block = 1;
 }
 
 message Request {
-  required uint64 id = 2;
-  required uint64 block = 3;
-  repeated uint64 tree = 4;
+  required uint64 id = 1;
+  required uint64 block = 2;
+  repeated uint64 tree = 3;
 }
 
 message Response {
@@ -18,7 +18,7 @@ message Response {
   repeated bytes tree = 3;
 }
 
-message TreeDB {
+message TreeNode {
   message File {
     required string filename = 1;
     required uint64 start = 2;
@@ -27,14 +27,29 @@ message TreeDB {
 
   required bytes pointer = 1;
   required uint64 index = 2;
-  optional File block = 3;
-  optional bytes directory = 4;
+  optional File external = 3;
+  optional bytes block = 4;
 }
 
-message FileDB {
+message TreeInfo {
+  optional bytes pointer = 4;
+  required bytes root = 1;
+  optional uint64 blocks = 2;
+  repeated uint64 index = 3;
+}
+
+message FileNode {
   required string name = 1;
-  optional bytes pointer = 2;
-  required bytes tree = 3;
-  required uint64 blocks = 4;
-  repeated uint64 directories = 5;
+  required uint32 mode = 2;
+  optional uint64 size = 3;
+  optional uint32 uid = 4;
+  optional uint32 gid = 5;
+  optional uint64 mtime = 6;
+  optional uint64 ctime = 7;
+}
+
+message NodeDB {
+  optional string type = 1 [default="file"];
+  optional bytes value = 2;
+  optional TreeInfo tree = 3;
 }
