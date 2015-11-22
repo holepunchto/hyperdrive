@@ -1,6 +1,9 @@
-message Bitfield {
-  required bytes bitfield = 2;
+message Unchoke { // TODO: find better name?
+  optional uint64 blocks = 1;
+  optional bytes bitfield = 2;
 }
+
+message Choke {}
 
 message Have {
   required uint64 block = 1;
