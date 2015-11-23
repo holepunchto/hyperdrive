@@ -12,13 +12,13 @@ message Have {
 message Request {
   required uint64 id = 1;
   required uint64 block = 2;
-  repeated uint64 tree = 3;
+  repeated uint64 hashes = 3;
 }
 
 message Response {
   required uint64 id = 1;
   optional bytes block = 2;
-  repeated bytes tree = 3;
+  repeated bytes hashes = 3;
 }
 
 message TreeNode {
