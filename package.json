@@ -18,6 +18,7 @@
     "octal": "^1.0.0",
     "protocol-buffers": "^3.1.3",
     "pumpify": "^1.3.3",
+    "rabin": "^1.4.0",
     "stream-collector": "^1.0.1",
     "sublevel-prefixer": "^1.0.0",
     "subleveldown": "^2.1.0",
