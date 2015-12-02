@@ -20,6 +20,7 @@ Main things missing are:
 - [ ] Full documention of the apis/protocols
 - [ ] Tit-for-tat swarm logic
 - [ ] Integrate peer discovery (currently has be handled externally)
+- [ ] Tests for internal logic
 - [ ] A bit of refactoring
 
 ## Usage
