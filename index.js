@@ -19,6 +19,10 @@ function Hyperdrive (db, opts) {
   this.swarm = swarm(this, opts)
 }
 
+Hyperdrive.prototype.createPeerStream = function () {
+  return this.swarm.createStream()
+}
+
 Hyperdrive.prototype.list = function () {
   return this._links.createKeyStream()
 }
