@@ -48,7 +48,13 @@ var s2 = remote.swarm.createStream()
 s1.pipe(s2).pipe(s1)
 
 f.get(0, function (err, entry) {
-  console.log(entry)
+  console.log(entry, '<-- metadata feed')
+  var f2 = remote.get(entry.link)
+  f2.get(0, function () {
+    f2.get(4, function (err, blk) {
+      console.log('-->', blk)
+    })
+  })
   // var nested = drive.get(entry.link)
 })
 
