@@ -21,6 +21,9 @@ function run (name) {
     var file = drive.get(entry.link)
     var inc = 0
 
+    // var a = file.cursor()
+    // a.read(2, console.log)
+
     file.get(inc++, function loop (err, block) {
       process.stdout.write(block)
       if (inc === entry.link.blocks - entry.link.index.length) {
