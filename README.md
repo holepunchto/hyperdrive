@@ -9,16 +9,18 @@ npm install hyperdrive
 
 # Status
 
-Almost ready for prime time. Currently alpha quality.
+## Almost ready for prime time :rocket:
+## Feel free to open issues and ask questions
+
 APIs/protocols might be still break.
 
 Main things missing are:
 
-[] Storing downloaded files as actual files
-[] Full documention of the apis/protocols
-[] Tit-for-tat swarm logic
-[] Integrate peer discovery (currently has be handled externally)
-[] A bit of refactoring
+- [ ] Storing downloaded files as actual files (not in leveldb doh)
+- [ ] Full documention of the apis/protocols
+- [ ] Tit-for-tat swarm logic
+- [ ] Integrate peer discovery (currently has be handled externally)
+- [ ] A bit of refactoring
 
 ## Usage
 
