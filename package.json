@@ -6,8 +6,14 @@
   "scripts": {
     "test": "standard && tape test/*.js"
   },
+  "browserify": {
+    "transform": [
+      "brfs"
+    ]
+  },
   "dependencies": {
     "bitfield": "^1.1.2",
+    "brfs": "^1.4.1",
     "buffer-equals": "^1.0.3",
     "bulk-write-stream": "^1.1.1",
     "debug": "^2.2.0",
