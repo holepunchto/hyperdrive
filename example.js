@@ -15,6 +15,7 @@ function run (name) {
   var feed = drive.get(hash)
 
   feed.get(0, function (err, entry) {
+    if (err) throw err
     console.log('Downloaded metadata for entry #0,', entry)
     console.log('Fetching and printing file now')
 
@@ -25,6 +26,7 @@ function run (name) {
     // a.read(2, console.log)
 
     file.get(inc++, function loop (err, block) {
+      if (err) throw err
       process.stdout.write(block)
       if (inc === entry.link.blocks - entry.link.index.length) {
         console.log('\n(end of file)')

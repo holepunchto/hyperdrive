@@ -10,7 +10,7 @@ tape('pack', function (t) {
 
   var stream = pack.entry({
     name: 'test.txt',
-    mode: 0600
+    mode: octal(600)
   })
 
   stream.write('hello')
@@ -42,6 +42,7 @@ tape('pack and get', function (t) {
     var feed = drive.get(pack.id)
 
     feed.get(0, function (err, entry) {
+      t.error(err, 'no error')
       t.same(entry.type, 'file')
       t.same(entry.value, {
         name: 'test.txt',
@@ -61,6 +62,7 @@ tape('pack and get', function (t) {
         t.error(err, 'no error')
         t.same(blk.toString(), 'helloworld')
         content.get(1, function (err, blk) {
+          t.error(err, 'no error')
           t.same(blk, new Buffer([0, 10]), 'has index block')
           content.get(2, function (_, blk) {
             t.ok(!blk, 'no more data')
