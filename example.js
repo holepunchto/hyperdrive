@@ -4,7 +4,7 @@ var net = require('net')
 var dc = require('discovery-channel')
 var pump = require('pump')
 
-var hash = new Buffer('0fc4a1644ec17df7e69a35a35fe1eb7e3823b41576dc2dab783ea41357a19487', 'hex')
+var hash = new Buffer('ee4565bb12e34cfa90af4b8806251c1ddcd2350e7edafb971ef29faaee5b293d', 'hex')
 
 function run (name) {
   var disc = dc()
