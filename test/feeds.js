@@ -149,7 +149,7 @@ tape('entry stream', function (t) {
 })
 
 tape('file stream', function (t) {
-  t.plan(4)
+  t.plan(5)
   var drive = create()
 
   var pack = drive.add()
@@ -166,6 +166,7 @@ tape('file stream', function (t) {
     var feed = drive.get(pack.id)
 
     feed.get(0, function (err, entry) {
+      t.error(err, 'no error')
       drive.get(entry).createStream()
         .on('data', function (data) {
           t.same(data.toString(), 'hello world')
