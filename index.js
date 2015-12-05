@@ -31,8 +31,13 @@ Hyperdrive.prototype.list = function () {
 
 Hyperdrive.prototype.get = function (link) {
   if (typeof link === 'string') link = new Buffer(link, 'hex')
-  if (typeof link === 'object' && link.id) {
-    return feed(link.id, this, {blocks: link.blocks, index: link.index})
+  if (typeof link === 'object' && (link.id || link.link)) {
+    var entry = null
+    if (link.link) {
+      entry = link
+      link = entry.link
+    }
+    return feed(link.id, this, {blocks: link.blocks, index: link.index, entry: entry})
   }
   return feed(link, this, {decode: true}) // TODO: be smarter about when to choose to decode? ext maybe?
 }

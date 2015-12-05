@@ -19,7 +19,7 @@ function run (name) {
     console.log('Downloaded metadata for entry #0,', entry)
     console.log('Fetching and printing file now')
 
-    var file = drive.get(entry.link)
+    var file = drive.get(entry)
     var inc = 0
 
     // var a = file.cursor()

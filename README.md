@@ -85,7 +85,7 @@ var feed = drive.get(link) // the link identifies/verifies the content
 
 feed.get(0, function (err, entry) { // get the first entry
   console.log(entry) // prints {name: 'my-file.txt', ...}
-  var content = drive.get(entry.link)
+  var content = drive.get(entry)
   content.get(0, function (err, data) {
     console.log('first block of the file', data)
     content.get(1, ...)
