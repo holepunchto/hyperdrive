@@ -23,7 +23,7 @@ Main things missing are:
 - [ ] Tit-for-tat swarm logic
 - [ ] Integrate peer discovery (currently has be handled externally)
 - [ ] Tests for internal logic
-- [ ] A bit of refactoring
+- [x] A bit of refactoring
 
 ## Usage
 

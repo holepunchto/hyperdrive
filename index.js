@@ -2,7 +2,7 @@ var subleveldown = require('subleveldown')
 var pack = require('./lib/pack')
 var feed = require('./lib/feed')
 var swarm = require('./lib/swarm')
-var feedInfo = require('./lib/feed-info')
+var feedState = require('./lib/feed-state')
 var messages = require('./lib/messages')
 
 module.exports = Hyperdrive
@@ -48,8 +48,8 @@ Hyperdrive.prototype._close = function (link) {
 
 Hyperdrive.prototype._open = function (link, opts) {
   var id = link.toString('hex')
-  var info = this._opened[id]
-  if (info) return info
-  this._opened[id] = feedInfo(link, opts)
-  return info
+  var state = this._opened[id]
+  if (state) return state
+  state = this._opened[id] = feedState(this, link, opts)
+  return state
 }
