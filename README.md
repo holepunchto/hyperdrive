@@ -7,6 +7,8 @@ append only feeds of data verified by merkle trees.
 npm install hyperdrive
 ```
 
+[![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
+
 # Status
 
 ## Almost ready for prime time :rocket:
