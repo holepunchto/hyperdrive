@@ -97,6 +97,29 @@ tape('feed.get(non-existent)', function (t) {
   })
 })
 
+tape('add empty file', function (t) {
+  var drive = create()
+
+  var pack = drive.add()
+
+  var stream = pack.entry({
+    name: 'test.txt',
+    mode: octal(600)
+  })
+
+  stream.end()
+
+  pack.finalize(function () {
+    var feed = drive.get(pack.id)
+    feed.get(0, function (err, entry) {
+      t.error(err, 'no error')
+      t.same(entry.value.name, 'test.txt', 'same name')
+      t.same(entry.link, null, 'no link')
+      t.end()
+    })
+  })
+})
+
 function create () {
   return hyperdrive(memdb())
 }
