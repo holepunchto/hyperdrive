@@ -74,6 +74,29 @@ tape('pack and get', function (t) {
   })
 })
 
+tape('feed.get(non-existent)', function (t) {
+  var drive = create()
+
+  var pack = drive.add()
+
+  var stream = pack.entry({
+    name: 'test.txt',
+    mode: octal(600)
+  })
+
+  stream.write('hello')
+  stream.write('world')
+  stream.end()
+
+  pack.finalize(function () {
+    var feed = drive.get(pack.id)
+    feed.get(1, function (err) {
+      t.ok(err, 'had error')
+      t.end()
+    })
+  })
+})
+
 function create () {
   return hyperdrive(memdb())
 }
