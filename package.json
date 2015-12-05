@@ -20,6 +20,7 @@
     "duplexify": "^3.4.2",
     "flat-tree": "^1.2.1",
     "flush-write-stream": "^1.0.0",
+    "from2": "^2.1.0",
     "last-one-wins": "^1.0.0",
     "length-prefixed-stream": "^1.4.0",
     "merkle-tree-stream": "^1.0.2",

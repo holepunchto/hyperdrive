@@ -90,8 +90,9 @@ tape('feed.get(non-existent)', function (t) {
 
   pack.finalize(function () {
     var feed = drive.get(pack.id)
-    feed.get(1, function (err) {
-      t.ok(err, 'had error')
+    feed.get(1, function (err, val) {
+      t.error(err, 'no error')
+      t.same(val, null)
       t.end()
     })
   })
@@ -116,6 +117,70 @@ tape('add empty file', function (t) {
       t.same(entry.value.name, 'test.txt', 'same name')
       t.same(entry.link, null, 'no link')
       t.end()
+    })
+  })
+})
+
+tape('entry stream', function (t) {
+  var drive = create()
+
+  var pack = drive.add()
+
+  var stream = pack.entry({
+    name: 'test.txt',
+    mode: octal(600)
+  })
+
+  stream.end()
+
+  pack.finalize(function () {
+    var feed = drive.get(pack.id)
+
+    feed.createStream()
+      .on('data', function (entry) {
+        t.same(entry.value.name, 'test.txt', 'same name')
+        t.same(entry.link, null, 'no link')
+      })
+      .on('end', function () {
+        t.ok(true, 'ended')
+        t.end()
+      })
+  })
+})
+
+tape('file stream', function (t) {
+  t.plan(4)
+  var drive = create()
+
+  var pack = drive.add()
+
+  var stream = pack.entry({
+    name: 'test.txt',
+    mode: octal(600)
+  })
+
+  stream.write('hello world')
+  stream.end()
+
+  pack.finalize(function () {
+    var feed = drive.get(pack.id)
+
+    feed.get(0, function (err, entry) {
+      drive.get(entry).createStream()
+        .on('data', function (data) {
+          t.same(data.toString(), 'hello world')
+        })
+        .on('end', function () {
+          t.ok(true, 'ended')
+        })
+
+      drive.get(entry).createStream({start: 5})
+        .on('data', function (data) {
+          t.same(data.toString(), ' world')
+        })
+        .on('end', function () {
+          t.ok(true, 'ended')
+        })
     })
   })
 })
