@@ -25490,10 +25490,12 @@ Channel.prototype.have = function (blocks, bitfield) {
 }
 
 Channel.prototype.choke = function () {
+  this.amChoking = true
   this.stream._push(3, {channel: this.local})
 }
 
 Channel.prototype.unchoke = function () {
+  this.amChoking = false
   this.stream._push(4, {channel: this.local})
 }
 
