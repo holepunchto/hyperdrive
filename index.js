@@ -99,10 +99,18 @@ function ready (id) {
         var b = $display.contentDocument.body
         b.innerHTML = '<table id="table"></table>'
         var t = $display.contentDocument.getElementById('table')
-        var first = true
-        file.createStream().pipe(csv()).on('data', function (data) {
-          if (first) {
-            first = false
+        var parser = file.createStream().pipe(csv())
+        var inc = 0
+
+        var more = document.createElement('a')
+        more.innerText = 'load 5 more'
+        more.onclick = function () {
+          parser.resume()
+        }
+        more.href = 'javascript:void(0)'
+
+        parser.on('data', function (data) {
+          if (!inc++) {
             var tr = document.createElement('tr')
             Object.keys(data).forEach(function (name) {
               var th = document.createElement('th')
@@ -118,6 +126,12 @@ function ready (id) {
             tr.appendChild(td)
           })
           t.appendChild(tr)
+
+          if (inc % 5 === 0) {
+            if (inc !== 5) $display.contentDocument.body.removeChild(more)
+            $display.contentDocument.body.appendChild(more)
+            parser.pause()
+          }
         })
       } else {
         $video.style.display = 'none'
