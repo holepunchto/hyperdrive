@@ -90,7 +90,7 @@ function ready (id) {
       } else if (ext === 'csv') {
         $video.style.display = 'none'
         $display.style.display = 'block'
-        $display.contentDocument.body.innerHTML = ''
+        $display.src = "about:blank"
         var b = $display.contentDocument.body
         b.innerHTML = '<table id="table"></table>'
         var t = $display.contentDocument.getElementById('table')
@@ -117,7 +117,7 @@ function ready (id) {
       } else {
         $video.style.display = 'none'
         $display.style.display = 'block'
-        $display.contentDocument.body.innerHTML = ''
+        $display.src = "about:blank"
         file.createStream()
           .on('data', function (data) {
             buffers.push(data)
