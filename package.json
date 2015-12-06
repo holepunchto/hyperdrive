@@ -1,0 +1,36 @@
+{
+  "name": "hyperdrive-www",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "bundle": "browserify index.js > bundle.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/hyperdrive.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mafintosh/hyperdrive/issues"
+  },
+  "homepage": "https://github.com/mafintosh/hyperdrive",
+  "dependencies": {
+    "choppa": "^1.0.2",
+    "drag-and-drop-files": "0.0.1",
+    "filereader-stream": "^1.0.0",
+    "hyperdrive": "^1.3.0",
+    "level-browserify": "^1.0.1",
+    "mediasource": "^1.0.0",
+    "memdb": "^1.0.1",
+    "mimes": "^1.0.0",
+    "pretty-bytes": "^2.0.1",
+    "signalhub": "^4.3.1",
+    "videostream": "^1.2.1",
+    "webrtc-swarm": "^2.2.0"
+  },
+  "devDependencies": {
+    "browserify": "^12.0.1"
+  }
+}
