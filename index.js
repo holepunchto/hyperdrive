@@ -11,6 +11,7 @@ var choppa = require('choppa')
 var memdb = require('memdb')
 var videostream = require('videostream')
 var speedometer = require('speedometer')
+var csv = require('csv-parser')
 
 function createElem (tagName) {
   var elem = document.createElement(tagName)
@@ -74,6 +75,7 @@ function ready (id) {
       var buffers = []
       var ext = entry.value.name.split('.').pop().toLowerCase()
       var type = mimes[ext] || 'application/octet-stream'
+
       if (ext === 'mp4') {
         $display.style.display = 'none'
         $video.style.display = 'block'
@@ -85,9 +87,37 @@ function ready (id) {
           }
         }
         videostream(f, $video)
+      } else if (ext === 'csv') {
+        $video.style.display = 'none'
+        $display.style.display = 'block'
+        $display.contentDocument.body.innerHTML = ''
+        var b = $display.contentDocument.body
+        b.innerHTML = '<table id="table"></table>'
+        var t = $display.contentDocument.getElementById('table')
+        var first = true
+        file.createStream().pipe(csv()).on('data', function (data) {
+          if (first) {
+            first = false
+            var tr = document.createElement('tr')
+            Object.keys(data).forEach(function (name) {
+              var th = document.createElement('th')
+              th.innerText = name
+              tr.appendChild(th)
+            })
+            t.appendChild(tr)
+          }
+          var tr = document.createElement('tr')
+          Object.keys(data).forEach(function (name) {
+            var td = document.createElement('td')
+            td.innerText = data[name]
+            tr.appendChild(td)
+          })
+          t.appendChild(tr)
+        })
       } else {
         $video.style.display = 'none'
         $display.style.display = 'block'
+        $display.contentDocument.body.innerHTML = ''
         file.createStream()
           .on('data', function (data) {
             buffers.push(data)
