@@ -53,14 +53,14 @@ function ready (id) {
   var swarm = webrtcSwarm(hub)
   var feed = drive.get(id)
 
-  feed.on('put', function (block, data) {
+  feed._state.on('put', function (block, data) {
     downloadSpeed(data.length)
   })
 
   feed.createStream().on('data', function (entry) {
     console.log(entry)
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
-    file.on('put', function (block, data) {
+    file._state.on('put', function (block, data) {
       downloadSpeed(data.length)
     })
 
