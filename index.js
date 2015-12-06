@@ -102,6 +102,10 @@ function ready (id) {
     $links.appendChild(div)
   })
 
+  setInterval(function () {
+    $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
+  }, 500)
+
   swarm.on('peer', function (peer) {
     console.log('New peer!')
     peers++
