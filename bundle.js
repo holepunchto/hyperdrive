@@ -12,6 +12,7 @@ var pretty = require('pretty-bytes')
 var choppa = require('choppa')
 var memdb = require('memdb')
 var videostream = require('videostream')
+var speedometer = require('speedometer')
 
 function createElem (tagName) {
   var elem = document.createElement(tagName)
@@ -31,7 +32,7 @@ var $video = createElem('video')
 $display.style.display = 'none'
 $video.style.display = 'none'
 
-
+var downloadSpeed = speedometer()
 var db = memdb('hyperdrive-test')
 var drive = hyperdrive(db)
 
@@ -54,9 +55,16 @@ function ready (id) {
   var swarm = webrtcSwarm(hub)
   var feed = drive.get(id)
 
+  feed.on('put', function (block, data) {
+    downloadSpeed(data.length)
+  })
+
   feed.createStream().on('data', function (entry) {
     console.log(entry)
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
+    file.on('put', function (block, data) {
+      downloadSpeed(data.length)
+    })
 
     var div = document.createElement('div')
     var a = document.createElement('a')
@@ -96,13 +104,17 @@ function ready (id) {
     $links.appendChild(div)
   })
 
+  setInterval(function () {
+    $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
+  }, 500)
+
   swarm.on('peer', function (peer) {
     console.log('New peer!')
     peers++
-    $status.innerText = 'Connected to ' + peers + ' peer(s)'
+    $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
     pump(peer, drive.createPeerStream(), peer, function () {
       peers--
-      $status.innerText = 'Connected to ' + peers + ' peer(s)'
+      $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
     })
   })
 }
@@ -144,7 +156,7 @@ drop(window, function (files) {
 })
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4,"choppa":226,"drag-and-drop-files":238,"filereader-stream":239,"hyperdrive":255,"level-browserify":424,"memdb":469,"mimes":508,"pretty-bytes":509,"pump":575,"signalhub":511,"videostream":548,"webrtc-swarm":549}],2:[function(require,module,exports){
+},{"buffer":4,"choppa":226,"drag-and-drop-files":238,"filereader-stream":239,"hyperdrive":255,"level-browserify":424,"memdb":469,"mimes":508,"pretty-bytes":509,"pump":576,"signalhub":511,"speedometer":539,"videostream":549,"webrtc-swarm":550}],2:[function(require,module,exports){
 
 },{}],3:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
@@ -41120,12 +41132,49 @@ arguments[4][236][0].apply(exports,arguments)
 },{"dup":236}],538:[function(require,module,exports){
 arguments[4][237][0].apply(exports,arguments)
 },{"_process":206,"dup":237,"readable-stream/transform":536,"util":223,"xtend":537}],539:[function(require,module,exports){
+var tick = 1
+var maxTick = 65535
+var resolution = 4
+var inc = function () {
+  tick = (tick + 1) & maxTick
+}
+
+var timer = setInterval(inc, (1000 / resolution) | 0)
+if (timer.unref) timer.unref()
+
+module.exports = function (seconds) {
+  var size = resolution * (seconds || 5)
+  var buffer = [0]
+  var pointer = 1
+  var last = (tick - 1) & maxTick
+
+  return function (delta) {
+    var dist = (tick - last) & maxTick
+    if (dist > size) dist = size
+    last = tick
+
+    while (dist--) {
+      if (pointer === size) pointer = 0
+      buffer[pointer] = buffer[pointer === 0 ? size - 1 : pointer - 1]
+      pointer++
+    }
+
+    if (delta) buffer[pointer - 1] += delta
+
+    var top = buffer[pointer - 1]
+    var btm = buffer.length < size ? 0 : buffer[pointer === size ? 0 : pointer]
+
+    return buffer.length < resolution ? top : (top - btm) * resolution / buffer.length
+  }
+}
+
+},{}],540:[function(require,module,exports){
 arguments[4][277][0].apply(exports,arguments)
-},{"./debug":540,"dup":277}],540:[function(require,module,exports){
+},{"./debug":541,"dup":277}],541:[function(require,module,exports){
 arguments[4][278][0].apply(exports,arguments)
-},{"dup":278,"ms":541}],541:[function(require,module,exports){
+},{"dup":278,"ms":542}],542:[function(require,module,exports){
 arguments[4][279][0].apply(exports,arguments)
-},{"dup":279}],542:[function(require,module,exports){
+},{"dup":279}],543:[function(require,module,exports){
 /**
   DataStream reads scalars, arrays and structs of data from an ArrayBuffer.
   It's like a file-like DataView on steroids.
@@ -42661,7 +42710,7 @@ DataStream.prototype.adjustUint32 = function(position, value) {
 	this.writeUint32(value);
 	this.seek(pos);
 }
-},{}],543:[function(require,module,exports){
+},{}],544:[function(require,module,exports){
 /* 
  * Copyright (c) 2012-2013. Telecom ParisTech/TSI/MM/GPAC Cyril Concolato
  * License: BSD-3-Clause (see LICENSE file)
@@ -44222,7 +44271,7 @@ BoxParser.tfdtBox.prototype.write = function(stream) {
 	}
 }
 
-},{"./DataStream":542,"./descriptor":544,"./log":546}],544:[function(require,module,exports){
+},{"./DataStream":543,"./descriptor":545,"./log":547}],545:[function(require,module,exports){
 /* 
  * Copyright (c) 2012-2013. Telecom ParisTech/TSI/MM/GPAC Cyril Concolato
  * License: BSD-3-Clause (see LICENSE file)
@@ -44377,7 +44426,7 @@ var MPEG4DescriptorParser = function () {
 }
 module.exports = MPEG4DescriptorParser;
 
-},{"./log":546}],545:[function(require,module,exports){
+},{"./log":547}],546:[function(require,module,exports){
 /* 
  * Copyright (c) 2012-2013. Telecom ParisTech/TSI/MM/GPAC Cyril Concolato
  * License: BSD-3-Clause (see LICENSE file)
@@ -45136,7 +45185,7 @@ ISOFile.prototype.releaseSample = function(trak, sampleNum) {
 	return sample.size;
 }
 
-},{"./DataStream":542,"./box":543,"./log":546}],546:[function(require,module,exports){
+},{"./DataStream":543,"./box":544,"./log":547}],547:[function(require,module,exports){
 /* 
  * Copyright (c) 2012-2013. Telecom ParisTech/TSI/MM/GPAC Cyril Concolato
  * License: BSD-3-Clause (see LICENSE file)
@@ -45223,7 +45272,7 @@ Log.printRanges = function(ranges) {
 }
 
 
-},{}],547:[function(require,module,exports){
+},{}],548:[function(require,module,exports){
 /* 
  * Copyright (c) 2012-2013. Telecom ParisTech/TSI/MM/GPAC Cyril Concolato
  * License: BSD-3-Clause (see LICENSE file)
@@ -45900,7 +45949,7 @@ MP4Box.prototype.seek = function(time, useRap) {
 	}
 }
 
-},{"./DataStream":542,"./box":543,"./isofile":545,"./log":546}],548:[function(require,module,exports){
+},{"./DataStream":543,"./box":544,"./isofile":546,"./log":547}],549:[function(require,module,exports){
 var debug = require('debug')('videostream');
 var MP4Box = require('mp4box');
 
@@ -46221,7 +46270,7 @@ function save (filename, buffers) {
 	a.click();
  }
 
-},{"debug":539,"mp4box":547}],549:[function(require,module,exports){
+},{"debug":540,"mp4box":548}],550:[function(require,module,exports){
 var SimplePeer = require('simple-peer')
 var events = require('events')
 var through = require('through2')
@@ -46340,7 +46389,7 @@ module.exports = function (hub, opts) {
   return swarm
 }
 
-},{"cuid":550,"debug":551,"events":201,"once":555,"simple-peer":556,"through2":574}],550:[function(require,module,exports){
+},{"cuid":551,"debug":552,"events":201,"once":556,"simple-peer":557,"through2":575}],551:[function(require,module,exports){
 /**
  * cuid.js
  * Collision-resistant UID generator for browsers and node.
@@ -46452,17 +46501,17 @@ module.exports = function (hub, opts) {
 
 }(this.applitude || this));
 
-},{}],551:[function(require,module,exports){
+},{}],552:[function(require,module,exports){
 arguments[4][277][0].apply(exports,arguments)
-},{"./debug":552,"dup":277}],552:[function(require,module,exports){
+},{"./debug":553,"dup":277}],553:[function(require,module,exports){
 arguments[4][278][0].apply(exports,arguments)
-},{"dup":278,"ms":553}],553:[function(require,module,exports){
+},{"dup":278,"ms":554}],554:[function(require,module,exports){
 arguments[4][279][0].apply(exports,arguments)
-},{"dup":279}],554:[function(require,module,exports){
+},{"dup":279}],555:[function(require,module,exports){
 arguments[4][282][0].apply(exports,arguments)
-},{"dup":282}],555:[function(require,module,exports){
+},{"dup":282}],556:[function(require,module,exports){
 arguments[4][283][0].apply(exports,arguments)
-},{"dup":283,"wrappy":554}],556:[function(require,module,exports){
+},{"dup":283,"wrappy":555}],557:[function(require,module,exports){
 (function (Buffer){
 /* global Blob */
 
@@ -46993,7 +47042,7 @@ Peer.prototype._debug = function () {
 function noop () {}
 
 }).call(this,{"isBuffer":require("../../../browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
-},{"../../../browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":203,"debug":551,"get-browser-rtc":557,"hat":558,"inherits":559,"is-typedarray":560,"once":555,"stream":220,"typedarray-to-buffer":561}],557:[function(require,module,exports){
+},{"../../../browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":203,"debug":552,"get-browser-rtc":558,"hat":559,"inherits":560,"is-typedarray":561,"once":556,"stream":220,"typedarray-to-buffer":562}],558:[function(require,module,exports){
 // originally pulled out of simple-peer
 
 module.exports = function getBrowserRTC () {
@@ -47010,7 +47059,7 @@ module.exports = function getBrowserRTC () {
   return wrtc
 }
 
-},{}],558:[function(require,module,exports){
+},{}],559:[function(require,module,exports){
 var hat = module.exports = function (bits, base) {
     if (!base) base = 16;
     if (bits === undefined) bits = 128;
@@ -47074,44 +47123,44 @@ hat.rack = function (bits, base, expandBy) {
     return fn;
 };
 
-},{}],559:[function(require,module,exports){
+},{}],560:[function(require,module,exports){
 arguments[4][202][0].apply(exports,arguments)
-},{"dup":202}],560:[function(require,module,exports){
+},{"dup":202}],561:[function(require,module,exports){
 arguments[4][254][0].apply(exports,arguments)
-},{"dup":254}],561:[function(require,module,exports){
+},{"dup":254}],562:[function(require,module,exports){
 arguments[4][253][0].apply(exports,arguments)
-},{"buffer":4,"dup":253,"is-typedarray":560}],562:[function(require,module,exports){
+},{"buffer":4,"dup":253,"is-typedarray":561}],563:[function(require,module,exports){
 arguments[4][208][0].apply(exports,arguments)
-},{"./_stream_readable":563,"./_stream_writable":565,"core-util-is":566,"dup":208,"inherits":567,"process-nextick-args":569}],563:[function(require,module,exports){
+},{"./_stream_readable":564,"./_stream_writable":566,"core-util-is":567,"dup":208,"inherits":568,"process-nextick-args":570}],564:[function(require,module,exports){
 arguments[4][210][0].apply(exports,arguments)
-},{"./_stream_duplex":562,"_process":206,"buffer":4,"core-util-is":566,"dup":210,"events":201,"inherits":567,"isarray":568,"process-nextick-args":569,"string_decoder/":570,"util":3}],564:[function(require,module,exports){
+},{"./_stream_duplex":563,"_process":206,"buffer":4,"core-util-is":567,"dup":210,"events":201,"inherits":568,"isarray":569,"process-nextick-args":570,"string_decoder/":571,"util":3}],565:[function(require,module,exports){
 arguments[4][211][0].apply(exports,arguments)
-},{"./_stream_duplex":562,"core-util-is":566,"dup":211,"inherits":567}],565:[function(require,module,exports){
+},{"./_stream_duplex":563,"core-util-is":567,"dup":211,"inherits":568}],566:[function(require,module,exports){
 arguments[4][212][0].apply(exports,arguments)
-},{"./_stream_duplex":562,"buffer":4,"core-util-is":566,"dup":212,"events":201,"inherits":567,"process-nextick-args":569,"util-deprecate":571}],566:[function(require,module,exports){
+},{"./_stream_duplex":563,"buffer":4,"core-util-is":567,"dup":212,"events":201,"inherits":568,"process-nextick-args":570,"util-deprecate":572}],567:[function(require,module,exports){
 arguments[4][231][0].apply(exports,arguments)
-},{"../../../../../../../../browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":203,"dup":231}],567:[function(require,module,exports){
+},{"../../../../../../../../browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":203,"dup":231}],568:[function(require,module,exports){
 arguments[4][202][0].apply(exports,arguments)
-},{"dup":202}],568:[function(require,module,exports){
+},{"dup":202}],569:[function(require,module,exports){
 arguments[4][204][0].apply(exports,arguments)
-},{"dup":204}],569:[function(require,module,exports){
+},{"dup":204}],570:[function(require,module,exports){
 arguments[4][214][0].apply(exports,arguments)
-},{"_process":206,"dup":214}],570:[function(require,module,exports){
+},{"_process":206,"dup":214}],571:[function(require,module,exports){
 arguments[4][221][0].apply(exports,arguments)
-},{"buffer":4,"dup":221}],571:[function(require,module,exports){
+},{"buffer":4,"dup":221}],572:[function(require,module,exports){
 arguments[4][215][0].apply(exports,arguments)
-},{"dup":215}],572:[function(require,module,exports){
+},{"dup":215}],573:[function(require,module,exports){
 arguments[4][218][0].apply(exports,arguments)
-},{"./lib/_stream_transform.js":564,"dup":218}],573:[function(require,module,exports){
+},{"./lib/_stream_transform.js":565,"dup":218}],574:[function(require,module,exports){
 arguments[4][236][0].apply(exports,arguments)
-},{"dup":236}],574:[function(require,module,exports){
+},{"dup":236}],575:[function(require,module,exports){
 arguments[4][237][0].apply(exports,arguments)
-},{"_process":206,"dup":237,"readable-stream/transform":572,"util":223,"xtend":573}],575:[function(require,module,exports){
+},{"_process":206,"dup":237,"readable-stream/transform":573,"util":223,"xtend":574}],576:[function(require,module,exports){
 arguments[4][352][0].apply(exports,arguments)
-},{"dup":352,"end-of-stream":576,"fs":2,"once":578}],576:[function(require,module,exports){
+},{"dup":352,"end-of-stream":577,"fs":2,"once":579}],577:[function(require,module,exports){
 arguments[4][353][0].apply(exports,arguments)
-},{"dup":353,"once":578}],577:[function(require,module,exports){
+},{"dup":353,"once":579}],578:[function(require,module,exports){
 arguments[4][282][0].apply(exports,arguments)
-},{"dup":282}],578:[function(require,module,exports){
+},{"dup":282}],579:[function(require,module,exports){
 arguments[4][283][0].apply(exports,arguments)
-},{"dup":283,"wrappy":577}]},{},[1]);
+},{"dup":283,"wrappy":578}]},{},[1]);
