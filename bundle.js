@@ -66,7 +66,7 @@ function ready (id) {
   })
 
   feed.createStream().on('data', function (entry) {
-    console.log(entry)
+    console.log(entry, entry.link && entry.link.id.toString('hex'))
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
     file._state.on('put', function (block, data) {
       downloadSpeed(data.length)
@@ -25148,13 +25148,7 @@ Feed.prototype.get = function (index, cb) {
   if (this._decode) cb = decoder(cb)
 
   if (this._state.blocks && index >= this._state.blocks) return cb(null, null)
-
-  if (this._state.bitfield.get(index)) {
-    this._state.get(index, cb)
-  } else {
-    this._state.want.push({block: index, callback: cb})
-    this._subswarm.fetch()
-  }
+  this._state.get(index, cb)
 }
 
 function decoder (cb) {
@@ -25748,17 +25742,31 @@ function toBuffer (bitfield) {
 var protocol = require('./protocol')
 var debug = require('debug')('hyperdrive-swarm')
 
+var MAX_INFLIGHT_PER_PEER = 20
+
 module.exports = Swarm
 
 function Swarm (drive, opts) {
   if (!(this instanceof Swarm)) return new Swarm(drive, opts)
   if (!opts) opts = {}
-  this.name = opts.name || 'unknown'
   this.prioritized = 0
   this.drive = drive
   this.peers = []
   this.links = []
   this.joined = {}
+  this.kicking = false
+}
+
+Swarm.prototype._kick = function () {
+  if (this.kicking) return
+  this.kicking = true
+  debug('polling all peers to see if they have something to do')
+  // TODO: optimize this process - will iterate too much atm
+  var ids = Object.keys(this.joined)
+  for (var i = 0; i < ids.length; i++) {
+    this.joined[ids[i]].fetch()
+  }
+  this.kicking = false
 }
 
 Swarm.prototype._get = function (link) {
@@ -25775,13 +25783,17 @@ Swarm.prototype._get = function (link) {
     fetch: fetch
   }
 
-  subswarm.feed.on('want', function () {
+  self.prioritized += subswarm.feed.want.length
+
+  subswarm.feed.on('want', function (block) {
     self.prioritized++
+    debug('prioritizing block %d (%d)', block, self.prioritized)
     subswarm.fetch()
   })
 
-  subswarm.feed.on('unwant', function () {
+  subswarm.feed.on('unwant', function (block) {
     self.prioritized--
+    debug('deprioritizing block %d (%d)', block, self.prioritized)
     if (!self.prioritized) subswarm.fetch()
   })
 
@@ -25796,22 +25808,24 @@ Swarm.prototype._get = function (link) {
 
   function fetch (peer) {
     if (!subswarm.feed.opened) return
-    debug('[%s] should fetch', self.name)
+    debug('should try to fetch')
 
     if (peer) fetchPeer(peer)
     else subswarm.peers.forEach(fetchPeer)
   }
 
   function fetchPeer (peer) {
+    debug('analyzing peer (inflight: %d, choked: %s)', peer.stream.inflight, peer.remoteChoking)
     if (peer.remoteChoking) return
     while (true) {
-      if (peer.stream.inflight >= 5) return // max 5 inflight requests
+      if (peer.stream.inflight >= MAX_INFLIGHT_PER_PEER) return
       var block = chooseBlock(peer)
-      if (block === -1) return
+      if (block < 0) return self._kick() // nothing to do here - restart logic. TODO: improve me
       peer.request(block)
-      debug('[%s] peer is fetching block %d', self.name, block)
+      debug('peer is fetching block %d', block)
     }
   }
+
 
   function chooseBlock (peer) {
     // TODO: maintain a bitfield of perswarm blocks in progress
@@ -25824,7 +25838,7 @@ Swarm.prototype._get = function (link) {
       block = subswarm.feed.want[j].block
       if (peer.amRequesting.get(block)) continue
       if (peer.remoteBitfield.get(block) && !subswarm.feed.bitfield.get(block)) {
-        debug('[%s] choosing prioritized block #%d', self.name, block)
+        debug('choosing prioritized block #%d', block)
         return block
       }
     }
@@ -25832,19 +25846,25 @@ Swarm.prototype._get = function (link) {
     // TODO: there might be a starvation convern here. should only return *if* there are peers that
     // that could satisfy the want list. this is just a quick "hack" for realtime prioritization
     // when dealing with multiple files
-    if (self.prioritized && !subswarm.feed.want.length) return -1
+    if (self.prioritized && !subswarm.feed.want.length) {
+      debug('not downloading to yield to prioritized downloading')
+      return -1
+    }
 
-    var offset = subswarm.feed.want.length ? subswarm.feed.want[0].block : ((Math.random() * len) | 0)
+    var prioritizedish = !!subswarm.feed.want.length
+    var offset = prioritizedish ? subswarm.feed.want[0].block : ((Math.random() * len) | 0)
     for (var i = 0; i < len; i++) {
       block = (offset + i) % len
       if (peer.amRequesting.get(block)) continue
       if (peer.remoteBitfield.get(block) && !subswarm.feed.bitfield.get(block)) {
-        debug('[%s] choosing unprioritized block #%d', self.name, block)
+        if (!prioritizedish) debug('choosing unprioritized block #%d', block)
+        else debug('choosing semi prioritized block #%d', block)
         return block
       }
     }
 
-    return -1
+    debug('could not find a block to download')
+    return -2
   }
 }
 
@@ -25863,7 +25883,7 @@ Swarm.prototype.createStream = function () {
   var self = this
   var peer = protocol()
 
-  debug('[%s] new peer stream', this.name)
+  debug('new peer stream')
 
   peer.on('channel', onchannel)
   peer.on('end', remove)
@@ -25888,7 +25908,7 @@ Swarm.prototype.createStream = function () {
   }
 
   function onchannel (ch) {
-    var name = ch.link.toString('hex').slice(0, 12) + '/' + self.name
+    var name = ch.link.toString('hex').slice(0, 12)
     var subswarm = add(ch)
 
     debug('[channel %s] joined channel', name)

@@ -64,7 +64,7 @@ function ready (id) {
   })
 
   feed.createStream().on('data', function (entry) {
-    console.log(entry)
+    console.log(entry, entry.link && entry.link.id.toString('hex'))
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
     file._state.on('put', function (block, data) {
       downloadSpeed(data.length)
