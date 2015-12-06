@@ -183,6 +183,7 @@ drop(window, function (files) {
 
   function done () {
     pack.finalize(function () {
+      window.location.hash = '#' + pack.id.toString('hex')
       ready(pack.id)
     })
   }
