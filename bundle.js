@@ -24,6 +24,14 @@ function createElem (tagName) {
   return elem
 }
 
+function resetFrame () {
+  document.body.removeChild($display)
+  var div = document.createElement('div')
+  div.innerHTML = '<iframe id="display" style="width: 100%; margin: 0; padding: 0; border: 0; height: 400px"></iframe>'
+  $display = div.getElementById('display')
+  document.body.appendChild($display)
+}
+
 var $share = document.getElementById('share')
 var $status = document.getElementById('status')
 var $links = document.getElementById('links')
@@ -92,7 +100,7 @@ function ready (id) {
       } else if (ext === 'csv') {
         $video.style.display = 'none'
         $display.style.display = 'block'
-        $display.src = "about:blank"
+        resetFrame()
         var b = $display.contentDocument.body
         b.innerHTML = '<table id="table"></table>'
         var t = $display.contentDocument.getElementById('table')
@@ -119,7 +127,7 @@ function ready (id) {
       } else {
         $video.style.display = 'none'
         $display.style.display = 'block'
-        $display.src = "about:blank"
+        resetFrame()
         file.createStream()
           .on('data', function (data) {
             buffers.push(data)
