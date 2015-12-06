@@ -10,6 +10,7 @@ var pretty = require('pretty-bytes')
 var choppa = require('choppa')
 var memdb = require('memdb')
 var videostream = require('videostream')
+var speedometer = require('speedometer')
 
 function createElem (tagName) {
   var elem = document.createElement(tagName)
@@ -29,7 +30,7 @@ var $video = createElem('video')
 $display.style.display = 'none'
 $video.style.display = 'none'
 
-
+var downloadSpeed = speedometer()
 var db = memdb('hyperdrive-test')
 var drive = hyperdrive(db)
 
@@ -52,9 +53,16 @@ function ready (id) {
   var swarm = webrtcSwarm(hub)
   var feed = drive.get(id)
 
+  feed.on('put', function (block, data) {
+    downloadSpeed(data.length)
+  })
+
   feed.createStream().on('data', function (entry) {
     console.log(entry)
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
+    file.on('put', function (block, data) {
+      downloadSpeed(data.length)
+    })
 
     var div = document.createElement('div')
     var a = document.createElement('a')
@@ -97,10 +105,10 @@ function ready (id) {
   swarm.on('peer', function (peer) {
     console.log('New peer!')
     peers++
-    $status.innerText = 'Connected to ' + peers + ' peer(s)'
+    $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
     pump(peer, drive.createPeerStream(), peer, function () {
       peers--
-      $status.innerText = 'Connected to ' + peers + ' peer(s)'
+      $status.innerText = 'Connected to ' + peers + ' peer(s) - Downloading ' + pretty(downloadSpeed() | 0) + '/s'
     })
   })
 }
