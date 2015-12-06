@@ -21,7 +21,7 @@ Main things missing are:
 - [ ] Storing downloaded files as actual files (not in leveldb doh)
 - [ ] Full documention of the apis/protocols
 - [ ] Tit-for-tat swarm logic
-- [ ] Integrate peer discovery (currently has be handled externally)
+- [ ] peer discovery events so a dht would know what to look for
 - [ ] Tests for internal logic
 - [x] A bit of refactoring
 
