@@ -24955,6 +24955,7 @@ FeedState.prototype.putRoots = function (block, data, proof, cb) {
       for (var j = remove.length - 1; j >= 0; j--) {
         var want = self.want[remove[j]]
         self.want.splice(remove[j], 1)
+        self.emit('unwant', want.block)
         want.callback(null, null)
       }
 
@@ -24994,6 +24995,7 @@ FeedState.prototype.put = function (block, data, proof, cb) {
     for (var j = remove.length - 1; j >= 0; j--) {
       var want = self.want[remove[j]]
       self.want.splice(remove[j], 1)
+      self.emit('unwant', want.block)
       want.callback(null, data)
     }
 
@@ -25750,6 +25752,7 @@ function Swarm (drive, opts) {
   if (!(this instanceof Swarm)) return new Swarm(drive, opts)
   if (!opts) opts = {}
   this.name = opts.name || 'unknown'
+  this.prioritized = 0
   this.drive = drive
   this.peers = []
   this.links = []
@@ -25770,6 +25773,16 @@ Swarm.prototype._get = function (link) {
     fetch: fetch
   }
 
+  subswarm.feed.on('want', function () {
+    self.prioritized++
+    subswarm.fetch()
+  })
+
+  subswarm.feed.on('unwant', function () {
+    self.prioritized--
+    if (!self.prioritized) subswarm.fetch()
+  })
+
   subswarm.feed.on('put', function (block) {
     for (var i = 0; i < subswarm.peers.length; i++) {
       subswarm.peers[i].have(block)
@@ -25789,7 +25802,7 @@ Swarm.prototype._get = function (link) {
 
   function fetchPeer (peer) {
     while (true) {
-      if (peer.stream.inflight >= 10) return // max 5 inflight requests
+      if (peer.stream.inflight >= 5) return // max 5 inflight requests
       var block = chooseBlock(peer)
       if (block === -1) return
       peer.request(block)
@@ -25798,6 +25811,9 @@ Swarm.prototype._get = function (link) {
   }
 
   function chooseBlock (peer) {
+    // TODO: maintain a bitfield of perswarm blocks in progress
+    // so we wont fetch the same data from multiple peers
+
     var len = peer.remoteBitfield.buffer.length * 8
     var block = -1
 
@@ -25810,11 +25826,17 @@ Swarm.prototype._get = function (link) {
       }
     }
 
-    var offset = 0 //(Math.random() * len) | 0
+    // TODO: there might be a starvation convern here. should only return *if* there are peers that
+    // that could satisfy the want list. this is just a quick "hack" for realtime prioritization
+    // when dealing with multiple files
+    if (self.prioritized && !subswarm.feed.want.length) return -1
+
+    var offset = subswarm.feed.want.length ? subswarm.feed.want[0].block : ((Math.random() * len) | 0)
     for (var i = 0; i < len; i++) {
       block = (offset + i) % len
       if (peer.amRequesting.get(block)) continue
       if (peer.remoteBitfield.get(block) && !subswarm.feed.bitfield.get(block)) {
+        debug('[%s] choosing unprioritized block #%d', self.name, block)
         return block
       }
     }
