@@ -23,11 +23,8 @@ function createElem (tagName) {
 }
 
 function resetFrame () {
-  document.body.removeChild($display)
-  var div = document.createElement('div')
-  div.innerHTML = '<iframe id="display" style="width: 100%; margin: 0; padding: 0; border: 0; height: 400px"></iframe>'
-  $display = div.getElementById('display')
-  document.body.appendChild($display)
+  document.getElementById('container').innerHTML = '<iframe id="display" style="width: 100%; margin: 0; padding: 0; border: 0; height: 400px"></iframe>'
+  $display = document.getElementById('display')
 }
 
 var $share = document.getElementById('share')
