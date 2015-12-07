@@ -95,6 +95,8 @@ feed.get(0, function (err, entry) { // get the first entry
 
 ## API
 
+## Stability: UNSTABLE, likely to have major changes
+
 #### `var drive = hyperdrive(db)`
 
 Create a new hyperdrive instance. db should be a [levelup](https://github.com/level/levelup) instance.
