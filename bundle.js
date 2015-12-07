@@ -25757,7 +25757,7 @@ function toBuffer (bitfield) {
 var protocol = require('./protocol')
 var debug = require('debug')('hyperdrive-swarm')
 
-var MAX_INFLIGHT_PER_PEER = (typeof window !== 'undefined' && window.MAX_INFLIGHT) || 20
+var MAX_INFLIGHT_PER_PEER = (typeof localStorage !== 'undefined' && localStorage.MAX_INFLIGHT) || 20
 if (MAX_INFLIGHT_PER_PEER !== 20) console.log('MAX_INFLIGHT', MAX_INFLIGHT_PER_PEER)
 
 module.exports = Swarm
