@@ -23,6 +23,7 @@ Main things missing are:
 - [ ] Tit-for-tat swarm logic
 - [ ] peer discovery events so a dht would know what to look for
 - [ ] Tests for internal logic
+- [ ] Move archive/file abstractions to new modules
 - [x] A bit of refactoring
 
 ## Usage
@@ -101,9 +102,14 @@ feed.get(0, function (err, entry) { // get the first entry
 
 Create a new hyperdrive instance. db should be a [levelup](https://github.com/level/levelup) instance.
 
+#### `var stream = drive.createPeerStream()`
+
+Create a new peer replication duplex stream. This stream should be piped together with another
+peer stream somewhere else to start replicating the feeds
+
 #### `var archive = drive.add()`
 
-Add a new archive to share. 
+Add a new archive to share.
 
 #### `var stream = archive.entry(fileInfo, [cb])`
 
@@ -128,7 +134,7 @@ Optionally you can provide a callback that is called when the content has been w
 
 #### `archive.finalize([cb])`
 
-Finalize the archive. After the callback has been called you can get the feed `id` 
+Finalize the archive. After the callback has been called you can get the feed `id`
 by accessing `archive.id`.
 
 #### `var feed = drive.get(id_or_entry)`
