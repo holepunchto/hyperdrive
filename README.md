@@ -93,6 +93,84 @@ feed.get(0, function (err, entry) { // get the first entry
 })
 ```
 
+## API
+
+#### `var drive = hyperdrive(db)`
+
+Create a new hyperdrive instance. db should be a [levelup](https://github.com/level/levelup) instance.
+
+#### `var archive = drive.add()`
+
+Add a new archive to share. 
+
+#### `var stream = archive.entry(fileInfo, [cb])`
+
+Add a new file entry to the file archive. `fileInfo` should look like this
+
+``` js
+{
+  name: 'dir/filename', // required
+  type: 'file or directory', // detected using the mode if not provided
+  mode: 0666, // optional
+  uid: 0, // optional
+  gid: 0, // optional
+  mtime: mtimeInSeconds // optional
+  ctime: ctimeInSeconds // optional
+}
+```
+
+The stream returned is a writable stream. You should write the file contents to that.
+If you are writing a directory the stream will be `null`.
+
+Optionally you can provide a callback that is called when the content has been written
+
+#### `archive.finalize([cb])`
+
+Finalize the archive. After the callback has been called you can get the feed `id` 
+by accessing `archive.id`.
+
+#### `var feed = drive.get(id_or_entry)`
+
+Access a feed by it's id or entry object.
+The entry object looks like this
+
+``` js
+{
+  type: 'metadata or file',
+  value: optionalValueCorrespondingToTheType,
+  link: {
+    id: feedId,
+    blocks: blocksInFeed
+  }
+}
+```
+
+If you just pass in a `feedId` the type will default to `metadata`.
+
+#### `feed.get(index, callback)`
+
+Get a block from the the feed.
+
+* If the feed is an metadata feed the return value will be an `entry` object.
+* If the feed is a file feed it will be a buffer.
+
+#### `var stream = feed.createStream()`
+
+Create a readable stream of all entries in the feed.
+The values will be of the same type as described in `feed.get`
+
+#### `var cursor = feed.cursor()`
+
+If the feed is a file feed you can create a random access cursor by calling `var cursor = feed.cursor()`.
+
+#### `cursor.read(byteOffset, callback)`
+
+Will return a buffer stored at that byte offset in the file.
+
+#### `cursor.next(callback)`
+
+Will return the next buffer at the current cursor position.
+
 ## License
 
 MIT
