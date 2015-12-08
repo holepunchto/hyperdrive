@@ -33,6 +33,8 @@ First create a new feed to share
 ``` js
 var hyperdrive = require('hyperdrive')
 var fs = require('fs')
+var levelup = require('levelup')
+var aLevelDB = levelup('./mydb')
 
 var drive = hyperdrive(aLevelDB)
 
@@ -55,6 +57,13 @@ Then to share it
 
 ``` js
 var disc = require('discovery-channel')()
+var hyperdrive = require('hyperdrive')
+var net = require('net');
+var levelup = require('levelup')
+var aLevelDB = levelup('./mydb')
+var drive = hyperdrive(aLevelDB)
+
+var link, hash; // anyone any idea what these should be?
 
 var server = net.createServer(function (socket) {
   socket.pipe(drive.createPeerStream()).pipe(socket)
