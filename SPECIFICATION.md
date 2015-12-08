@@ -195,7 +195,7 @@ Should be sent to cancel a previously sent request.
 
 `block` should be set to the same block index as the request you want to cancel.
 
-## Downloading/uploading flow
+## Downloading / uploading flow
 
 (a discussion about the download/upload flow)
 
@@ -210,3 +210,7 @@ Should be sent to cancel a previously sent request.
 ## File sharing
 
 (how can you use this protocol to share files?)
+
+## Comparison to BitTorrent
+
+(how is this different?)
