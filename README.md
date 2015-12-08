@@ -91,6 +91,13 @@ If you run this code on multiple computers you should be able to access
 the content in the feed by doing
 
 ``` js
+var hyperdrive = require('hyperdrive')
+var net = require('net');
+var levelup = require('levelup')
+var aLevelDB = levelup('./mydb3')
+var drive = hyperdrive(aLevelDB)
+var link = new Buffer({your-hyperdrive-link-from-the-above-example}, 'hex')
+
 var feed = drive.get(link) // the link identifies/verifies the content
 
 feed.get(0, function (err, entry) { // get the first entry
