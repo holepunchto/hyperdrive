@@ -94,7 +94,7 @@ the content in the feed by doing
 var hyperdrive = require('hyperdrive')
 var net = require('net');
 var levelup = require('levelup')
-var aLevelDB = levelup('./mydb3')
+var aLevelDB = levelup('./mydb') // if testing on the same machine use a differen't levelDB path
 var drive = hyperdrive(aLevelDB)
 var link = new Buffer({your-hyperdrive-link-from-the-above-example}, 'hex')
 
