@@ -34,8 +34,8 @@ First create a new feed to share
 var hyperdrive = require('hyperdrive')
 var fs = require('fs')
 var levelup = require('levelup')
-var aLevelDB = levelup('./mydb')
 
+var aLevelDB = levelup('./my-drive')
 var drive = hyperdrive(aLevelDB)
 
 var pack = drive.add()
@@ -63,7 +63,7 @@ var levelup = require('levelup')
 var aLevelDB = levelup('./mydb')
 var drive = hyperdrive(aLevelDB)
 
-var link, hash; // anyone any idea what these should be?
+var link = new Buffer({your-hyperdrive-link-from-the-above-example}, 'hex')
 
 var server = net.createServer(function (socket) {
   socket.pipe(drive.createPeerStream()).pipe(socket)
@@ -78,7 +78,7 @@ server.listen(0, function () {
   ann()
   setInterval(ann, 10000)
 
-  var lookup = disc.lookup(hash.slice(0, 20))
+  var lookup = disc.lookup(link.slice(0, 20))
 
   lookup.on('peer', function (ip, port) {
     var socket = net.connect(port, ip)
