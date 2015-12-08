@@ -17,6 +17,10 @@ The protocol itself draws heavy inspiration from existing file sharing systems s
 
 (how does it verify content?)
 
+## Deduplication
+
+(how does it deduplicate?)
+
 ## Wire Protocol
 
 Hyperdrive peers can communicate over any repliable binary duplex stream using a message oriented wire protocol.
