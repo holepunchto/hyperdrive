@@ -4,14 +4,23 @@
   <meta charset="utf-8">
   <title>hyperdrive</title>
   <style>
+    body {
+      font-family: helvetica;
+    }
   </style>
 </head>
 <body>
-  <h3>
-    <a href="" id="share"></a>
-  </h3>
+  <h1 id="intro" style="display: none">
+    drag and drop files on this page to to share them
+  </h1>
+  <h1 id="sharing" style="display: none">
+    share this link with some friends<br><input id="link-box" style="width: 500px; padding: 5px; font-size: 14px">
+  </h1>
   <h5>
     <span id="status"></span>
+  </h5>
+  <h5 id="hint" style="display: none;">
+    (click any link below to view the file)
   </h5>
   <div id="links" style="margin-bottom: 30px;"></div>
   <div id="container">

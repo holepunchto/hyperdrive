@@ -29,10 +29,13 @@ function resetFrame () {
   $display = document.getElementById('display')
 }
 
-var $share = document.getElementById('share')
+var $intro = document.getElementById('intro')
+var $sharing = document.getElementById('sharing')
+var $linkBox = document.getElementById('link-box')
 var $status = document.getElementById('status')
 var $links = document.getElementById('links')
 var $display = document.getElementById('display')
+var $hint = document.getElementById('hint')
 var $video = createElem('video')
 
 $display.style.display = 'none'
@@ -45,16 +48,21 @@ var drive = hyperdrive(db)
 if (window.location.hash) {
   ready(new Buffer(window.location.hash.replace('#', ''), 'hex'))
 } else {
+  $intro.style.display = 'block'
   add()
 }
 
 function ready (id) {
+  $intro.style.display = 'none'
+  $sharing.style.display = 'block'
+
   var key = id.toString('hex')
   var hub = signalhub('hyperdrive/' + key, ['https://signalhub.mafintosh.com'])
 
-  $share.innerText = window.location.toString().split('#')[0] + '#' + key
-  $share.href = $share.innerText
+  // $share.innerText = window.location.toString().split('#')[0] + '#' + key
+  // $share.href = $share.innerText
 
+  $linkBox.value = window.location.toString().split('#')[0] + '#' + key
   $status.innerText = 'Joining swarm ...'
 
   var peers = 0
@@ -66,6 +74,7 @@ function ready (id) {
   })
 
   feed.createStream().on('data', function (entry) {
+    $hint.style.display = 'block'
     console.log(entry, entry.link && entry.link.id.toString('hex'))
     var file = drive.get(entry) // hackish to fetch it always - should be an api for this!
     file._state.on('put', function (block, data) {
@@ -169,11 +178,11 @@ function ready (id) {
 }
 
 function add () {
-  $share.innerText = 'Drag and drop some files to get going'
+  // $share.innerText = 'Drag and drop some files to get going'
 }
 
 drop(window, function (files) {
-  $share.innerText = 'Adding files...'
+  $status.innerText = 'Adding files...'
 
   var pack = drive.add()
   var i = 0
