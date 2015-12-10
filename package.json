@@ -26,6 +26,7 @@
     "memdb": "^1.0.1",
     "mimes": "^1.0.0",
     "pretty-bytes": "^2.0.1",
+    "pump": "^1.0.1",
     "signalhub": "^4.3.1",
     "speedometer": "^1.0.0",
     "videostream": "^1.2.1",
