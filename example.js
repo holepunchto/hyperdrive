@@ -4,7 +4,7 @@ var net = require('net')
 var dc = require('discovery-channel')
 var pump = require('pump')
 
-var hash = new Buffer('ee4565bb12e34cfa90af4b8806251c1ddcd2350e7edafb971ef29faaee5b293d', 'hex')
+var hash = new Buffer('cb8f51acc3e21baee2307c4425fe1c302a9a2c9eb02adfa980bda3461ed2a8df', 'hex')
 
 function run (name) {
   var disc = dc()
@@ -21,9 +21,6 @@ function run (name) {
 
     var file = drive.get(entry)
     var inc = 0
-
-    // var a = file.cursor()
-    // a.read(2, console.log)
 
     file.get(inc++, function loop (err, block) {
       if (err) throw err
@@ -67,23 +64,3 @@ function run (name) {
 }
 
 run(process.argv[2] || 'test')
-
-// var remote = hyperdrive(require('memdb')(), {name: 'remote'})
-
-// var f = remote.get('0fc4a1644ec17df7e69a35a35fe1eb7e3823b41576dc2dab783ea41357a19487')
-
-// var s1 = drive.swarm.createStream()
-// var s2 = remote.swarm.createStream()
-
-// s1.pipe(s2).pipe(s1)
-
-// // f.get(0, function (err, entry) {
-// //   console.log(entry, '<-- metadata feed')
-// //   var f2 = remote.get(entry.link)
-// //   f2.get(0, function () {
-// //     f2.get(4, function (err, blk) {
-// //       console.log('-->', blk)
-// //     })
-// //   })
-// //   // var nested = drive.get(entry.link)
-// // })
