@@ -12,7 +12,7 @@ npm install hyperdrive
 ## Demo
 
 Hyperdrive runs in node.js as well as in the browser!
-You can try a demo of it here, http://mafintosh.github.io/hyperdrive
+You can try a demo of it here, http://mafintosh.github.io/hyperdrive (tested in Chrome/Firefox)
 
 ## Status
 
