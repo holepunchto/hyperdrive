@@ -4,7 +4,8 @@ Mathias Buus (@mafintosh). December 10th, 2015.
 
 ## DRAFT Version 0
 
-A design and specification document for Hyperdrive. Hyperdrive is a protocol and network for distributing and replicating static feeds of binary data.
+A design and specification document for Hyperdrive. Hyperdrive is a protocol and network for distributing and replicating static feeds of binary data. It is meant to serve as the main file and data distribution layer for [dat](https://dat-data.com) and is being developed by the same team.
+
 The protocol itself draws heavy inspiration from existing file sharing systems such as BitTorrent and [ppspp](https://tools.ietf.org/html/rfc7574)
 
 ## Goals
