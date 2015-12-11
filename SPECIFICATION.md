@@ -12,11 +12,11 @@ The protocol itself draws heavy inspiration from existing file sharing systems s
 The goals of hyperdrive is to distribute static feeds of binary data to a swarm of peers in an as efficient as possible way.
 It uses merkle trees to verify and deduplicate content so that if you share the same file twice it'll only have to downloaded one time. Merkle trees also allows for partial deduplication so if you make changes to a file only the changes and a small overhead of data will have to be replicated.
 
-One of the core goals is to be as simple and pragmatic as possible. This also allows for easier implementations of client which is often overlooked when implementing distributed systems.
+A core goal is to be as simple and pragmatic as possible. This allows for easier implementations of clients which is an often overlooked property when implementing distributed systems.
 
-It also tries to be modular and export responsibilities to external modules whenever possible. Peer discovery is a good example of this as this is handled by 3rd party modules that wasn't written with hyperdrive in mind. This allows for a much smaller core implementation that can focus on smaller problems.
+It also tries to be modular and export responsibilities to external modules whenever possible. Peer discovery is a good example of this as it handled by 3rd party modules that wasn't written with hyperdrive in mind. A benefit of this is a much smaller core implementation that can focus on smaller and simpler problems.
 
-Prioritized synchronization of parts of a feed is also at the heart of hyperdrive as this allows for fast streaming with low latency of data such as structued datasets (wikipedia, genome data), linux containers, audio, videos, and much more. To allow for low latency streaming another goal is also to keep verifiable block sizes as small as possible - even with huge data feeds. This is also a main goal of the [dat](https://dat-data.com) project which aims to use hyperdrive as it's main distributing protocol.
+Prioritized synchronization of parts of a feed is also at the heart of hyperdrive as this allows for fast streaming with low latency of data such as structured datasets (wikipedia, genomic datasets), linux containers, audio, videos, and much more. To allow for low latency streaming another goal is also to keep verifiable block sizes as small as possible - even with huge data feeds.
 
 ## Overview
 
@@ -122,6 +122,8 @@ If we had received the hash for tree index 5 before and verified it then we woul
 It should be noted that this allows us to have random access to any block in the feed with content verification in a single round trip
 
 As an optimization we can use the remote's "have" messages (see the "Wire Protocol" section) to figure out which hashes it already has. For example if the remote has block #3 then we do not need to send any hashes since it will already have verified hash 6 and 5.
+
+Hyperdrive's content integrity approach is similar to parts of [ppspp](https://tools.ietf.org/html/rfc7574) and additional information can found in that specification.
 
 ## Deduplication
 
