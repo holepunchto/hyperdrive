@@ -125,7 +125,40 @@ As an optimization we can use the remote's "have" messages (see the "Wire Protoc
 
 ## Deduplication
 
-(how does it deduplicate?)
+Assuming you have two different feeds that are sharing similar data we want to able to fetch as little as possible duplicate data. The merkle tree structure helps us achieve this by content addressing the feeds.
+
+For example if we were to produce the exact same feed on two different computers using the technique described in the above section the feeds would end up with the same root tree hashes and the same feed id and it would therefore be the same feed.
+
+A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case feed ids would be different. However since every block is being delivered with the tree hashes nessesary to verify it against the root of the merkle tree we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
+
+For example assume we have two feeds, A and B that share all blocks except the last one. If we previously fetched A and now are trying to fetch B we will notice that by fetching any block in B we would already have most of the hashes contained in the proof for the block
+
+```
+// A and B both share 0, 2, and 4 meaning that 1 will be the same.
+// If block #3 is requested (tree index 6) the sibling hash 4 and uncle hash 1
+// will be returned. We would then notice we already have the hash for 4 and 1
+// and no other blocks would need to be downloaded
+
+      3
+  1        5
+(0   2   4)   6
+```
+
+It should be noted that this means that we might still download redundant data since we only receive the tree hashes necessary to deduplicate other parts of the feed by downloading blocks. However, assuming that continuous ranges of the feed are shared with another peer, the redundant block downloads should be limited as we discovery enough tree hashes on every request to deduplicate at least half of the tree between a block and a verified parent hash.
+
+
+```
+// If block #1 is requested (tree index 2) and we have already
+// verified 7, we will receive 5 which tells us if half the tree
+// spanned by 3 is part of a different feed
+
+                (7)
+        3
+  1         5
+0   (2)   4   6   ....
+```
+
+Another consequence of this is the no round trips are wasted. Using only a single round trip we will always receive data and additional information that helps us deduplicate other parts of the same feed as an optimization.
 
 ## Wire Protocol
 
