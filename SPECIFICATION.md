@@ -16,7 +16,7 @@ One of the core goals is to be as simple and pragmatic as possible. This also al
 
 It also tries to be modular and export responsibilities to external modules whenever possible. Peer discovery is a good example of this as this is handled by 3rd party modules that wasn't written with hyperdrive in mind. This allows for a much smaller core implementation that can focus on smaller problems.
 
-Prioritized synchronization of parts of a feed is also at the heart of hyperdrive as this allows for fast streaming with low latency of data such as structued datasets (such as wikipedia), linux containers, audio, videos, and much more. To allow for low latency streaming another goal is also to keep verifiable block sizes as small as possible - even with huge data feeds. This is also a main goal of the [dat](https://dat-data.com) project which aims to use hyperdrive as it's main distributing protocol.
+Prioritized synchronization of parts of a feed is also at the heart of hyperdrive as this allows for fast streaming with low latency of data such as structued datasets (wikipedia, genome data), linux containers, audio, videos, and much more. To allow for low latency streaming another goal is also to keep verifiable block sizes as small as possible - even with huge data feeds. This is also a main goal of the [dat](https://dat-data.com) project which aims to use hyperdrive as it's main distributing protocol.
 
 ## Overview
 
@@ -91,13 +91,13 @@ feedId = feedId.digest()
 
 Note that the amounts of roots is always `<= log2(number-of-blocks)` and that the total amount of hashes needed to construct the merkle trees is `2 * number-of-blocks`.
 
-By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifing we should also check that the root indexes corresponds to neighbouring merkle trees (see flat-tree/fullRoots for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet.
+By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifing we should also check that the root indexes corresponds to neighbouring merkle trees (see flat-tree/fullRoots for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet. See the response message in the "Wire Protocol" section for more information.
 
 The index of the left most block in the last merkle tree also tells us how many blocks that are in the feed which is useful if we want to show a progress bar or similar when downloading a feed (see flat-tree/rightSpan for more info on how to calcute this).
 
-Assuming we've verified the root hashes the remote only needs to send us the first "sibling" and all "uncle" hashes from the block index we're requesting to a valid root for us verify the block.
+Assuming we have verified the root hashes the remote only needs to send us the first "sibling" and all "uncle" hashes from the block index we are requesting to a valid root for us verify the block.
 
-For example, using the above example feed with 6 blocks, assuming we've already verified the root at index 3, if we wanted to verify block #2 (tree index 4) we'd need the following hashes
+For example, using the above example feed with 6 blocks, assuming we have already verified the root at index 3, if we wanted to verify block #2 (tree index 4) we would need the following hashes
 
 ```
 // we need 6, the sibling and 1, the uncle
@@ -107,7 +107,7 @@ For example, using the above example feed with 6 blocks, assuming we've already 
 0     2   4   (6)
 ```
 
-We also need the content for block #2 of course. Given these values we can verify block by doing the following
+We also need the content for block #2 of course. Given these values we can verify the block by doing the following
 
 ``` js
 var block4 = blockHash(block #2)
@@ -115,11 +115,13 @@ var parent5 = parentHash(block4, block6)
 var parent3 = parentHash(parent1, parent5)
 ```
 
-If parent3 is equal to the root at tree index 3 (that we already trust) we now know block #2 was corrent and we can safely store it and share it with other peers.
+If parent3 is equal to the root at tree index 3 (that we already trust) we now know block #2 was correct and we can safely store it and share it with other peers.
 
-If you've received the hash for tree index 5 before and verified it then you don't need to reverify the root and you can insert block #2 after validation parent5.
+If we had received the hash for tree index 5 before and verified it then we would not need to re-verify the root and we would be able to insert block #2 after validating parent5.
 
-As an optimization you can use the remote's have messages to figure out which hashes it already has. For example if the remote has block #3 already then we don't need to send any hashes since it'll already have verified hash 6 and 5.
+It should be noted that this allows us to have random access to any block in the feed with content verification in a single round trip
+
+As an optimization we can use the remote's "have" messages (see the "Wire Protocol" section) to figure out which hashes it already has. For example if the remote has block #3 then we do not need to send any hashes since it will already have verified hash 6 and 5.
 
 ## Deduplication
 
