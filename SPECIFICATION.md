@@ -462,3 +462,7 @@ This is related the above mentioned fact that all metadata needs to be exchanged
 #### Deduplication
 
 BitTorrent inlines all files into a single feed. This combined with the fixed block sizes makes deduplication hard and you often end up downloading the same files multiple times if an update to a torrent is published.
+
+#### Multiplexed swarms
+
+Unlike BitTorrent wires can be reused to share multiple swarm which results in a smaller connection overhead when downloading or uploading multiple feeds shared between two peers.
