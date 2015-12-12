@@ -329,7 +329,7 @@ After receiving a verified response message you should send a have messages to o
 
 #### messages.Cancel
 
-An cancel message has the type `7` and the following schema
+An cancel message has type `7` and the following schema
 
 ``` proto
 message Cancel {
@@ -344,20 +344,121 @@ Should be sent to cancel a previously sent request.
 
 ## Downloading / uploading flow
 
-(a discussion about the download/upload flow)
+Lets assume we receive a feed id through an external channel (such as text message or IM). To start downloading and sharing this feed we first need to find some peers sharing it. This could be accomplished in many ways. The way the javascript implementation encourages this is using another [dat](https://dat-data.com) developed module for peer discovery called [discovery-channel](https://github.com/maxogden/discovery-channel) that uses multicast-dns and the bittorrent dht to announce and lookup peers from a key.
 
-## Prioritized downloading
+(TODO: add choking discussion here)
 
-(a discussion about prioritized downloading / streaming)
+## Block prioritization
 
-## Peer discovery
+When deciding which block to download from a remote peer a couple of things should be taken into suggestion.
 
-(how do you find peers? aka should be handled outside of core but use a dht/tracker)
+To allow for features such as live booting of linux containers, real-time video and audio streaming, and any many more Hyperdrive allows for higher prioritization of specific ranges of blocks to download.
+
+If no blocks ranges are prioritized a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
+
+If a range is prioritized then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptible to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
 
 ## File sharing
 
-(how can you use this protocol to share files?)
+As mentioned earlier Hyperdrive distributes feeds of binary data. This allows it to have applications outside of file sharing although file sharing is a key feature that we want to support. This sections describes how a file sharing system could easily be implemented on top of Hyperdrive whilst still leaving the core protocol data agnostic.
 
-## Comparison to BitTorrent
+Distributing files requires two things. A way to distribute the actual file content and a way to distribute the file metadata (filename, file permissions etc).
 
-(how is this different?)
+#### Distributing file content
+
+To distribute file content we need turn a file into blocks of data so we can store every file in an individual feed. A simple way of doing this is dividing a file into fixed size blocks. This is very easy to implement and is also the technique used by BitTorrent. Unfortunately by dividing a file into fixed size blocks results in all blocks being changed if we to insert a single new byte into the beginning of a file. The consequence of this would be that we would have to re-download all blocks if we tried to download this new file even though we previously had downloaded the old (see the "Deduplication" section).
+
+```
+// Assume file contains "abcdef" and we divide into blocks of 2
+
+ab,cd,ef
+
+// If we insert g at the beginning of the file the blocks will be
+
+ga,bc,de,f
+
+// Which means that no blocks are shared between the files
+// even though they are similar
+```
+
+To fix this we use a chunking strategy called "Rabin fingerprinting" which is implemented by the [rabin](https://github.com/maxogden/rabin) npm module (also maintained by the [dat](https://dat-data.com) team). Rabin fingerprinting is a content defined chunking strategy that splits a file into varied size blocks based on the file content. The rabin npm module is tuned to produce blocks around 20 kilobytes on average per default. Content defined chunking means that only the neighboring blocks are likely to change when changing a file. So in the above case where we insert a byte to front of a file only the first block is likely to change. This is a very powerful property as it allows us to easily deduplicate a file between multiple versions. However a consequence of the blocks not being the same size is that random access based on a byte offset becomes difficult. To fix this we record the length of each chunk as an unsigned 16 bit big endian integer into an index that we append to the end of the feed after writing the content blocks. A 16 bit integer takes up two bytes and we store the block lengths in buffers of up to 16 kilobytes. 16 kilobytes means that we are able to fit the lengths of 32768 blocks of content into a single "length index" block corresponding to roughly 640 megabytes of content if every content block is around 20 kilobytes. For files that are gigabytes or terrabytes in size multiple "length index" blocks would be needed.
+
+```
+// Divide the file content into blocks using a rabin fingerprinter
+// and suffix the feed with an index containing the length of each content block
+
+content #0, content #1, ..., content #n, length index #1, length index #2
+```
+
+If you only know the total number of blocks in a feed the amount of length index blocks can easily be calculated
+
+```
+length-indexes = content-blocks / 32768)
+feed-blocks = content-blocks + length-indexes
+
+=>
+feed-blocks = content-blocks + content-blocks / 32768
+
+=>
+content-blocks = 32768 / 32769 * feed-blocks
+
+~> (a block cannot be a fraction)
+content-blocks = floor(32768 / 32769 * feed-blocks)
+```
+
+By downloading this small index we can use it to find which block contains a specific byte offset. As an optimization the total length of all blocks stored in a "length index" block can be stored in the files data metadata (next section). This is referred to as the index digest. By doing this we would only need to download a single index block to find the block we are looking for, for any given byte offset. Similarily the length indexes can also be used to determine the byte offset to which a block should be written inside a file when downloading it.
+
+Since both the length indexes and the index digest are essentially delta compressed lists of byte offsets they can also be inflated after download to allow for algorithms such as binary search to find the block corresponding to a byte offset.
+
+Since every file will be stored in individual feeds it also means that if you share the same file twice it will result in the same feed id meaning stronger swarms and more deduplication.
+
+#### Distributing file metadata
+
+A file metadata feed can be thought of as a feed of all the headers of every entry in a tarball. They contain all the information necessary to describe a file but without the actual file content. The metadata is encoded using this protobuf schema:
+
+``` proto
+message Metadata {
+  message Link {
+    required bytes id = 1;
+    required uint64 blocks = 2;
+    repeated uint64 index = 3;
+  }
+
+  enum TYPE {
+    FILE = 0;
+    DIRECTORY = 1;
+  }
+
+  optional TYPE type = 1 [default = FILE];
+  required string name = 2;
+  optional uint32 mode = 3;
+  optional uint64 size = 4;
+  optional uint32 uid = 5;
+  optional uint32 gid = 6;
+  optional uint64 mtime = 7;
+  optional uint64 ctime = 8;
+  optional Link link = 9;
+}
+```
+
+If a file is not empty the `link` should be set and `link.id` should be the feed id of the content feed. `link.blocks` and `link.index` should be set to the amount of content blocks and the index digest of the content feed to reduce the amount of data needed to start downloading a block at a specific byte offset (see the above file content discussion).
+
+`name` should be set to a full path of the entry relative to the folder you are sharing. A possible optimization would be to sort the file metadata by the name of entry as this allows for distributed binary search to find a single entry you are looking for without downloading all available metadata first.
+
+## Key differences to BitTorrent
+
+Although file sharing using Hyperdrive on the surface could seem similar to tools such as BitTorrent there are a few key differences.
+
+#### Not all metadata needs to synced up front
+
+BitTorrent requires you to fetch all metadata relating to magnet link from a single peer
+before allowing you to fetch any file content from any other peer. This also makes it difficult to share archives of 1000s of files using BitTorrent.
+
+#### Flexible and consistently small block sizes
+
+BitTorrent requires a fixed block size that usually grows with the size of the content you are sharing.
+This is related the above mentioned fact that all metadata needs to be exchanged from a single peer before any content can be exchanged. By increasing the block size you decrease the number of hashes you need to exchange up front.
+
+#### Deduplication
+
+BitTorrent inlines all files into a single feed. This combined with the fixed block sizes makes deduplication hard and you often end up downloading the same files multiple times if an update to a torrent is published.
