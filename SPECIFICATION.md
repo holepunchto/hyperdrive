@@ -381,7 +381,7 @@ ga,bc,de,f
 // even though they are similar
 ```
 
-To fix this we use a chunking strategy called "Rabin fingerprinting" which is implemented by the [rabin](https://github.com/maxogden/rabin) npm module (also maintained by the [dat](https://dat-data.com) team). Rabin fingerprinting is a content defined chunking strategy that splits a file into varied size blocks based on the file content. The rabin npm module is tuned to produce blocks around 20 kilobytes on average per default. Content defined chunking means that only the neighboring blocks are likely to change when changing a file. So in the above case where we insert a byte to front of a file only the first block is likely to change. This is a very powerful property as it allows us to easily deduplicate a file between multiple versions. However a consequence of the blocks not being the same size is that random access based on a byte offset becomes difficult. To fix this we record the length of each chunk as an unsigned 16 bit big endian integer into an index that we append to the end of the feed after writing the content blocks. A 16 bit integer takes up two bytes and we store the block lengths in buffers of up to 16 kilobytes. 16 kilobytes means that we are able to fit the lengths of 32768 blocks of content into a single "length index" block corresponding to roughly 640 megabytes of content if every content block is around 20 kilobytes. For files that are gigabytes or terrabytes in size multiple "length index" blocks would be needed.
+To fix this we use a chunking strategy called "Rabin fingerprinting" which is implemented by the [rabin](https://github.com/maxogden/rabin) npm module (also maintained by the [dat](https://dat-data.com) team). Rabin fingerprinting is a content defined chunking strategy that splits a file into varied size blocks based on the file content. The rabin npm module is tuned to produce blocks around 20 kilobytes on average per default. Content defined chunking means that only the neighboring blocks are likely to change when changing a file. So in the above case where we insert a byte to front of a file only the first block is likely to change. This is a very powerful property as it allows us to easily deduplicate a file between multiple versions. However a consequence of the blocks not being the same size is that random access based on a byte offset becomes difficult. To fix this we record the length of each chunk as an unsigned 16 bit big endian integer into an index that we append to the end of the feed after writing the content blocks. A 16 bit integer takes up two bytes and we store the block lengths in buffers of up to 16 kilobytes. 16 kilobytes means that we are able to fit the lengths of 8192 blocks of content into a single "length index" block corresponding to roughly 210 megabytes of content if every content block is around 20 kilobytes. For files that are gigabytes or terrabytes in size multiple "length index" blocks would be needed.
 
 ```
 // Divide the file content into blocks using a rabin fingerprinter
@@ -393,17 +393,17 @@ content #0, content #1, ..., content #n, length index #1, length index #2
 If you only know the total number of blocks in a feed the amount of length index blocks can easily be calculated
 
 ```
-length-indexes = content-blocks / 32768)
+length-indexes = content-blocks / 8192
 feed-blocks = content-blocks + length-indexes
 
 =>
-feed-blocks = content-blocks + content-blocks / 32768
+feed-blocks = content-blocks + content-blocks / 8192
 
 =>
-content-blocks = 32768 / 32769 * feed-blocks
+content-blocks = 8192 / 8193 * feed-blocks
 
 ~> (a block cannot be a fraction)
-content-blocks = floor(32768 / 32769 * feed-blocks)
+content-blocks = floor(8192 / 8193 * feed-blocks)
 ```
 
 By downloading this small index we can use it to find which block contains a specific byte offset. As an optimization the total length of all blocks stored in a "length index" block can be stored in the files data metadata (next section). This is referred to as the index digest. By doing this we would only need to download a single index block to find the block we are looking for, for any given byte offset. Similarily the length indexes can also be used to determine the byte offset to which a block should be written inside a file when downloading it.
