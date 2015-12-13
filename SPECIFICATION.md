@@ -28,7 +28,7 @@ As mentioned above hyperdrive distributes static feeds of binary data. A static 
 block #0, block #1, block #3, block #4, ..., block #n
 ```
 
-These blocks can be of any reasonable size (strictly speaking they just have to fit in memory but implementations can choose to limit the max size to a more manageble number) and they don't all have to be the same fixed size. A static feed is identified by a hash of the roots of the the merkle trees it spans which means that a feed id (or link) is uniquely identified by it's content. See the "Content Integrity" section for a description on how these merkle trees are generated and the feed id is calcuated.
+These blocks can be of any reasonable size (strictly speaking they just have to fit in memory but implementations can choose to limit the max size to a more manageable number) and they don't all have to be the same fixed size. A static feed is identified by a hash of the roots of the the merkle trees it spans which means that a feed id (or link) is uniquely identified by it's content. See the "Content Integrity" section for a description on how these merkle trees are generated and the feed id is calculated.
 
 ## Content Integrity
 
@@ -58,7 +58,7 @@ Hyperdrive uses a [flat-tree](https://github.com/mafintosh/flat-tree) to represe
 
 This means that every block hash will be identified by `2 * blockIndex` in the flat tree structure as they are bottom nodes. Every odd numbered index is the parent of two children. In the above example `1` would be the parent of `0` and `2`, `5` would be parent of `4` and `6`, and `3` would be the parent of `1` and `5`. Note that `7` cannot be resolved as it would require `12` and `14` be be present as well.
 
-To calcuate the value of a parent node (odd numbered) we need to hash the values of the left and right child prefixed with the type identifier `1`.
+To calculate the value of a parent node (odd numbered) we need to hash the values of the left and right child prefixed with the type identifier `1`.
 
 Using [node.js](https://nodejs.org) this would look like this
 
@@ -92,9 +92,9 @@ feedId = feedId.digest()
 
 Note that the amounts of roots is always `<= log2(number-of-blocks)` and that the total amount of hashes needed to construct the merkle trees is `2 * number-of-blocks`.
 
-By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifing we should also check that the root indexes corresponds to neighbouring merkle trees (see flat-tree/fullRoots for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet. See the response message in the "Wire Protocol" section for more information.
+By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifying we should also check that the root indexes corresponds to neighboring merkle trees (see flat-tree/fullRoots for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet. See the response message in the "Wire Protocol" section for more information.
 
-The index of the left most block in the last merkle tree also tells us how many blocks that are in the feed which is useful if we want to show a progress bar or similar when downloading a feed (see flat-tree/rightSpan for more info on how to calcute this).
+The index of the left most block in the last merkle tree also tells us how many blocks that are in the feed which is useful if we want to show a progress bar or similar when downloading a feed (see flat-tree/rightSpan for more info on how to calculate this).
 
 Assuming we have verified the root hashes the remote only needs to send us the first "sibling" and all "uncle" hashes from the block index we are requesting to a valid root for us verify the block.
 
@@ -132,7 +132,7 @@ Assuming you have two different feeds that are sharing similar data we want to a
 
 For example if we were to produce the exact same feed on two different computers using the technique described in the above section the feeds would end up with the same root tree hashes and the same feed id and it would therefore be the same feed.
 
-A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case feed ids would be different. However since every block is being delivered with the tree hashes nessesary to verify it against the root of the merkle tree we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
+A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case feed ids would be different. However since every block is being delivered with the tree hashes necessary to verify it against the root of the merkle tree we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
 
 For example assume we have two feeds, A and B that share all blocks except the last one. If we previously fetched A and now are trying to fetch B we will notice that by fetching any block in B we would already have most of the hashes contained in the proof for the block
 
@@ -219,7 +219,7 @@ message Join {
 
 Should be sent when you are interested in joining a specific swarm of data specified by the `link`.
 
-`channel` should be set to the lowest locally available channel number (starting at `0`) and all subsequent messages sent refering to the same `link` should contain the same channel number. When receiving a Join message, if you wish to join the swarm, you should reply back with a new Join message if you haven't sent one already containing the same link and your lowest locally available channel number.
+`channel` should be set to the lowest locally available channel number (starting at `0`) and all subsequent messages sent referring to the same `link` should contain the same channel number. When receiving a Join message, if you wish to join the swarm, you should reply back with a new Join message if you haven't sent one already containing the same link and your lowest locally available channel number.
 
 When having both sent and received a remote Join message for a specific swarm `link` you will have both a local and remote channel number that can be used to separate separate swarm messages from each other and allows for reuse of the same connection stream for multiple swarms. Note that since you only pick you local channel number and a channel has both a local and remote one there are no risk of channel id clashes.
 
@@ -356,7 +356,7 @@ To allow for features such as live booting of linux containers, real-time video 
 
 If no blocks ranges are prioritized a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
 
-If a range is prioritized then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptible to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
+If a range is prioritized then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptable to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
 
 ## File sharing
 
@@ -406,7 +406,7 @@ content-blocks = 8192 / 8193 * feed-blocks
 content-blocks = floor(8192 / 8193 * feed-blocks)
 ```
 
-By downloading this small index we can use it to find which block contains a specific byte offset. As an optimization the total length of all blocks stored in a "length index" block can be stored in the files data metadata (next section). This is referred to as the index digest. By doing this we would only need to download a single index block to find the block we are looking for, for any given byte offset. Similarily the length indexes can also be used to determine the byte offset to which a block should be written inside a file when downloading it.
+By downloading this small index we can use it to find which block contains a specific byte offset. As an optimization the total length of all blocks stored in a "length index" block can be stored in the files data metadata (next section). This is referred to as the index digest. By doing this we would only need to download a single index block to find the block we are looking for, for any given byte offset. Similarly the length indexes can also be used to determine the byte offset to which a block should be written inside a file when downloading it.
 
 Since both the length indexes and the index digest are essentially delta compressed lists of byte offsets they can also be inflated after download to allow for algorithms such as binary search to find the block corresponding to a byte offset.
 
