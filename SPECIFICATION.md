@@ -254,34 +254,34 @@ Should be sent to indicate that you have new blocks ready to be requested.
 
 `bitfield` can optionally be set to a binary bitfield containing a complete overview of the blocks you have.
 
-#### messages.Choke
+#### messages.Pause
 
-A choke message has type `3` and the following schema
+A pause message has type `3` and the following schema
 
 ``` proto
-message Choke {
+message Pause {
   required uint64 channel = 1;
 }
 ```
 
-Should be sent if you want to choke a channel.
+Should be sent if you want to pause a channel.
 
-If you are choking a channel you are indicating to the remote that you wont accept any requests.
-All channels should start out choked so you should only send this if you've previously sent an `unchoke` message.
+If you are pausing a channel you are indicating to the remote that you will not accept any requests.
+All channels should start out paused so you should only send this if you've previously sent an `unpause` message.
 
-#### messages.Unchoke
+#### messages.Unpause
 
-An unchoke message has type `4` and the following schema
+An unpause message has type `4` and the following schema
 
 ``` proto
-message Unchoke {
+message Unpause {
   required uint64 channel = 1;
 }
 ```
 
-Should be sent if you want to unchoke a channel.
+Should be sent if you want to unpause a channel.
 
-As mentioned above all channels start out choked so you'll need to send this if you want to allow the remote to start requesting blocks.
+As mentioned above all channels start out paused so you'll need to send this if you want to allow the remote to start requesting blocks.
 
 #### messages.Request
 
@@ -296,7 +296,7 @@ message Request {
 
 Should be sent if you want to request a new block.
 
-If you receive a request while you are choking a remote you should ignore it.
+If you receive a request while you are pausing a remote you should ignore it.
 
 `block` should be set to the index of the block you want to request.
 
@@ -348,9 +348,9 @@ Should be sent to cancel a previously sent request.
 Lets assume we receive a feed id through an external channel (such as text message or IM). To start downloading and sharing this feed we first need to find some peers sharing it. This could be accomplished in many ways. The way the javascript implementation encourages this is using another [dat](https://dat-data.com) developed module for peer discovery called [discovery-channel](https://github.com/maxogden/discovery-channel) that uses multicast-dns and the bittorrent dht to announce and lookup peers from a key.
 
 Once we are connected to a swarm of peers we need to decide which peers we want to allow requesting data from us.
-This is where the choking messages become useful. All channels start out choked and it is up to the sending peer to unchoke a remote peer when it is ready to accept requests from this peer. When to unchoke a peer can depend on a lot of different parameters and multiple strategies exists for this. The Hyperdrive javascript implementation currently uses a tit-for-tat and optimistic unchoking based strategy similar to the one used in BitTorrent.
+This is where the pausing messages become useful. All channels start out paused and it is up to the sending peer to unpause a remote peer when it is ready to accept requests. When to unpause a peer can depend on a lot of different parameters and multiple strategies exists for this. The Hyperdrive javascript implementation currently uses a tit-for-tat and optimistic unpausing based strategy similar to the one used in BitTorrent.
 
-Once a remote peer unchokes us we can start requesting blocks of data that we are missing.
+Once a remote peer unpauses us we can start requesting blocks of data that we are missing.
 
 ## Block prioritization
 
