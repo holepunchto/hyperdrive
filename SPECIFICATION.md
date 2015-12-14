@@ -471,7 +471,7 @@ before allowing you to fetch any file content from any other peer. This also mak
 #### Flexible and consistently small block sizes
 
 BitTorrent requires a fixed block size that usually grows with the size of the content you are sharing.
-This is related the above mentioned fact that all metadata needs to be exchanged from a single peer before any content can be exchanged. By increasing the block size you decrease the number of hashes you need to exchange up front.
+This is related the above mentioned fact that all metadata needs to be exchanged from a single peer before any content can be exchanged. By increasing the block size you decrease the number of hashes you need to exchange up front. Flexible block sizes also allow for more non file related use cases, such as the file metadata feed described above.
 
 #### Deduplication
 
