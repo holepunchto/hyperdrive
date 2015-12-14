@@ -8,7 +8,7 @@ npm install hyperdrive
 
 [![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
 
-For more detailed technical information on how it works see [SPECIFICATION.md](SPECIFICATION.md). Hyperdrive runs in node.js as well as in the browser. [Try a browser based demo here](http://mafintosh.github.io/hyperdrive)
+For a more detailed technical information on how it works see [SPECIFICATION.md](SPECIFICATION.md). It runs in node.js as well as in the browser. [Try a browser based demo here](http://mafintosh.github.io/hyperdrive)
 
 ## Status
 
