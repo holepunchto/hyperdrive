@@ -1,7 +1,6 @@
 # hyperdrive
 
-A file sharing network based on [rabin](https://github.com/maxogden/rabin) file chunking and
-append only feeds of data verified by merkle trees.
+A file sharing network based on [rabin](https://github.com/maxogden/rabin) file chunking and append only feeds of data verified by merkle trees.
 
 ```
 npm install hyperdrive
@@ -9,10 +8,9 @@ npm install hyperdrive
 
 [![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
 
-## Demo
+For more detailed technical information on how it works see [SPECIFICATION.md](SPECIFICATION.md).
 
-Hyperdrive runs in node.js as well as in the browser!
-You can try a demo of it here, http://mafintosh.github.io/hyperdrive (tested in Chrome/Firefox)
+Hyperdrive runs in node.js as well as in the browser! You can try a browser based demo here, http://mafintosh.github.io/hyperdrive (tested in Chrome/Firefox)
 
 ## Status
 
@@ -24,7 +22,7 @@ APIs/protocols might be still break.
 Main things missing are:
 
 - [ ] Storing downloaded files as actual files (not in leveldb doh)
-- [ ] Full documention of the apis/protocols
+- [x] Full documention of the apis/protocols
 - [ ] Tit-for-tat swarm logic
 - [ ] peer discovery events so a dht would know what to look for
 - [ ] Tests for internal logic
