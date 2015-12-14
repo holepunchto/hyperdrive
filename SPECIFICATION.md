@@ -459,6 +459,8 @@ If a file is not empty the `link` should be set and `link.id` should be the feed
 
 `name` should be set to a full path of the entry relative to the folder you are sharing. A possible optimization would be to sort the file metadata by the name of entry as this allows for distributed binary search to find a single entry you are looking for without downloading all available metadata first.
 
+Since the metadata feed contains all the information needed to create a file system stat object it is possible to mount a file archieve shared with Hyperdrive as a fully features file system using fuse (or a similar user space file system) by only syncing the metadata and then lazily fetching the file data on demand or in the background.
+
 ## Key differences to BitTorrent
 
 Although file sharing using Hyperdrive on the surface could seem similar to tools such as BitTorrent there are a few key differences.
