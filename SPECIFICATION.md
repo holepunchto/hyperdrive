@@ -21,14 +21,15 @@ Prioritized synchronization of parts of a feed is also at the heart of hyperdriv
 
 ## Overview
 
-As mentioned above hyperdrive distributes static feeds of binary data. A static feed is a series of related blocks of binary data that are identified by an incrementing number starting at 0.
+As mentioned above hyperdrive distributes static feeds of binary data (blocks). A static feed is a series of related blocks of binary data that are identified by an incrementing number starting at 0.
 
 ```
-// a feed with n blocks
+// a feed with n blocks of data
+
 block #0, block #1, block #3, block #4, ..., block #n
 ```
 
-These blocks can be of any reasonable size (strictly speaking they just have to fit in memory but implementations can choose to limit the max size to a more manageable number) and they don't all have to be the same fixed size. A static feed is identified by a hash of the roots of the the merkle trees it spans which means that a feed id (or link) is uniquely identified by it's content. See the "Content Integrity" section for a description on how these merkle trees are generated and the feed id is calculated.
+These binary blocks of data can be of any reasonable size (strictly speaking they just have to fit in memory but implementations can choose to limit the max size to a more manageable number) and they don't all have to be the same fixed size. A static feed is identified by a hash of the roots of the the merkle trees it spans which means that a feed id (or link) is uniquely identified by it's content. See the "Content Integrity" section for a description on how these merkle trees are generated and the feed id is calculated.
 
 ## Content Integrity
 
@@ -346,7 +347,10 @@ Should be sent to cancel a previously sent request.
 
 Lets assume we receive a feed id through an external channel (such as text message or IM). To start downloading and sharing this feed we first need to find some peers sharing it. This could be accomplished in many ways. The way the javascript implementation encourages this is using another [dat](https://dat-data.com) developed module for peer discovery called [discovery-channel](https://github.com/maxogden/discovery-channel) that uses multicast-dns and the bittorrent dht to announce and lookup peers from a key.
 
-(TODO: add choking discussion here)
+Once we are connected to a swarm of peers we need to decide which peers we want to allow requesting data from us.
+This is where the choking messages become useful. All channels start out choked and it is up to the sending peer to unchoke a remote peer when it is ready to accept requests from this peer. When to unchoke a peer can depend on a lot of different parameters and multiple strategies exists for this. The Hyperdrive javascript implementation currently uses a tit-for-tat and optimistic unchoking based strategy similar to the one used in BitTorrent.
+
+Once a remote peer unchokes us we can start requesting blocks of data that we are missing.
 
 ## Block prioritization
 
@@ -357,6 +361,16 @@ To allow for features like live booting linux containers, real-time video and au
 If no blocks ranges are prioritized, a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
 
 If a range is prioritized, then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptable to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
+
+```
+// pseudo code for hotswapping a slow peer to reduce latency
+
+if (critical-range) {
+  if (all-blocks-being-requested && freePeer.downloadSpeed / slowestPeer.downloadSpeed > threshold) {
+    freePeer.request(block-that-is-also-requested-by-slowest-peer)
+  }
+}
+```
 
 ## File sharing
 
