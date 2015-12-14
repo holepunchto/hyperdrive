@@ -72,7 +72,7 @@ var parentHash = crypto.createHash('sha256')
 
 The type prefixing is to make sure a parent hash cannot pretend to be a block hash.
 
-Unless the feed contains a strict power of 2 number of blocks we will end up with more than 1 root hashes when we are building this data structure.
+Unless the feed contains a strict power of 2 number of blocks, we will end up with more than 1 root hashes when we are building this data structure.
 To turn these hashes into the feed id simply do the following. Hash all the roots prefixed with the type identifier `2`, left to right, with the hash values and a uint64 big endian representation of the parent index.
 
 Using [node.js](https://nodejs.org) this would look like this
@@ -92,11 +92,11 @@ feedId = feedId.digest()
 
 Note that the amounts of roots is always `<= log2(number-of-blocks)` and that the total amount of hashes needed to construct the merkle trees is `2 * number-of-blocks`.
 
-By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifying we should also check that the root indexes corresponds to neighboring merkle trees (see flat-tree/fullRoots for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet. See the response message in the "Wire Protocol" section for more information.
+By trusting the feed id we can use that to verify the roots of the merkle trees given to us by an untrusted peer by trying to reproduce the same feed id using the above algorithm. When verifying we should also check that the root indexes correspond to neighboring merkle trees (see [flat-tree/fullRoots](https://github.com/mafintosh/flat-tree#roots--treefullrootsindex) for a way to get this list of indexes when verifying). For this reason the first response sent to a remote request should always contain the root hashes and indexes if the remote peer does't have any blocks yet. See the [response message](#messagesresponse) in the "Wire Protocol" section for more information.
 
-The index of the left most block in the last merkle tree also tells us how many blocks that are in the feed which is useful if we want to show a progress bar or similar when downloading a feed (see flat-tree/rightSpan for more info on how to calculate this).
+The index of the left most block in the last merkle tree also tells us how many blocks that are in the feed which is useful if we want to show a progress bar or similar when downloading a feed (see [flat-tree/rightSpan](https://github.com/mafintosh/flat-tree/blob/master/index.js#L76) for more info on how to calculate this).
 
-Assuming we have verified the root hashes the remote only needs to send us the first "sibling" and all "uncle" hashes from the block index we are requesting to a valid root for us verify the block.
+Assuming we have verified the root hashes, the remote only needs to send us the first "sibling" and all "uncle" hashes from the block index we are requesting to a valid root for us verify the block.
 
 For example, using the above example feed with 6 blocks, assuming we have already verified the root at index 3, if we wanted to verify block #2 (tree index 4) we would need the following hashes
 
@@ -122,19 +122,19 @@ If we had received the hash for tree index 5 before and verified it then we woul
 
 It should be noted that this allows us to have random access to any block in the feed with content verification in a single round trip
 
-As an optimization we can use the remote's "have" messages (see the "Wire Protocol" section) to figure out which hashes it already has. For example if the remote has block #3 then we do not need to send any hashes since it will already have verified hash 6 and 5.
+As an optimization we can use the remote's "have" messages (see the ["Wire Protocol" section](#messageshave)) to figure out which hashes it already has. For example if the remote has block #3 then we do not need to send any hashes since it will already have verified hash 6 and 5.
 
 Hyperdrive's content integrity approach is similar to parts of [ppspp](https://tools.ietf.org/html/rfc7574) and additional information can found in that specification.
 
 ## Deduplication
 
-Assuming you have two different feeds that are sharing similar data we want to able to fetch as little as possible duplicate data. The merkle tree structure helps us achieve this by content addressing the feeds.
+Assuming you have two different feeds that are sharing similar data, we want to minimize fetching of duplicate data. The merkle tree structure helps us achieve this by content addressing the feeds.
 
-For example if we were to produce the exact same feed on two different computers using the technique described in the above section the feeds would end up with the same root tree hashes and the same feed id and it would therefore be the same feed.
+For example if we were to produce the exact same feed on two different computers using the technique described in the above section, the feeds would end up with the same root tree hashes and the same feed id. The two feeds would therefore be the same feed.
 
-A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case feed ids would be different. However since every block is being delivered with the tree hashes necessary to verify it against the root of the merkle tree we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
+A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case, feed ids would be different. However, since every block is being delivered with the tree hashes necessary to verify it against the root of the merkle tree, we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
 
-For example assume we have two feeds, A and B that share all blocks except the last one. If we previously fetched A and now are trying to fetch B we will notice that by fetching any block in B we would already have most of the hashes contained in the proof for the block
+For example assume we have two feeds, A and B that share all blocks except the last one. If we previously fetched A and now are trying to fetch B, we will notice that by fetching any block in B we would already have most of the hashes contained in the proof for the block
 
 ```
 // A and B both share 0, 2, and 4 meaning that 1 will be the same.
@@ -221,7 +221,7 @@ Should be sent when you are interested in joining a specific swarm of data speci
 
 `channel` should be set to the lowest locally available channel number (starting at `0`) and all subsequent messages sent referring to the same `link` should contain the same channel number. When receiving a Join message, if you wish to join the swarm, you should reply back with a new Join message if you haven't sent one already containing the same link and your lowest locally available channel number.
 
-When having both sent and received a remote Join message for a specific swarm `link` you will have both a local and remote channel number that can be used to separate separate swarm messages from each other and allows for reuse of the same connection stream for multiple swarms. Note that since you only pick you local channel number and a channel has both a local and remote one there are no risk of channel id clashes.
+When having both sent and received a remote Join message for a specific swarm `link` you will have both a local and remote channel number that can be used to separate separate swarm messages from each other and allows for reuse of the same connection stream for multiple swarms. Note that since you only pick you local channel number and a channel has both a local and remote channel id, there are no risk of channel id clashes.
 
 #### messages.Leave
 
@@ -249,7 +249,7 @@ message Have {
 
 Should be sent to indicate that you have new blocks ready to be requested.
 
-`blocks` can optionally be set to an array of new block indexes you have
+`blocks` can optionally be set to an array of new block indexes you have.
 
 `bitfield` can optionally be set to a binary bitfield containing a complete overview of the blocks you have.
 
@@ -319,11 +319,11 @@ message Response {
 
 Should be sent to respond to a request.
 
-`block` should be set to the index of block you are responding with.
+`block` should be set to the index of the block you are responding with.
 
-`data` should be set to the binary block
+`data` should be set to the binary block.
 
-`proof` should be set to the needed integrity proof needed to verify that this block is correct. The proof should contain the first sibling and uncles hashes and indexes needed to verify this block. If this is the first response the remote is gonna receive (they has sent no have message, or the bitfield was empty) you should include the merkle tree roots and the end of the proof. See the "Content Integrity" section for more information.
+`proof` should be set to the needed integrity proof needed to verify that this block is correct. The proof should contain the first sibling and uncles hashes and indexes needed to verify this block. If this is the first response the remote is gonna receive (they has sent no have message, or the bitfield was empty) you should include the merkle tree roots and the end of the proof. See the "[Content Integrity](#content-integrity)" section for more information.
 
 After receiving a verified response message you should send a have messages to other peers you are connected, except for the peer sending you the response, to indicate you now have this piece. If you are the peer sending a response you should record that the remote peer now have this block as well.
 
@@ -350,17 +350,17 @@ Lets assume we receive a feed id through an external channel (such as text messa
 
 ## Block prioritization
 
-When deciding which block to download from a remote peer a couple of things should be taken into suggestion.
+When deciding which block to download from a remote peer, a couple of things should be taken into account.
 
-To allow for features such as live booting of linux containers, real-time video and audio streaming, and any many more Hyperdrive allows for higher prioritization of specific ranges of blocks to download.
+To allow for features like live booting linux containers, real-time video and audio streaming, etc... Hyperdrive allows for higher prioritization of specific ranges of blocks to download first.
 
-If no blocks ranges are prioritized a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
+If no blocks ranges are prioritized, a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
 
-If a range is prioritized then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptable to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
+If a range is prioritized, then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptable to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
 
 ## File sharing
 
-As mentioned earlier Hyperdrive distributes feeds of binary data. This allows it to have applications outside of file sharing although file sharing is a key feature that we want to support. This sections describes how a file sharing system could easily be implemented on top of Hyperdrive whilst still leaving the core protocol data agnostic.
+As mentioned earlier, Hyperdrive distributes feeds of binary data. This allows it to have applications outside of file sharing although file sharing is a key feature that we want to support. This sections describes how a file sharing system could easily be implemented on top of Hyperdrive whilst still leaving the core protocol data agnostic.
 
 Distributing files requires two things. A way to distribute the actual file content and a way to distribute the file metadata (filename, file permissions etc).
 
@@ -465,4 +465,4 @@ BitTorrent inlines all files into a single feed. This combined with the fixed bl
 
 #### Multiplexed swarms
 
-Unlike BitTorrent wires can be reused to share multiple swarm which results in a smaller connection overhead when downloading or uploading multiple feeds shared between two peers.
+Unlike BitTorrent, wires can be reused to share multiple swarms which results in a smaller connection overhead when downloading or uploading multiple feeds shared between two peers.
