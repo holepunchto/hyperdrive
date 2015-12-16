@@ -174,7 +174,7 @@ All messages sent are prefixed with a [varint](https://developers.google.com/pro
 <varint-length-of-payload><payload>
 ```
 
-In general payload messages are small and an implementation should make sure to only buffer messages that can easily fit in memory. The javascript implementation currently rejects all messages >5mb.
+In general payload messages are small and an implementation should make sure to only buffer messages that can easily fit in memory. The javascript implementation currently rejects all messages >5mb. If an empty payload is received (a payload with length `0`) it should be ignored. This means empty payloads can used as keep-alive messages to ensure connections are kept open when no other messages are being sent.
 
 All messages, except for the first one which is always a handshake, are also prefixed with a varint describing the message type
 
@@ -185,7 +185,7 @@ All messages, except for the first one which is always a handshake, are also pre
 If you receive a message with an unknown type you should ignore it for easier compatibility with future updates to this spec.
 
 The messages are encoded into binary values using [protobuf](https://developers.google.com/protocol-buffers).
-A single stream using the wire protocol can be used to share multiple swarms of data using a simple multiplexing scheme that is described below
+A single stream using the wire protocol can be used to share multiple swarms of data using a simple multiplexing scheme that is described below.
 
 #### messages.Handshake
 
