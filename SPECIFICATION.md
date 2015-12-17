@@ -131,7 +131,7 @@ Hyperdrive's content integrity approach is similar to parts of [ppspp](https://t
 
 Assuming you have two different feeds that are sharing similar data, we want to minimize fetching of duplicate data. The merkle tree structure helps us achieve this by content addressing the feeds.
 
-For example if we were to produce the exact same feed on two different computers using the technique described in the above section, the feeds would end up with the same root tree hashes and the same feed id. The two feeds would therefore be the same feed.
+For example if we were to produce the exact same feed on two different computers using the technique [described in the **Content Integrity** section](#content-integrity), the feeds would end up with the same root tree hashes and the same feed id. The two feeds would therefore be the same feed.
 
 A more interesting case is sharing two similar feeds that are not 100% the same but share partial sections. This could be two different versions of the same file, an old one, and an updated one with a few changes. In this case, feed ids would be different. However, since every block is being delivered with the tree hashes necessary to verify it against the root of the merkle tree, we can maintain a simple index that points from the parent hashes in the merkle trees to the data blocks they represent and check against this index to see if we have already fetched other parts a feed before shared by another feed.
 
@@ -358,9 +358,9 @@ When deciding which block to download from a remote peer, a couple of things sho
 
 To allow for features like live booting linux containers, real-time video and audio streaming, etc... Hyperdrive allows for higher prioritization of specific ranges of blocks to download first.
 
-If no blocks ranges are prioritized, a strategy such as "Rarest first" or "Random first piece" should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
+If no blocks ranges are prioritized, a strategy such as ["Rarest first" or "Random first piece"](http://www.bittorrent.org/bittorrentecon.pdf) should be used similar to the strategy used in BitTorrent. This allows blocks to be spread out evenly across peers without having single peers that are the only uploaders of a specific piece.
 
-If a range is prioritized, then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. If a range is marked as CRITICAL it is also acceptable to make requests for the same block to multiple peers assuming a high bandwidth peer has no other blocks to request in the same range and has considerable more bandwidth than the peer, the block is currently being requested from. This is referred to as "hotswapping".
+If a range is prioritized, then blocks should be chosen from this range first. Ranges can be prioritized with different weights, CRITICAL, HIGH, NORMAL. For example if we are streaming video we might want to prioritize the first megabyte of the video as CRITICAL as the playback latency depends on this. We might also want to prioritize the next 10 mb with HIGH as we want to download that as a buffer. For ranges marked as CRITICAL, it is acceptable to make requests for the same block from this range to multiple peers.  For example, if a critical block is requested from peer A, and a newer peer B comes along that has much higher bandwidth available than peer A, but no free critical blocks to fetch, then it's ok to request the same critical block from peer B. This is referred to as "hotswapping".
 
 ```
 // pseudo code for hotswapping a slow peer to reduce latency
@@ -481,4 +481,4 @@ BitTorrent inlines all files into a single feed. This combined with the fixed bl
 
 #### Multiplexed swarms
 
-Unlike BitTorrent, wires can be reused to share multiple swarms which results in a smaller connection overhead when downloading or uploading multiple feeds shared between two peers.
+Unlike BitTorrent, wires can be reused to share multiple swarms which results in a smaller connection overhead when downloading or uploading multiple feeds shared between two or more peers.
