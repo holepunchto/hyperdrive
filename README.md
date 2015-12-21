@@ -13,7 +13,6 @@ For a more detailed technical information on how it works see [SPECIFICATION.md]
 ## Status
 
 ## Almost ready for prime time :rocket:
-## Feel free to open issues and ask questions
 
 APIs/protocols might be still break.
 
@@ -22,9 +21,10 @@ Main things missing are:
 - [ ] Storing downloaded files as actual files (not in leveldb doh)
 - [x] Full documention of the apis/protocols
 - [ ] Tit-for-tat swarm logic
-- [ ] peer discovery events so a dht would know what to look for
-- [ ] Tests for internal logic
-- [ ] Move archive/file abstractions to new modules
+- [ ] pass in a hypercore instead of leveldb
+- [x] peer discovery events so a dht would know what to look for (in hypercore)
+- [x] Tests for internal logic (in hypercore)
+- [x] Move archive/file abstractions to new modules (moved core out to hypercore)
 - [x] A bit of refactoring
 
 ## Usage
