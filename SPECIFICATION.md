@@ -222,7 +222,7 @@ Should be sent when you are interested in joining a specific swarm of data speci
 
 `channel` should be set to the lowest locally available channel number (starting at `0`) and all subsequent messages sent referring to the same `link` should contain the same channel number. When receiving a Join message, if you wish to join the swarm, you should reply back with a new Join message if you haven't sent one already containing the same link and your lowest locally available channel number.
 
-When having both sent and received a remote Join message for a specific swarm `link` you will have both a local and remote channel number that can be used to separate separate swarm messages from each other and allows for reuse of the same connection stream for multiple swarms. Note that since you only pick you local channel number and a channel has both a local and remote channel id, there are no risk of channel id clashes.
+When having both sent and received a remote Join message for a specific swarm `link` you will have both a local and remote channel number that can be used to separate swarm messages from each other and allows for reuse of the same connection stream for multiple swarms. Note that since you only pick your local channel number and a channel has both a local and remote channel id, there are no risk of channel id clashes.
 
 #### messages.Leave
 
