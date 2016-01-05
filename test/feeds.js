@@ -2,6 +2,7 @@ var tape = require('tape')
 var octal = require('octal')
 var memdb = require('memdb')
 var hyperdrive = require('../')
+var dir = require('fs').statSync('.')
 
 tape('pack', function (t) {
   var drive = create()
@@ -21,6 +22,28 @@ tape('pack', function (t) {
     t.same(pack.blocks, 1) // only 1 block
     t.ok(!!pack.id, 'has id')
     t.end()
+  })
+})
+
+tape('pack with dir', function (t) {
+  var drive = create()
+
+  var pack = drive.add()
+
+  var stream = pack.entry({
+    name: 'folder',
+    mode: dir.mode
+  })
+
+  t.same(stream, null)
+
+  pack.finalize(function () {
+    var feed = drive.get(pack.id)
+    feed.get(0, function (err, entry) {
+      t.error(err)
+      t.same(entry.type, 'directory')
+      t.end()
+    })
   })
 })
 
