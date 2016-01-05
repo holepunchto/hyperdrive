@@ -42,6 +42,8 @@ tape('pack with dir', function (t) {
     feed.get(0, function (err, entry) {
       t.error(err)
       t.same(entry.type, 'directory')
+      t.same(entry.value.name, 'folder')
+      t.same(entry.value.mode, dir.mode)
       t.end()
     })
   })
