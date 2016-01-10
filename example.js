@@ -39,25 +39,18 @@ function run (name) {
   })
 
   server.listen(0, function () {
-    function ann () {
-      console.log('Announcing hash (%s)', hash.toString('hex', 0, 20))
-      disc.announce(hash.slice(0, 20), server.address().port)
-    }
+    disc.add(hash, server.address().port)
+    disc.on('peer', function (hash, peer) {
+      if (peer.port === server.address().port && peer.host === addr()) return
 
-    ann()
-    setInterval(ann, 10000)
+      var id = peer.host + ':' + peer.port
+      if (peers[id]) return
+      peers[id] = true
 
-    var lookup = disc.lookup(hash.slice(0, 20))
-
-    lookup.on('peer', function (ip, port) {
-      if (port === server.address().port && ip === addr()) return
-      if (peers[ip + ':' + port]) return
-      peers[ip + ':' + port] = true
-
-      var socket = net.connect(port, ip)
-      console.log('Connecting to %s:%d', ip, port)
+      var socket = net.connect(peer.port, peer.host)
+      console.log('Connecting to %s', id)
       pump(socket, drive.createPeerStream(), socket, function () {
-        delete peers[ip + ':' + port]
+        delete peers[id]
       })
     })
   })

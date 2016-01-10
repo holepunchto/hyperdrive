@@ -71,18 +71,9 @@ var server = net.createServer(function (socket) {
 })
 
 server.listen(0, function () {
-  function ann () {
-    // discovery-channel currently only works with 20 bytes hashes
-    disc.announce(link.slice(0, 20), server.address().port)
-  }
-
-  ann()
-  setInterval(ann, 10000)
-
-  var lookup = disc.lookup(link.slice(0, 20))
-
-  lookup.on('peer', function (ip, port) {
-    var socket = net.connect(port, ip)
+  disc.add(link, server.address().port)
+  disc.on('peer', function (hash, peer) {
+    var socket = net.connect(peer.port, peer.host)
     socket.pipe(drive.createPeerStream()).pipe(socket)
   })
 })
