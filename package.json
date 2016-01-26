@@ -12,39 +12,25 @@
     ]
   },
   "dependencies": {
-    "bitfield": "^1.1.2",
-    "brfs": "^1.4.1",
-    "buffer-equals": "^1.0.3",
     "bulk-write-stream": "^1.1.1",
-    "debug": "^2.2.0",
-    "duplexify": "^3.4.2",
-    "flat-tree": "^1.2.1",
-    "flush-write-stream": "^1.0.0",
+    "delta-list": "^1.0.0",
     "from2": "^2.1.0",
-    "last-one-wins": "^1.0.2",
-    "length-prefixed-stream": "^1.4.0",
-    "merkle-tree-stream": "^1.0.2",
-    "numeric-id-map": "^1.1.0",
+    "hypercore": "^1.4.0",
+    "last-one-wins": "^1.0.3",
+    "mkdirp": "^0.5.1",
     "octal": "^1.0.0",
-    "protocol-buffers": "^3.1.3",
+    "protocol-buffers": "^3.1.4",
     "pump": "^1.0.1",
     "pumpify": "^1.3.3",
     "rabin": "^1.4.0",
-    "random-access-open": "^1.0.1",
-    "stream-collector": "^1.0.1",
-    "sublevel-prefixer": "^1.0.0",
+    "random-access-open": "^1.1.0",
     "subleveldown": "^2.1.0",
-    "through2": "^2.0.0",
-    "thunky": "^0.1.0",
-    "uint64be": "^1.0.1"
+    "thunky": "^0.1.0"
   },
   "devDependencies": {
-    "discovery-channel": "^2.1.1",
-    "level": "^1.3.0",
-    "memdb": "^1.0.1",
-    "network-address": "^1.0.0",
+    "memdb": "^1.3.1",
     "standard": "^5.4.1",
-    "tape": "^4.2.2"
+    "tape": "^4.4.0"
   },
   "repository": {
     "type": "git",
