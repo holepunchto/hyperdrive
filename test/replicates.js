@@ -19,7 +19,7 @@ tape('replicates file', function (t) {
       var tmp = path.join(os.tmpdir(), 'hyperdrive-' + process.pid + '-' + Date.now())
       var clone = driveClone.get(archive.id, tmp)
 
-      clone.once('file-downloaded', function () {
+      clone.download(0, function () {
         var buf = []
         clone.createFileStream(0)
           .on('data', function (data) {
@@ -31,8 +31,6 @@ tape('replicates file', function (t) {
             t.end()
           })
       })
-
-      clone.select(0)
 
       var p1 = drive.createPeerStream()
       var p2 = driveClone.createPeerStream()

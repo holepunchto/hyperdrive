@@ -133,13 +133,10 @@ Read the entry metadata stored at `index`. An metadata entry looks like this
 }
 ```
 
-#### `archive.select(index)`
+#### `archive.download(index, [callback])`
 
-Select a file to be downloaded
-
-#### `archive.delect(index)`
-
-Deselects a file.
+Downloads the file specified by index and calls the callback when done.
+You have to call this or create a file stream to download a file.
 
 #### `var rs = archive.createFileStream(index)`
 

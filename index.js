@@ -84,6 +84,34 @@ Archive.prototype.ready = function (cb) {
   this.feed.ready(cb)
 }
 
+Archive.prototype.download = function (i, cb) {
+  if (!cb) cb = noop
+
+  var ptr = 0
+  var self = this
+
+  if (typeof i === 'number') this.entry(i, onentry)
+  else onentry(null, i)
+
+  function onentry (err, entry) {
+    if (err) return cb(err)
+
+    var feed = self._getFeed(entry)
+
+    feed.on('put', kick)
+    kick()
+
+    function kick () {
+      if (!feed.blocks) return
+      for (; ptr < feed.blocks; ptr++) {
+        if (!feed.has(ptr)) return
+      }
+      feed.removeListener('put', kick)
+      cb(null)
+    }
+  }
+}
+
 Archive.prototype.select = function (i, cb) {
   if (!cb) cb = noop
 
