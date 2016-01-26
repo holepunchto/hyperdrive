@@ -97,6 +97,7 @@ Archive.prototype.download = function (i, cb) {
     if (err) return cb(err)
 
     var feed = self._getFeed(entry)
+    if (!feed) return cb(null)
 
     feed.on('put', kick)
     kick()
