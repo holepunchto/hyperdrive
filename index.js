@@ -2,6 +2,7 @@ var constants = require('constants')
 var hypercore = require('hypercore')
 var sublevel = require('subleveldown')
 var fs = require('fs')
+var mkdirp = require('mkdirp')
 var bulk = require('bulk-write-stream')
 var rabin = require('rabin')
 var path = require('path')
@@ -107,8 +108,20 @@ Archive.prototype.download = function (i, cb) {
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
       }
-      feed.removeListener('put', kick)
-      cb(null)
+
+      var dest = join(self.directory, entry.name)
+
+      fs.stat(dest, function (_, st) {
+        feed.removeListener('put', kick)
+
+        // the size check probably isn't nessary here...
+        if (st && st.size === entry.size) return cb(null)
+
+        // duplicate - just copy it in
+        mkdirp(path.dirname(dest), function () {
+          pump(self.createFileStream(entry), fs.createWriteStream(dest), cb)
+        })
+      })
     }
   }
 }
