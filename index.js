@@ -104,18 +104,16 @@ Archive.prototype.download = function (i, cb) {
     kick()
 
     function kick () {
-      if (!feed.blocks) return
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
       }
-
       var dest = join(self.directory, entry.name)
 
       fs.stat(dest, function (_, st) {
         feed.removeListener('put', kick)
-
-        // the size check probably isn't nessary here...
         if (st && st.size === entry.size) return cb(null)
+
+        if (!feed.blocks) return
 
         // duplicate - just copy it in
         mkdirp(path.dirname(dest), function () {
