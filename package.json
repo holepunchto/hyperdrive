@@ -25,6 +25,7 @@
     "rabin": "^1.4.0",
     "random-access-open": "^1.1.0",
     "subleveldown": "^2.1.0",
+    "through2": "^2.0.0",
     "thunky": "^0.1.0"
   },
   "devDependencies": {

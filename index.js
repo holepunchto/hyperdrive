@@ -4,7 +4,6 @@ var sublevel = require('subleveldown')
 var fs = require('fs')
 var mkdirp = require('mkdirp')
 var bulk = require('bulk-write-stream')
-var rabin = require('rabin')
 var path = require('path')
 var deltas = require('delta-list')
 var from = require('from2')
@@ -13,7 +12,12 @@ var pumpify = require('pumpify')
 var octal = require('octal')
 var util = require('util')
 var events = require('events')
-var storage = require('./lib/storage')
+var storage
+var rabin
+if (process.browser) rabin = require('through2')
+else rabin = require('rabin')
+if (process.browser) storage = require('./lib/browser-storage')
+else storage = require('./lib/storage')
 var messages = require('./lib/messages')
 
 var DMODE = octal(755)
@@ -110,6 +114,7 @@ Archive.prototype.download = function (i, cb) {
       }
 
       var dest = join(self.directory, entry.name)
+      if (process.browser) return cb()
 
       fs.stat(dest, function (_, st) {
         feed.removeListener('put', kick)
