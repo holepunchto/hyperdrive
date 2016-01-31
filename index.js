@@ -101,7 +101,7 @@ Archive.prototype.download = function (i, cb) {
     if (!feed) return cb(null)
 
     feed.on('put', kick)
-    kick()
+    feed.open(kick)
 
     function kick () {
       if (!feed.blocks) return
