@@ -65,11 +65,15 @@ function Archive (drive, folder, id) {
   this.directory = folder
   this.core = drive.core
   this.entries = 0
+  this.metadata = {type: 'hyperdrive'}
+
+  this._first = true
 
   if (!id) {
     this.feed = this.core.add({filename: null})
   } else {
     this.feed = this.core.get(id)
+    this.feed.get(0, onmetadata)
   }
 
   this.feed.on('put', function (block, data) {
@@ -78,12 +82,35 @@ function Archive (drive, folder, id) {
 
   this.feed.ready(function (err) {
     if (err) return
-    self.entries = self.feed.blocks
+    self.entries = self.feed.blocks - 1
     self.emit('ready')
   })
+
+  function onmetadata (err, json) {
+    if (err) self.emit('error', err)
+
+    var doc
+
+    try {
+      doc = JSON.parse(json.toString())
+    } catch (err) {
+      // do nothing
+    }
+
+    if (!doc || doc.type !== 'hyperdrive') {
+      self.emit('error', new Error('feed is not a hyperdrive'))
+    } else {
+      self.metadata = doc
+      self.emit('metadata')
+    }
+  }
 }
 
 util.inherits(Archive, events.EventEmitter)
+
+Archive.prototype.close = function (cb) {
+  this.feed.close(cb)
+}
 
 Archive.prototype.ready = function (cb) {
   this.feed.ready(cb)
@@ -151,7 +178,7 @@ Archive.prototype.deselect = function (i, cb) {
 }
 
 Archive.prototype.entry = function (i, cb) {
-  this.feed.get(i, function (err, data) {
+  this.feed.get(i + 1, function (err, data) {
     if (err) return cb(err)
     if (!data) return cb(null, null)
     cb(null, messages.Entry.decode(data))
@@ -164,7 +191,7 @@ Archive.prototype.finalize = function (cb) {
   this.feed.finalize(function (err) {
     if (err) return cb(err)
     self.id = self.feed.id
-    self.entries = self.feed.blocks
+    self.entries = self.feed.blocks - 1
     cb()
   })
 }
@@ -288,6 +315,12 @@ Archive.prototype.append = function (entry, opts, cb) {
   function append (link, cb) {
     entry.size = size
     entry.link = link
+    if (self._first) {
+      // first block is gonna be a human readable metadata block
+      // this makes updating the protocol easier in the future
+      self.feed.append(JSON.stringify(self.metadata))
+      self._first = false
+    }
     self.feed.append(messages.Entry.encode(entry), done)
 
     function done (err) {
