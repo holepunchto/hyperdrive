@@ -223,7 +223,6 @@ Archive.prototype._getFeed = function (entry) {
 
   var ptr = 0
 
-  kick()
   feed.on('put', function (block, data) {
     self.emit('file-download', entry, data, block)
     kick()
@@ -231,6 +230,7 @@ Archive.prototype._getFeed = function (entry) {
 
   feed.open(function (err) {
     if (err) return
+    kick()
     for (var i = 0; i < entry.link.index.length; i++) {
       if (!feed.has(i + contentBlocks)) feed.want.push({block: i + contentBlocks, callback: noop, critical: true})
     }
