@@ -12,6 +12,7 @@
     ]
   },
   "dependencies": {
+    "brfs": "^1.4.3",
     "bulk-write-stream": "^1.1.1",
     "delta-list": "^1.0.0",
     "from2": "^2.1.0",
@@ -29,7 +30,6 @@
     "thunky": "^0.1.0"
   },
   "devDependencies": {
-    "brfs": "^1.4.3",
     "memdb": "^1.3.1",
     "standard": "^5.4.1",
     "tape": "^4.4.0"
