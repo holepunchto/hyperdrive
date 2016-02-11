@@ -369,6 +369,8 @@ Archive.prototype.appendFile = function (filename, name, cb) {
       size: 0,
       link: null
     }, {filename: filename}, function (err, entry) {
+      if (err) return cb(err)
+      if (!entry) return cb()
       if (entry.type === 'file') self.readStats.files++
       cb(err, entry)
     })
