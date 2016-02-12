@@ -7,6 +7,7 @@ var bulk = require('bulk-write-stream')
 var path = require('path')
 var deltas = require('delta-list')
 var from = require('from2')
+var through = require('through2')
 var pump = require('pump')
 var pumpify = require('pumpify')
 var octal = require('octal')
@@ -14,7 +15,7 @@ var util = require('util')
 var events = require('events')
 var storage
 var rabin
-if (process.browser) rabin = require('through2')
+if (process.browser) rabin = through
 else rabin = require('rabin')
 if (process.browser) storage = require('./lib/browser-storage')
 else storage = require('./lib/storage')
@@ -66,6 +67,7 @@ function Archive (drive, folder, id) {
   this.core = drive.core
   this.entries = 0
   this.metadata = {type: 'hyperdrive'}
+  this.readStats = {totalRead: 0, files: 0}
 
   this._first = true
 
@@ -366,9 +368,23 @@ Archive.prototype.appendFile = function (filename, name, cb) {
       mode: st.mode,
       size: 0,
       link: null
-    }, {filename: filename}, cb)
+    }, {filename: filename}, function (err, entry) {
+      if (err) return cb(err)
+      if (!entry) return cb()
+      if (entry.type === 'file') self.readStats.files++
+      cb(err, entry)
+    })
 
-    if (ws) pump(fs.createReadStream(path.resolve(self.directory, filename)), ws)
+    var statsCounter = through(function (data, encoding, next) {
+      self.readStats.totalRead += data.length
+      this.push(data)
+      next()
+    })
+
+    if (ws) {
+      var readStream = fs.createReadStream(path.resolve(self.directory, filename))
+      pump(readStream, statsCounter, ws)
+    }
   })
 }
 

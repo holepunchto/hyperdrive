@@ -104,6 +104,10 @@ Emitted when a data block if downloaded for a file.
 
 Emitted when a file is fully downloaded.
 
+#### `archive.append(entry, [opts], [callback])`
+
+Either returns a write stream if entry is a file or returns `null` if it is directory. Calls callback when the entry has finished writing. 
+
 #### `archive.appendFile(filename, [name], [callback])`
 
 Append a file to a non-finalized archive. If you don't specify `name` the entry will be called `filename`.
