@@ -69,7 +69,9 @@ function Archive (drive, folder, id) {
   this.metadata = {type: 'hyperdrive'}
   this.stats = {
     bytesRead: 0,
-    bytesDownloaded: 0
+    bytesDownloaded: 0,
+    filesRead: 0,
+    filesDownloaded: 0
   }
 
   this._first = true
@@ -147,19 +149,25 @@ Archive.prototype.download = function (i, cb) {
       }
 
       var dest = join(self.directory, entry.name)
-      if (process.browser) return cb()
+      if (process.browser) return done()
 
       fs.stat(dest, function (_, st) {
         feed.removeListener('put', kick)
 
         // the size check probably isn't nessary here...
-        if (st && st.size === entry.size) return cb(null)
+        if (st && st.size === entry.size) return done(null)
 
         // duplicate - just copy it in
         mkdirp(path.dirname(dest), function () {
-          pump(self.createFileStream(entry), fs.createWriteStream(dest), cb)
+          pump(self.createFileStream(entry), fs.createWriteStream(dest), done)
         })
       })
+    }
+
+    function done (err) {
+      if (err) return cb(err)
+      self.stats.filesDownloaded++
+      cb(null)
     }
   }
 }
@@ -319,6 +327,7 @@ Archive.prototype.append = function (entry, opts, cb) {
   }
 
   function append (link, cb) {
+    if (link) self.stats.filesRead++
     entry.size = size
     entry.link = link
     if (self._first) {
