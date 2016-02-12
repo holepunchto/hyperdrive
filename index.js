@@ -67,7 +67,10 @@ function Archive (drive, folder, id) {
   this.core = drive.core
   this.entries = 0
   this.metadata = {type: 'hyperdrive'}
-  this.readStats = {totalRead: 0, files: 0}
+  this.stats = {
+    bytesRead: 0,
+    bytesDownloaded: 0
+  }
 
   this._first = true
 
@@ -79,6 +82,7 @@ function Archive (drive, folder, id) {
   }
 
   this.feed.on('put', function (block, data) {
+    self.stats.bytesDownloaded += data.length
     self.emit('download', data, block)
   })
 
@@ -333,7 +337,10 @@ Archive.prototype.append = function (entry, opts, cb) {
   }
 
   function write (buffers, cb) {
-    for (var i = 0; i < buffers.length; i++) size += buffers[i].length
+    for (var i = 0; i < buffers.length; i++) {
+      size += buffers[i].length
+      self.stats.bytesRead += buffers[i].length
+    }
     feed.append(buffers, cb)
   }
 
@@ -359,6 +366,7 @@ Archive.prototype.appendFile = function (filename, name, cb) {
   if (!name) name = filename
 
   var self = this
+  var stats = {bytesRead: 0, bytesTotal: 0}
 
   fs.lstat(filename, function (err, st) {
     if (err) return cb(err)
@@ -368,24 +376,17 @@ Archive.prototype.appendFile = function (filename, name, cb) {
       mode: st.mode,
       size: 0,
       link: null
-    }, {filename: filename}, function (err, entry) {
-      if (err) return cb(err)
-      if (!entry) return cb()
-      if (entry.type === 'file') self.readStats.files++
-      cb(err, entry)
-    })
+    }, {filename: filename}, cb)
 
-    var statsCounter = through(function (data, encoding, next) {
-      self.readStats.totalRead += data.length
-      this.push(data)
-      next()
-    })
+    stats.bytesTotal = st.size
 
     if (ws) {
       var readStream = fs.createReadStream(path.resolve(self.directory, filename))
-      pump(readStream, statsCounter, ws)
+      pump(readStream, ws)
     }
   })
+
+  return stats
 }
 
 function noop () {}
