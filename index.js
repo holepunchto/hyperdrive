@@ -312,7 +312,7 @@ Archive.prototype.append = function (entry, opts, cb) {
   if (opts.filename === true) opts.filename = entry.name
 
   var size = 0
-  var stats = entry.stats
+  var stats = opts.stats
   var feed = this.core.add({filename: opts.filename && path.resolve(this.directory, opts.filename)})
   var stream = pumpify(rabin(), bulk(write, end))
 
@@ -349,7 +349,7 @@ Archive.prototype.append = function (entry, opts, cb) {
   function write (buffers, cb) {
     for (var i = 0; i < buffers.length; i++) {
       size += buffers[i].length
-      stats.bytesRead += buffers[i].length
+      if (stats) stats.bytesRead += buffers[i].length
       self.stats.bytesRead += buffers[i].length
     }
     feed.append(buffers, cb)
@@ -382,13 +382,13 @@ Archive.prototype.appendFile = function (filename, name, cb) {
   fs.lstat(filename, function (err, st) {
     if (err) return cb(err)
 
+    var opts = {filename: filename, stats: stats}
     var ws = self.append({
       name: name,
       mode: st.mode,
       size: 0,
-      stats: stats,
       link: null
-    }, {filename: filename}, cb)
+    }, opts, cb)
 
     stats.bytesTotal = st.size
 
