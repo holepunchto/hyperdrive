@@ -57,6 +57,20 @@ Hyperdrive.prototype.add = function (folder) {
   return new Archive(this, folder, null)
 }
 
+function Progress () {
+  this.bytesRead = 0
+  this.bytesTotal = 0
+  events.EventEmitter.call(this)
+}
+
+util.inherits(Progress, events.EventEmitter)
+
+Progress.prototype.end = function (err) {
+  if (!err) return this.emit('end')
+  if (this.listeners('error').length) this.emit('error', err)
+  return
+}
+
 function Archive (drive, folder, id) {
   events.EventEmitter.call(this)
 
@@ -129,9 +143,12 @@ Archive.prototype.download = function (i, cb) {
 
   var ptr = 0
   var self = this
+  var stats = new Progress()
 
   if (typeof i === 'number') this.entry(i, onentry)
   else onentry(null, i)
+
+  return stats
 
   function onentry (err, entry) {
     if (err) return cb(err)
@@ -141,12 +158,24 @@ Archive.prototype.download = function (i, cb) {
 
     feed.on('put', kick)
     feed.open(kick)
+    stats.bytesTotal = entry.size
 
-    function kick () {
+    if (feed._storage) onstorage(feed._storage)
+    else feed.on('_storage', onstorage)
+
+    function onstorage (storage) {
+      if (!storage._bytesWritten) return
+      storage._bytesWritten(function (_, bytes) {
+        if (bytes) stats.bytesRead = bytes
+      })
+    }
+
+    function kick (block, data) {
       if (!feed.blocks) return
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
       }
+      if (data) stats.bytesRead += data.length
 
       var dest = join(self.directory, entry.name)
       if (process.browser) return done()
@@ -165,9 +194,9 @@ Archive.prototype.download = function (i, cb) {
     }
 
     function done (err) {
-      if (err) return cb(err)
-      self.stats.filesDownloaded++
-      cb(null)
+      if (!err) self.stats.filesDownloaded++
+      stats.end(err)
+      cb(err)
     }
   }
 }
@@ -377,10 +406,10 @@ Archive.prototype.appendFile = function (filename, name, cb) {
   if (!name) name = filename
 
   var self = this
-  var stats = {bytesRead: 0, bytesTotal: 0}
+  var stats = new Progress()
 
   fs.lstat(filename, function (err, st) {
-    if (err) return cb(err)
+    if (err) return done(err)
 
     var opts = {filename: filename, stats: stats}
     var ws = self.append({
@@ -388,7 +417,7 @@ Archive.prototype.appendFile = function (filename, name, cb) {
       mode: st.mode,
       size: 0,
       link: null
-    }, opts, cb)
+    }, opts, done)
 
     stats.bytesTotal = st.size
 
@@ -399,6 +428,11 @@ Archive.prototype.appendFile = function (filename, name, cb) {
   })
 
   return stats
+
+  function done (err) {
+    stats.end(err)
+    cb(err)
+  }
 }
 
 function noop () {}
