@@ -171,8 +171,11 @@ Archive.prototype.download = function (i, cb) {
     }
 
     function kick (block, data) {
-      if (data) stats.bytesRead += data.length
       if (!feed.blocks) return
+
+      if (data && this === feed && entry.link && block < feed.blocks - entry.link.index.length) {
+        stats.bytesRead += data.length
+      }
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
       }
@@ -195,6 +198,7 @@ Archive.prototype.download = function (i, cb) {
 
     function done (err) {
       if (!err) self.stats.filesDownloaded++
+      stats.bytesRead = stats.bytesTotal
       stats.end(err)
       cb(err)
     }
