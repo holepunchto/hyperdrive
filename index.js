@@ -171,11 +171,11 @@ Archive.prototype.download = function (i, cb) {
     }
 
     function kick (block, data) {
+      if (data) stats.bytesRead += data.length
       if (!feed.blocks) return
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
       }
-      if (data) stats.bytesRead += data.length
 
       var dest = join(self.directory, entry.name)
       if (process.browser) return done()
