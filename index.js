@@ -171,6 +171,7 @@ Archive.prototype.download = function (i, cb) {
         if (bytes) {
           stats.bytesInitial = bytes - offset
           stats.bytesRead = bytes
+          stats.emit('ready')
         }
       })
     }
@@ -430,6 +431,7 @@ Archive.prototype.appendFile = function (filename, name, cb) {
     }, opts, done)
 
     stats.bytesTotal = st.size
+    stats.emit('ready')
 
     if (ws) {
       var readStream = fs.createReadStream(path.resolve(self.directory, filename))
