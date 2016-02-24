@@ -58,6 +58,7 @@ Hyperdrive.prototype.add = function (folder) {
 }
 
 function Progress () {
+  this.bytesInitial = 0
   this.bytesRead = 0
   this.bytesTotal = 0
   events.EventEmitter.call(this)
@@ -144,6 +145,7 @@ Archive.prototype.download = function (i, cb) {
   var ptr = 0
   var self = this
   var stats = new Progress()
+  var offset = 0
 
   if (typeof i === 'number') this.entry(i, onentry)
   else onentry(null, i)
@@ -166,7 +168,10 @@ Archive.prototype.download = function (i, cb) {
     function onstorage (storage) {
       if (!storage._bytesWritten) return
       storage._bytesWritten(function (_, bytes) {
-        if (bytes) stats.bytesRead = bytes
+        if (bytes) {
+          stats.bytesInitial = bytes - offset
+          stats.bytesRead = bytes
+        }
       })
     }
 
@@ -175,6 +180,7 @@ Archive.prototype.download = function (i, cb) {
 
       if (data && this === feed && entry.link && block < feed.blocks - entry.link.index.length) {
         stats.bytesRead += data.length
+        offset += data.length
       }
       for (; ptr < feed.blocks; ptr++) {
         if (!feed.has(ptr)) return
