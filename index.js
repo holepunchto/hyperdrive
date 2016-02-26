@@ -157,15 +157,19 @@ Archive.prototype.download = function (i, cb) {
 
     var feed = self._getFeed(entry)
     var dest = join(self.directory, entry.name)
-    if (!feed && entry.type === 'file') {
-      mkdirp(path.dirname(dest), function () {
+
+    if (!feed) return createEmtpyEntry()
+
+    function createEmtpyEntry () {
+      mkdirp(path.dirname(dest), function (err) {
+        if (err) return cb(err)
+        if (entry.type !== 'file') return cb(null)
         fs.open(dest, 'a', function (err) {
           if (err) return cb(err)
           return cb(null)
         })
       })
     }
-    if (!feed) return cb(null)
 
     feed.on('put', kick)
     feed.open(kick)
