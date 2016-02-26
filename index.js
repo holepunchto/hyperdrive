@@ -158,20 +158,7 @@ Archive.prototype.download = function (i, cb) {
     var feed = self._getFeed(entry)
     var dest = join(self.directory, entry.name)
 
-    if (!feed) return createEmtpyEntry()
-
-    function createEmtpyEntry () {
-      var dir = dest
-      if (entry.type === 'file') dir = path.dirname(dest)
-      mkdirp(dir, function (err) {
-        if (err) return cb(err)
-        if (entry.type !== 'file') return cb(null)
-        fs.open(dest, 'a', function (err) {
-          if (err) return cb(err)
-          return cb(null)
-        })
-      })
-    }
+    if (!feed) return createEmptyEntry()
 
     feed.on('put', kick)
     feed.open(kick)
@@ -222,6 +209,19 @@ Archive.prototype.download = function (i, cb) {
       stats.bytesRead = stats.bytesTotal
       stats.end(err)
       cb(err)
+    }
+
+    function createEmptyEntry () {
+      var dir = dest
+      if (entry.type === 'file') dir = path.dirname(dest)
+      mkdirp(dir, function (err) {
+        if (err) return cb(err)
+        if (entry.type !== 'file') return cb(null)
+        fs.open(dest, 'a', function (err, fd) {
+          if (err) return cb(err)
+          fs.close(fd, cb)
+        })
+      })
     }
   }
 }
