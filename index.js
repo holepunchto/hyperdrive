@@ -161,7 +161,9 @@ Archive.prototype.download = function (i, cb) {
     if (!feed) return createEmtpyEntry()
 
     function createEmtpyEntry () {
-      mkdirp(path.dirname(dest), function (err) {
+      var dir = dest
+      if (entry.type === 'file') dir = path.dirname(dest)
+      mkdirp(dir, function (err) {
         if (err) return cb(err)
         if (entry.type !== 'file') return cb(null)
         fs.open(dest, 'a', function (err) {
