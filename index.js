@@ -156,6 +156,15 @@ Archive.prototype.download = function (i, cb) {
     if (err) return cb(err)
 
     var feed = self._getFeed(entry)
+    var dest = join(self.directory, entry.name)
+    if (!feed && entry.type === 'file') {
+      mkdirp(path.dirname(dest), function () {
+        fs.open(dest, 'a', function (err) {
+          if (err) return cb(err)
+          return cb(null)
+        })
+      })
+    }
     if (!feed) return cb(null)
 
     feed.on('put', kick)
@@ -187,7 +196,6 @@ Archive.prototype.download = function (i, cb) {
         if (!feed.has(ptr)) return
       }
 
-      var dest = join(self.directory, entry.name)
       if (process.browser) return done()
 
       fs.stat(dest, function (_, st) {
