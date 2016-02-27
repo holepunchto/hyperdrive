@@ -1,6 +1,6 @@
 {
   "name": "hyperdrive",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "A file sharing network based on rabin file chunking and append only feeds of data verified by merkle trees.",
   "main": "index.js",
   "scripts": {
