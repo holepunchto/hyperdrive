@@ -3,7 +3,6 @@ var memdb = require('memdb')
 var os = require('os')
 var path = require('path')
 var fs = require('fs')
-var mkdirp = require('mkdirp')
 var hyperdrive = require('../')
 
 tape('select file', function (t) {
