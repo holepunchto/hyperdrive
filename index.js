@@ -143,6 +143,7 @@ Archive.prototype.lookup = function (fileName, cb) {
     if (entry.name === fileName) {
       cb(null, entry)
       _found = true
+      stream.destroy()
     }
   })
   stream.on('error', cb)
