@@ -135,20 +135,20 @@ Archive.prototype.close = function (cb) {
   this.feed.close(cb)
 }
 
-Archive.prototype.lookup = function (fileName, cb) {
+Archive.prototype.lookup = function (name, cb) {
   // TODO: use binary search or something more performant
   var stream = this.createEntryStream()
-  var _found = false
+  var found = false
   stream.on('data', function (entry) {
-    if (entry.name === fileName) {
-      cb(null, entry)
-      _found = true
-      stream.destroy()
-    }
+    if (found || entry.name !== name) return
+    found = true
+    stream.destroy()
+    cb(null, entry)
   })
   stream.on('error', cb)
   stream.on('end', function () {
-    if (!_found) cb(null)
+    stream.removeListener('error', cb)
+    if (!found) cb(null)
   })
 }
 
@@ -352,12 +352,7 @@ Archive.prototype.createFileStream = function (i, opts) { // TODO: expose random
       return
     }
 
-    if (typeof i === 'string') {
-      self.lookup(i, function (err, entry) {
-        if (err) return cb(err)
-        onentry(null, entry)
-      })
-    }
+    if (typeof i === 'string') self.lookup(i, onentry)
     else if (typeof i === 'number') self.entry(i, onentry)
     else onentry(null, i)
 
