@@ -313,6 +313,10 @@ Archive.prototype._getFeed = function (entry) {
     kick()
   })
 
+  feed.on('get', function (block, data) {
+    self.emit('file-upload', entry, data, block)
+  })
+
   feed.open(function (err) {
     if (err) return
     kick()
@@ -387,6 +391,10 @@ Archive.prototype.append = function (entry, opts, cb) {
   var stats = opts.stats
   var feed = this.core.add({filename: opts.filename && path.resolve(this.directory, opts.filename)})
   var stream = pumpify(rabin(), bulk(write, end))
+
+  feed.on('get', function (block, data) {
+    self.emit('file-upload', entry, data, block)
+  })
 
   if (cb) {
     stream.on('error', cb)

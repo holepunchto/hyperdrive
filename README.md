@@ -98,7 +98,11 @@ Retrive a finalized archive.
 
 #### `archive.on('file-download', entry, data)`
 
-Emitted when a data block if downloaded for a file.
+Emitted when a data block is downloaded for a file.
+
+#### `archive.on('file-upload', entry, data)`
+
+Emitted when a data block is uploaded for a file.
 
 #### `archive.on('file-downloaded', entry)`
 
@@ -106,7 +110,7 @@ Emitted when a file is fully downloaded.
 
 #### `archive.append(entry, [opts], [callback])`
 
-Either returns a write stream if entry is a file or returns `null` if it is directory. Calls callback when the entry has finished writing. 
+Either returns a write stream if entry is a file or returns `null` if it is directory. Calls callback when the entry has finished writing.
 
 #### `archive.appendFile(filename, [name], [callback])`
 
