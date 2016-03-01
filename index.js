@@ -190,8 +190,8 @@ Archive.prototype.download = function (i, cb) {
         if (bytes) {
           stats.bytesInitial = bytes - offset
           stats.bytesRead = bytes
-          stats.emit('ready')
         }
+        stats.emit('ready')
       })
     }
 
