@@ -233,12 +233,23 @@ Archive.prototype.download = function (i, cb) {
       if (entry.type === 'file') dir = path.dirname(dest)
       mkdirp(dir, function (err) {
         if (err) return cb(err)
-        if (entry.type !== 'file') return cb(null)
+        if (entry.type !== 'file') return done(err)
         fs.open(dest, 'a', function (err, fd) {
           if (err) return cb(err)
-          fs.close(fd, cb)
+          fs.close(fd, done)
         })
       })
+
+      function done (err) {
+        stats.emit('ready')
+        process.nextTick(function () {
+          stats.end(err)
+        })
+        process.nextTick(function () {
+          self.emit('file-downloaded', entry)
+        })
+        cb(err)
+      }
     }
   }
 }
