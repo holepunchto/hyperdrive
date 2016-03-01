@@ -242,12 +242,8 @@ Archive.prototype.download = function (i, cb) {
 
       function done (err) {
         stats.emit('ready')
-        process.nextTick(function () {
-          stats.end(err)
-        })
-        process.nextTick(function () {
-          self.emit('file-downloaded', entry)
-        })
+        stats.end(err)
+        self.emit('file-downloaded', entry)
         cb(err)
       }
     }
