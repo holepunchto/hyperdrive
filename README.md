@@ -148,6 +148,15 @@ Read the entry metadata stored at `index`. An metadata entry looks like this
 Downloads the file specified by index and calls the callback when done.
 You have to call this or create a file stream to download a file.
 
+Returns a `progress` object.
+
+#### `archive.lookup(name, callback)`
+
+Get metadata for file specified by name and calls `callback` when done.
+Callback will return entry as second argument. If no file is found `callback` will be called without a second argument.
+
+You can use the entry to download the file: `archive.download(entry)`.
+
 #### `var rs = archive.createFileStream(index)`
 
 Create a stream to a file.
