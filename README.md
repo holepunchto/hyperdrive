@@ -112,9 +112,11 @@ Emitted when a file is fully downloaded.
 
 Either returns a write stream if entry is a file or returns `null` if it is directory. Calls callback when the entry has finished writing.
 
-#### `archive.appendFile(filename, [name], [callback])`
+#### `var progress = archive.appendFile(filename, [name], [callback])`
 
 Append a file to a non-finalized archive. If you don't specify `name` the entry will be called `filename`.
+
+Returns a `progress` object.
 
 #### `archive.finalize([callback])`
 
@@ -141,7 +143,7 @@ Read the entry metadata stored at `index`. An metadata entry looks like this
 }
 ```
 
-#### `archive.download(index, [callback])`
+#### `var progress = archive.download(index, [callback])`
 
 Downloads the file specified by index and calls the callback when done.
 You have to call this or create a file stream to download a file.
@@ -153,6 +155,26 @@ Create a stream to a file.
 #### `var rs = archive.createEntryStream()`
 
 Stream out all metadata entries
+
+#### `progress` Stats and Events
+
+A progress object is returned for `archive.download` and `archive.appendFile`. The progress object will contain stats for a single download/append:
+
+```javascript
+  {
+    bytesRead: 0, // Bytes Downloaded/Append Progress
+    bytesTotal: 0, // Total Size of File
+    bytesInitial: 0 // Previous download progress (file was partially downloaded, then stopped)
+  }
+```
+
+##### `progress.on('ready')`
+
+Emitted when a file download/read is ready. Will emit when progress object has `bytesTotal` and `bytesInitial` set, `bytesRead` will be 0.
+
+##### `progress.on('end')`
+
+Emitted when a file download/read is done.
 
 ## License
 
