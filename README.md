@@ -116,7 +116,7 @@ Either returns a write stream if entry is a file or returns `null` if it is dire
 
 Append a file to a non-finalized archive. If you don't specify `name` the entry will be called `filename`.
 
-Returns a `progress` object.
+Returns a [progress](#progress-stats-and-events) object.
 
 #### `archive.finalize([callback])`
 
@@ -148,7 +148,7 @@ Read the entry metadata stored at `index`. An metadata entry looks like this
 Downloads the file specified by index and calls the callback when done.
 You have to call this or create a file stream to download a file.
 
-Returns a `progress` object.
+Returns a [progress](#progress-stats-and-events) object.
 
 #### `archive.lookup(name, callback)`
 
