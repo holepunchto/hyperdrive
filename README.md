@@ -40,17 +40,17 @@ var disc = require('discovery-channel')()
 var hyperdrive = require('hyperdrive')
 var net = require('net')
 var level = require('level')
-var db = levelup('./another-hyperdrive.db')
+var db = level('./another-hyperdrive.db')
 var drive = hyperdrive(db)
 
-var link = new Buffer({your-hyperdrive-link-from-the-above-example}, 'hex')
+var link = new Buffer('your-hyperdrive-link-from-the-above-example', 'hex')
 
 var server = net.createServer(function (socket) {
   socket.pipe(drive.createPeerStream()).pipe(socket)
 })
 
 server.listen(0, function () {
-  disc.add(link, server.address().port)
+  disc.join(link, server.address().port)
   disc.on('peer', function (hash, peer) {
     var socket = net.connect(peer.port, peer.host)
     socket.pipe(drive.createPeerStream()).pipe(socket)
