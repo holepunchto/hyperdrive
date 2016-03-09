@@ -36,25 +36,18 @@ pack.appendFile('my-file.txt', function (err) {
 Then to share it
 
 ``` js
-var disc = require('discovery-channel')()
+var swarm = require('discovery-swarm')()
 var hyperdrive = require('hyperdrive')
-var net = require('net')
 var level = require('level')
 var db = level('./another-hyperdrive.db')
 var drive = hyperdrive(db)
 
 var link = new Buffer('your-hyperdrive-link-from-the-above-example', 'hex')
 
-var server = net.createServer(function (socket) {
-  socket.pipe(drive.createPeerStream()).pipe(socket)
-})
-
-server.listen(0, function () {
-  disc.join(link, server.address().port)
-  disc.on('peer', function (hash, peer) {
-    var socket = net.connect(peer.port, peer.host)
-    socket.pipe(drive.createPeerStream()).pipe(socket)
-  })
+swarm.listen()
+swarm.join(link)
+swarm.on('connection', function (connection) {
+  connection.pipe(drive.createPeerStream()).pipe(connection)
 })
 ```
 
