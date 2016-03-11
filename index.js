@@ -10,7 +10,6 @@ var from = require('from2')
 var through = require('through2')
 var pump = require('pump')
 var pumpify = require('pumpify')
-var octal = require('octal')
 var util = require('util')
 var events = require('events')
 var storage
@@ -20,9 +19,6 @@ else rabin = require('rabin')
 if (process.browser) storage = require('./lib/browser-storage')
 else storage = require('./lib/storage')
 var messages = require('./lib/messages')
-
-var DMODE = octal(755)
-var FMODE = octal(644)
 
 module.exports = Hyperdrive
 
@@ -381,8 +377,6 @@ Archive.prototype.append = function (entry, opts, cb) {
   if (typeof opts === 'function') return this.append(entry, null, opts)
   if (typeof entry === 'string') entry = {name: entry, type: 'file'}
   if (!entry.name) throw new Error('entry.name is required')
-  if (!entry.type && entry.mode) entry.type = modeToType(entry.mode)
-  if (entry.type && !entry.mode) entry.mode = entry.type === 'directory' ? DMODE : FMODE
   if (!opts) opts = {}
 
   var self = this
@@ -471,8 +465,8 @@ Archive.prototype.appendFile = function (filename, name, cb) {
 
     var opts = {filename: filename, stats: stats}
     var ws = self.append({
+      type: modeToType(st.mode),
       name: name,
-      mode: st.mode,
       size: 0,
       link: null
     }, opts, done)

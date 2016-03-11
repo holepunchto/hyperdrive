@@ -19,7 +19,6 @@
     "hypercore": "^1.5.0",
     "last-one-wins": "^1.0.3",
     "mkdirp": "^0.5.1",
-    "octal": "^1.0.0",
     "protocol-buffers": "^3.1.4",
     "pump": "^1.0.1",
     "pumpify": "^1.3.3",
