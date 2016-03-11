@@ -11,6 +11,7 @@ var through = require('through2')
 var pump = require('pump')
 var pumpify = require('pumpify')
 var util = require('util')
+var normalizeFilename = require('normalize-path')
 var events = require('events')
 var storage
 var rabin
@@ -385,6 +386,8 @@ Archive.prototype.append = function (entry, opts, cb) {
     append(null, cb)
     return null
   }
+
+  entry.name = normalizeFilename(entry.name) // for win32
 
   if (opts.filename === true) opts.filename = entry.name
 
