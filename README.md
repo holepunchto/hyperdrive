@@ -136,9 +136,9 @@ Read the entry metadata stored at `index`. An metadata entry looks like this
 }
 ```
 
-#### `var progress = archive.download(index, [callback])`
+#### `var progress = archive.download(index OR entry, [callback])`
 
-Downloads the file specified by index and calls the callback when done.
+Downloads the file specified by index or [entry](#archiveentryindex-callback) and calls the callback when done.
 You have to call this or create a file stream to download a file.
 
 Returns a [progress](#progress-stats-and-events) object.
