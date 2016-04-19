@@ -8,9 +8,6 @@ npm install hyperdrive
 
 [![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
 
-For a more detailed technical information on how it works see [SPECIFICATION.md](SPECIFICATION.md).
-If you are interested in only using the feed part of the spec see [hypercore](https://github.com/mafintosh/hypercore) which implements that.
-
 ## Usage
 
 First create a new feed to share
@@ -22,14 +19,16 @@ var level = require('level')
 var db = level('./hyperdrive.db')
 var drive = hyperdrive(db)
 
-var pack = drive.add('./some-folder')
+var archive = drive.createArchive()
+var ws = archive.createFileWriteStream('hello.txt') // add hello.txt
 
-pack.appendFile('my-file.txt', function (err) {
-  if (err) throw err
-  pack.finalize(function () {
-    var link = pack.id.toString('hex')
-    console.log(link, '<-- this is your hyperdrive link')
-  })
+ws.write('hello')
+ws.write('world')
+ws.end()
+
+archive.finalize(function () { // finalize the archive
+  var link = archive.key.toString('hex')
+  console.log(link, '<-- this is your hyperdrive link')
 })
 ```
 
@@ -43,11 +42,12 @@ var db = level('./another-hyperdrive.db')
 var drive = hyperdrive(db)
 
 var link = new Buffer('your-hyperdrive-link-from-the-above-example', 'hex')
+var archive = drive.createArchive(link)
 
 swarm.listen()
 swarm.join(link)
 swarm.on('connection', function (connection) {
-  connection.pipe(drive.createPeerStream()).pipe(connection)
+  connection.pipe(archive.replicate()).pipe(connection)
 })
 ```
 
@@ -55,11 +55,11 @@ If you run this code on multiple computers you should be able to access
 the content in the feed by doing
 
 ``` js
-var archive = drive.get(link, './folder-to-store-data-in') // the link identifies/verifies the content
+var archive = drive.createArchive(link) // the link identifies/verifies the content
 
-archive.entry(0, function (err, entry) { // get the first entry
-  console.log(entry) // prints {name: 'my-file.txt', ...}
-  var stream = archive.createFileStream(0)
+archive.stat(0, function (err, entry) { // get the first file entry
+  console.log(entry) // prints {name: 'hello.txt', ...}
+  var stream = archive.createFileReadStream(entry)
   stream.on('data', function (data) {
     console.log(data) // <-- file data
   })
@@ -69,114 +69,104 @@ archive.entry(0, function (err, entry) { // get the first entry
 })
 ```
 
+If you want to write/read files to the file system provide a storage driver as the file option
+
+``` js
+var raf = require('random-access-file') // a storage driver that writes to the file system
+var archive = drive.createArchive({
+  file: function (name) {
+    return raf('my-download-folder/' + name)
+  }
+})
+```
+
 ## API
 
 #### `var drive = hyperdrive(db)`
 
 Create a new hyperdrive instance. db should be a [levelup](https://github.com/level/levelup) instance.
-You can add a folder to store the file data in as the second argument.
 
-#### `var stream = drive.createPeerStream()`
+#### `var archive = drive.createArchive([key], [options])`
 
-Create a new peer replication duplex stream. This stream should be piped together with another
-peer stream somewhere else to start replicating the feeds
-
-#### `var archive = drive.add([basefolder])`
-
-Add a new archive to share. `basefolder` will be the root of this archive.
-
-#### `var archive = drive.get(id, [basefolder])`
-
-Retrive a finalized archive.
-
-#### `archive.on('file-download', entry, data)`
-
-Emitted when a data block is downloaded for a file.
-
-#### `archive.on('file-upload', entry, data)`
-
-Emitted when a data block is uploaded for a file.
-
-#### `archive.on('file-downloaded', entry)`
-
-Emitted when a file is fully downloaded.
-
-#### `archive.append(entry, [opts], [callback])`
-
-Either returns a write stream if entry is a file or returns `null` if it is directory. Calls callback when the entry has finished writing.
-
-#### `var progress = archive.appendFile(filename, [name], [callback])`
-
-Append a file to a non-finalized archive. If you don't specify `name` the entry will be called `filename`.
-
-Returns a [progress](#progress-stats-and-events) object.
-
-#### `archive.finalize([callback])`
-
-Finalize an archive. After an archive is finalized it will be sharable and will have a `.id` property.
-
-#### `archive.ready(callback)`
-
-Wait for the archive to be ready. Afterwards `archive.entries` will contain the total amount of entries available.
-
-#### `archive.entry(index, callback)`
-
-Read the entry metadata stored at `index`. An metadata entry looks like this
+Creates an archive instance. If you want to download/upload an existing archive provide the archive key
+as the first argument. Options include
 
 ``` js
 {
-  type: 'file-or-directory',
-  name: 'filename',
-  mode: fileMode,
-  size: fileSize,
-  uid: optionalUid,
-  gid: optionalGid,
-  mtime: optionalMtimeInSeconds,
-  ctime: optionalCtimeInSeconds
+  live: false, // set this to share the archive without finalizing it
+  file: function (name) {
+    // set this to determine how file data is stored.
+    // the storage instance should implement the hypercore storage api
+    // https://github.com/mafintosh/hypercore#storage-api
+    return someStorageInstance
+  }
 }
 ```
 
-#### `var progress = archive.download(index OR entry, [callback])`
+If you do not provide the file option all file data is stored in the leveldb.
 
-Downloads the file specified by index or [entry](#archiveentryindex-callback) and calls the callback when done.
-You have to call this or create a file stream to download a file.
+#### `archive.key`
 
-Returns a [progress](#progress-stats-and-events) object.
+A buffer that verifies the archive content. In live mode this is a 32 byte public key.
+Otherwise it is a 32 byte hash.
 
-#### `archive.lookup(name, callback)`
+#### `archive.append(entry, callback)`
 
-Get metadata for file specified by name and calls `callback` when done.
-Callback will return entry as second argument. If no file is found `callback` will be called without a second argument.
+Append an entry to the archive. Only possible if this is an live archive you originally created
+or an unfinalized archive.
 
-You can use the entry to download the file: `archive.download(entry)`.
+If you set the file option in the archive constructor you can use this method to append an already
+existing file to the archive.
 
-#### `var rs = archive.createFileStream(index)`
-
-Create a stream to a file.
-
-#### `var rs = archive.createEntryStream()`
-
-Stream out all metadata entries
-
-#### `progress` Stats and Events
-
-A progress object is returned for `archive.download` and `archive.appendFile`. The progress object will contain stats for a single download/append:
-
-```javascript
-  {
-    bytesRead: 0, // Bytes Downloaded/Append Progress
-    bytesTotal: 0, // Total Size of File
-    bytesInitial: 0 // Previous download progress (file was partially downloaded, then stopped)
+``` js
+var archive = drive.createArchive({
+  file: function (name) {
+    console.log('returning storage for', name)
+    return raf(name)
   }
+})
+
+archive.append('hello.txt', function () {
+  console.log('hello.txt was read and appended')
+})
 ```
 
-##### `progress.on('ready')`
+#### `archive.finalize([callback])`
 
-Emitted when a file download/read is ready. Will emit when progress object has `bytesTotal` and `bytesInitial` set, `bytesRead` will be 0.
+Finalize the archive. You need to do this before sharing it if the archive is not live.
 
-##### `progress.on('end')`
+#### `archive.get(index, callback)`
 
-Emitted when a file download/read is done.
+Reads an entry from the archive.
+
+#### `archive.download(index, callback)`
+
+Fully downloads a file / entry from the archive and calls the callback afterwards.
+
+#### `archive.on('download', data)`
+
+Emitted every time a piece of data is downloaded
+
+#### `archive.on('upload', data)`
+
+Emitted every time a piece of data is uploaded
+
+#### `var rs = archive.list()`
+
+Returns a readable stream of all entries in the archive.
+
+#### `var rs = archive.createFileReadStream(entry)`
+
+Returns a readable stream of the file content of an file in the archive.
+
+#### `var ws = archive.createFileWriteStream(entry)`
+
+Returns a writable stream that writes a new file to the archive. Only possible if the archive is live and you own it
+or if the archive is not finalized.
+
+#### `var stream = archive.replicate()`
+
+Pipe this stream together with another peer that is interested in the same archive to replicate the content.
 
 ## License
 

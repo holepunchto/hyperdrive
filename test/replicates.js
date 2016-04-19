@@ -1,43 +1,47 @@
 var tape = require('tape')
 var memdb = require('memdb')
-var os = require('os')
 var path = require('path')
 var fs = require('fs')
-var mkdirp = require('mkdirp')
+var raf = require('random-access-file')
 var hyperdrive = require('../')
 
 tape('replicates file', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
 
-  var archive = drive.add('.')
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name))
+    }
+  })
 
-  archive.appendFile(__filename, 'test.js', function (err) {
+  archive.append('replicates.js', function (err) {
     t.error(err, 'no error')
-    archive.finalize(function (err) {
+  })
+
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
+
+    var clone = driveClone.createArchive(archive.key)
+    var buf = []
+
+    clone.download(0, function (err) {
       t.error(err, 'no error')
 
-      var tmp = path.join(os.tmpdir(), 'hyperdrive-' + process.pid + '-' + Date.now())
-      var clone = driveClone.get(archive.id, tmp)
-
-      clone.download(0, function () {
-        var buf = []
-        clone.createFileStream(0)
-          .on('data', function (data) {
-            buf.push(data)
-          })
-          .on('end', function () {
-            t.same(Buffer.concat(buf), fs.readFileSync(__filename))
-            t.same(fs.readFileSync(path.join(tmp, 'test.js')), fs.readFileSync(__filename))
-            t.end()
-          })
-      })
-
-      var p1 = drive.createPeerStream()
-      var p2 = driveClone.createPeerStream()
-
-      p1.pipe(p2).pipe(p1)
+      clone.createFileReadStream(0)
+        .on('data', function (data) {
+          buf.push(data)
+        })
+        .on('end', function () {
+          t.same(Buffer.concat(buf), fs.readFileSync(__filename))
+          t.end()
+        })
     })
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
   })
 })
 
@@ -45,94 +49,65 @@ tape('replicates empty files', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
 
-  var tmp = path.join(os.tmpdir(), 'hyperdrive-' + process.pid + '-' + Date.now())
-  var emptyFile = path.join(tmp, 'empty.txt')
+  var archive = drive.createArchive()
 
-  mkdirp(path.dirname(emptyFile), function (err) {
-    if (err) throw err
-    fs.open(emptyFile, 'a', function (err, fd) {
-      if (err) throw err
-      fs.close(fd, appendFile)
-    })
-  })
+  var ws = archive.createFileWriteStream('empty.txt')
+  ws.end()
 
-  var archive = drive.add(tmp)
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
 
-  function appendFile () {
-    archive.appendFile(emptyFile, 'empty.txt', function (err) {
+    var clone = driveClone.createArchive(archive.key)
+
+    clone.get(0, function (err, entry) {
       t.error(err, 'no error')
-      archive.finalize(function (err) {
+      t.same(entry.name, 'empty.txt')
+      t.same(entry.length, 0, 'empty')
+
+      clone.download(0, function (err) {
         t.error(err, 'no error')
-
-        var tmp2 = path.join(os.tmpdir(), 'hyperdrive-2-' + process.pid + '-' + Date.now())
-        var clone = driveClone.get(archive.id, tmp2)
-
-        clone.download(0, function () {
-          clone.createFileStream(0)
-            .on('data', function (data) {
-
-            })
-            .on('end', function () {
-              t.same(
-                fs.readFileSync(emptyFile),
-                fs.readFileSync(path.join(tmp2, 'empty.txt')),
-                'empty file copied over'
-              )
-              t.end()
-            })
-        })
-
-        var p1 = drive.createPeerStream()
-        var p2 = driveClone.createPeerStream()
-
-        p1.pipe(p2).pipe(p1)
+        t.end()
       })
     })
-  }
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
 })
 
 tape('replicates empty directories', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
 
-  var tmp = path.join(os.tmpdir(), 'hyperdrive-' + process.pid + '-' + Date.now())
-  var emptyDir = path.join(tmp, 'empty')
+  var archive = drive.createArchive()
 
-  mkdirp(emptyDir, function (err) {
-    if (err) throw err
-    appendDir()
+  archive.append({
+    type: 'directory',
+    name: 'a-dir'
   })
 
-  var archive = drive.add(tmp)
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
 
-  function appendDir () {
-    archive.appendFile(emptyDir, 'empty', function (err) {
+    var clone = driveClone.createArchive(archive.key)
+
+    clone.get(0, function (err, entry) {
       t.error(err, 'no error')
-      archive.finalize(function (err) {
+      t.same(entry.type, 'directory')
+      t.same(entry.name, 'a-dir')
+      t.same(entry.length, 0, 'empty')
+
+      clone.download(0, function (err) {
         t.error(err, 'no error')
-
-        var tmp2 = path.join(os.tmpdir(), 'hyperdrive-2-' + process.pid + '-' + Date.now())
-        var clone = driveClone.get(archive.id, tmp2)
-
-        clone.download(0, function () {
-          clone.createFileStream(0)
-            .on('data', function (data) {
-              // nothing to do with empty dirs
-            })
-            .on('end', function () {
-              fs.stat(path.join(tmp2, 'empty'), function (err, stats) {
-                t.error(err, 'no stats error')
-                t.ok(stats, 'empty dir copied')
-                t.end()
-              })
-            })
-        })
-
-        var p1 = drive.createPeerStream()
-        var p2 = driveClone.createPeerStream()
-
-        p1.pipe(p2).pipe(p1)
+        t.end()
       })
     })
-  }
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
 })

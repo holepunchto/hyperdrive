@@ -1,510 +1,481 @@
-var constants = require('constants')
+var inherits = require('inherits')
+var events = require('events')
+var thunky = require('thunky')
 var hypercore = require('hypercore')
-var sublevel = require('subleveldown')
-var fs = require('fs')
-var mkdirp = require('mkdirp')
 var bulk = require('bulk-write-stream')
-var path = require('path')
-var deltas = require('delta-list')
 var from = require('from2')
-var through = require('through2')
+var rabin = process.browser ? require('through2') : require('rabin')
 var pump = require('pump')
 var pumpify = require('pumpify')
-var util = require('util')
-var normalizeFilename = require('normalize-path')
-var events = require('events')
-var storage
-var rabin
-if (process.browser) rabin = through
-else rabin = require('rabin')
-if (process.browser) storage = require('./lib/browser-storage')
-else storage = require('./lib/storage')
-var messages = require('./lib/messages')
+var collect = require('stream-collector')
+var messages = require('./messages')
+var storage = require('./storage')
 
-module.exports = Hyperdrive
+module.exports = Drive
 
-function Hyperdrive (db) {
-  if (!(this instanceof Hyperdrive)) return new Hyperdrive(db)
-  var self = this
-
-  this.db = db
-  this.drives = sublevel(db, 'drives', {valueEncoding: 'binary'})
-  this.core = hypercore(db, {
-    storage: function (feed) {
-      return storage(self, feed)
-    }
-  })
+function Drive (db, opts) {
+  if (!(this instanceof Drive)) return new Drive(db, opts)
+  this.core = hypercore(db, opts)
 }
 
-// Hyperdrive.prototype.list = function () {
-//   return this.drives.createKeyStream()
-// }
-
-Hyperdrive.prototype.createPeerStream = function () {
-  return this.core.createPeerStream()
+Drive.prototype.replicate = function () {
+  return this.core.replicate()
 }
 
-Hyperdrive.prototype.get = function (id, folder) {
-  if (!folder || !id) throw new Error('id and folder required')
-  return new Archive(this, folder, id)
+Drive.prototype.createArchive = function (key, opts) {
+  if (typeof key === 'object' && !Buffer.isBuffer(key) && key) {
+    opts = key
+    key = null
+  }
+
+  return new Archive(this, key, opts)
 }
 
-Hyperdrive.prototype.add = function (folder) {
-  if (!folder) throw new Error('folder required')
-  return new Archive(this, folder, null)
-}
-
-function Progress () {
-  this.bytesInitial = 0
-  this.bytesRead = 0
-  this.bytesTotal = 0
+function Archive (drive, key, opts) {
   events.EventEmitter.call(this)
+  var self = this
+
+  this.options = opts || {}
+  this.drive = drive
+  this.live = this.options.live = !key && !!this.options.live
+  this.metadata = drive.core.createFeed(key, this.options)
+  this.content = null
+  this.key = key || this.metadata.key
+  this.owner = !key
+  this.open = thunky(open)
+
+  this._appending = []
+  this._indexBlock = -1
+  this._finalized = false
+
+  function open (cb) {
+    self._open(cb)
+  }
 }
 
-util.inherits(Progress, events.EventEmitter)
+inherits(Archive, events.EventEmitter)
 
-Progress.prototype.end = function (err) {
-  if (!err) return this.emit('end')
-  if (this.listeners('error').length) this.emit('error', err)
-  return
+Archive.prototype.replicate = function (stream) {
+  assertRepliction(this)
+
+  var self = this
+  if (!stream) stream = this.metadata.replicate()
+
+  this.open(function (err) {
+    if (err) return stream.destroy(err)
+    self.metadata.join(stream)
+    if (self.content.key) self.content.join(stream)
+  })
+
+  return stream
 }
 
-function Archive (drive, folder, id) {
-  events.EventEmitter.call(this)
+Archive.prototype.unreplicate = function (stream) {
+  assertRepliction(this)
 
   var self = this
 
-  this.id = id
-  this.directory = folder
-  this.core = drive.core
-  this.entries = 0
-  this.metadata = {type: 'hyperdrive'}
-  this.stats = {
-    bytesRead: 0,
-    bytesDownloaded: 0,
-    filesRead: 0,
-    filesDownloaded: 0
-  }
-
-  this._first = true
-
-  if (!id) {
-    this.feed = this.core.add({filename: null})
-  } else {
-    this.feed = this.core.get(id)
-    this.feed.get(0, onmetadata)
-  }
-
-  this.feed.on('put', function (block, data) {
-    self.stats.bytesDownloaded += data.length
-    self.emit('download', data, block)
+  this.open(function (err) {
+    if (err) return stream.destroy(err)
+    self.metadata.leave(stream)
+    if (self.content.key) self.content.leave(stream)
   })
 
-  this.feed.ready(function (err) {
-    if (err) return
-    self.entries = self.feed.blocks - 1
-    self.emit('ready')
-  })
-
-  function onmetadata (err, json) {
-    if (err) self.emit('error', err)
-
-    var doc
-
-    try {
-      doc = JSON.parse(json.toString())
-    } catch (err) {
-      // do nothing
-    }
-
-    if (!doc || doc.type !== 'hyperdrive') {
-      self.emit('error', new Error('feed is not a hyperdrive'))
-    } else {
-      self.metadata = doc
-      self.emit('metadata')
-    }
-  }
+  return stream
 }
 
-util.inherits(Archive, events.EventEmitter)
-
-Archive.prototype.close = function (cb) {
-  this.feed.close(cb)
-}
-
-Archive.prototype.lookup = function (name, cb) {
-  // TODO: use binary search or something more performant
-  var stream = this.createEntryStream()
-  var found = false
-  stream.on('data', function (entry) {
-    if (found || entry.name !== name) return
-    found = true
-    stream.destroy()
-    cb(null, entry)
-  })
-  stream.on('error', cb)
-  stream.on('end', function () {
-    stream.removeListener('error', cb)
-    if (!found) cb(null)
-  })
-}
-
-Archive.prototype.ready = function (cb) {
-  this.feed.ready(cb)
-}
-
-Archive.prototype.download = function (i, cb) {
-  if (!cb) cb = noop
-
-  var ptr = 0
+Archive.prototype.list = function (cb) {
   var self = this
-  var stats = new Progress()
+  var opened = false
   var offset = 0
+  var live = !cb
 
-  if (typeof i === 'number') this.entry(i, onentry)
-  else onentry(null, i)
+  return collect(from.obj(read), cb)
 
-  return stats
+  function read (size, cb) {
+    if (!opened) return open(size, cb)
+    if (offset === self._indexBlock) offset++
+    if (offset === self.metadata.blocks && !live) return cb(null, null)
 
-  function onentry (err, entry) {
-    if (err) return cb(err)
+    self.metadata.get(offset++, function (err, buf) {
+      if (err || !buf) return cb(err, buf)
 
-    var feed = self._getFeed(entry)
-    var dest = join(self.directory, entry.name)
-
-    if (!feed) return createEmptyEntry()
-
-    feed.on('put', kick)
-    feed.open(kick)
-    stats.bytesTotal = entry.size
-
-    if (feed._storage) onstorage(feed._storage)
-    else feed.on('_storage', onstorage)
-
-    function onstorage (storage) {
-      if (!storage._bytesWritten) return
-      storage._bytesWritten(function (_, bytes) {
-        if (bytes) {
-          stats.bytesInitial = bytes - offset
-          stats.bytesRead = bytes
-        }
-        stats.emit('ready')
-      })
-    }
-
-    function kick (block, data) {
-      if (!feed.blocks) return
-
-      if (data && this === feed && entry.link && block < feed.blocks - entry.link.index.length) {
-        stats.bytesRead += data.length
-        offset += data.length
-      }
-      for (; ptr < feed.blocks; ptr++) {
-        if (!feed.has(ptr)) return
+      try {
+        var entry = messages.Entry.decode(buf)
+        entry.type = toTypeString(entry.type)
+      } catch (err) {
+        return cb(err)
       }
 
-      if (process.browser) return done()
+      cb(null, entry)
+    })
+  }
 
-      fs.stat(dest, function (_, st) {
-        feed.removeListener('put', kick)
-
-        // the size check probably isn't nessary here...
-        if (st && st.size === entry.size) return done(null)
-
-        // duplicate - just copy it in
-        mkdirp(path.dirname(dest), function () {
-          pump(self.createFileStream(entry), fs.createWriteStream(dest), done)
-        })
-      })
-    }
-
-    function done (err) {
-      if (!err) self.stats.filesDownloaded++
-      stats.bytesRead = stats.bytesTotal
-      stats.end(err)
-      cb(err)
-    }
-
-    function createEmptyEntry () {
-      var dir = dest
-      if (entry.type === 'file') dir = path.dirname(dest)
-      mkdirp(dir, function (err) {
-        if (err) return cb(err)
-        if (entry.type !== 'file') return done(err)
-        fs.open(dest, 'a', function (err, fd) {
-          if (err) return cb(err)
-          fs.close(fd, done)
-        })
-      })
-
-      function done (err) {
-        stats.emit('ready')
-        stats.end(err)
-        self.emit('file-downloaded', entry)
-        cb(err)
-      }
-    }
+  function open (size, cb) {
+    opened = true
+    self.open(function (err) {
+      if (err) return cb(err)
+      if (!self.live) live = false
+      read(size, cb)
+    })
   }
 }
 
-Archive.prototype.select = function (i, cb) {
-  if (!cb) cb = noop
-
+Archive.prototype.get = function (index, cb) {
+  if (typeof index === 'object' && index.name) return cb(null, index)
   var self = this
 
-  if (typeof i === 'number') this.entry(i, onentry)
-  else onentry(null, i)
-
-  function onentry (err, entry) {
+  this.open(function (err) {
     if (err) return cb(err)
-    if (!entry || !entry.link) return cb(null, null)
-    cb(null, self._getFeed(entry))
-  }
-}
+    if (self._indexBlock <= index && self._indexBlock > -1) index++
 
-Archive.prototype.deselect = function (i, cb) {
-  throw new Error('not yet implemented')
-}
+    self.metadata.get(index, function (err, buf) {
+      if (err) return cb(err)
+      if (!buf) return cb(null, null)
 
-Archive.prototype.entry = function (i, cb) {
-  this.feed.get(i + 1, function (err, data) {
-    if (err) return cb(err)
-    if (!data) return cb(null, null)
-    cb(null, messages.Entry.decode(data))
+      try {
+        var entry = messages.Entry.decode(buf)
+        entry.type = toTypeString(entry.type)
+      } catch (err) {
+        return cb(err)
+      }
+
+      cb(null, entry)
+    })
   })
 }
 
 Archive.prototype.finalize = function (cb) {
   if (!cb) cb = noop
   var self = this
-  this.feed.finalize(function (err) {
-    if (err) return cb(err)
-    self.id = self.feed.id
-    self.entries = self.feed.blocks - 1
-    cb()
-  })
-}
 
-Archive.prototype.createEntryStream = function (opts) {
-  if (!opts) opts = {}
-  var start = opts.start || 0
-  var limit = opts.limit || Infinity
-  var self = this
-  return from.obj(read)
+  this.open(function (err) {
+    if (err) return done(err)
 
-  function read (size, cb) {
-    if (limit-- === 0) return cb(null, null)
-    self.entry(start++, cb)
-  }
-}
+    self._finalized = true
 
-Archive.prototype._getFeed = function (entry) {
-  if (!entry.link) return null
-
-  var self = this
-  var done = false
-  var contentBlocks = entry.link.blocks - entry.link.index.length
-  var feed = this.core.get(entry.link.id, {
-    filename: join(this.directory, entry.name),
-    index: deltas.unpack(entry.link.index),
-    contentBlocks: contentBlocks
-  })
-
-  var ptr = 0
-
-  feed.on('put', function (block, data) {
-    self.emit('file-download', entry, data, block)
-    kick()
-  })
-
-  feed.on('get', function (block, data) {
-    self.emit('file-upload', entry, data, block)
-  })
-
-  feed.open(function (err) {
-    if (err) return
-    kick()
-    for (var i = 0; i < entry.link.index.length; i++) {
-      if (!feed.has(i + contentBlocks)) feed.want.push({block: i + contentBlocks, callback: noop, critical: true})
-    }
-  })
-
-  return feed
-
-  function kick () {
-    if (done || !feed.blocks) return
-    for (; ptr < feed.blocks; ptr++) {
-      if (!feed.has(ptr)) return
-    }
-    done = true
-    self.emit('file-downloaded', entry)
-  }
-}
-
-Archive.prototype.createFileCursor = function (i, opts) {
-  throw new Error('not yet implemented')
-}
-
-Archive.prototype.createFileStream = function (i, opts) { // TODO: expose random access stuff
-  if (!opts) opts = {}
-  var start = opts.start || 0
-  var limit = opts.limit || Infinity
-  var self = this
-  var feed = null
-  return from.obj(read)
-
-  function read (size, cb) {
-    if (feed) {
-      if (limit-- === 0) return cb(null, null)
-      feed.get(start++, cb)
+    if (self._appending.length) {
+      self.once('idle', function () {
+        self.finalize(cb)
+      })
       return
     }
 
-    if (typeof i === 'string') self.lookup(i, onentry)
-    else if (typeof i === 'number') self.entry(i, onentry)
-    else onentry(null, i)
+    self.content.finalize(function (err) {
+      if (err) return done(err)
+      if (self._indexBlock > -1) return self.metadata.finalize(done)
+      self._writeIndex(function (err) {
+        if (err) return done(err)
+        self.metadata.finalize(done)
+      })
+    })
+  })
 
-    function onentry (err, entry) {
+  function done (err) {
+    if (err) return cb(err)
+    self.key = self.metadata.key
+    cb(null)
+  }
+}
+
+Archive.prototype.createFileWriteStream = function (entry, opts) {
+  assertFinalized(this)
+
+  if (typeof entry === 'string') entry = {name: entry}
+  if (!entry.type) entry.type = 'file'
+  if (!opts) opts = {}
+
+  var self = this
+  var opened = false
+  var start = 0
+  var stream = pumpify(rabin(), bulk.obj(write, end))
+
+  entry.length = 0
+  this._appending.push(stream)
+
+  stream.on('finish', remove)
+  stream.on('close', remove)
+  stream.on('error', remove)
+
+  return stream
+
+  function remove () {
+    var i = self._appending.indexOf(stream)
+    if (i > -1) {
+      self._appending.splice(i, 1)
+      if (self._appending.length) self._appending[0].emit('continue')
+      else self.emit('idle')
+    }
+  }
+
+  function open (buffers, cb) {
+    opened = true
+    self.open(function (err) {
       if (err) return cb(err)
-      if (!entry.link) return cb(null, null)
-      feed = self._getFeed(entry)
-      limit = Math.min(limit, entry.link.blocks - entry.link.index.length)
-      read(0, cb)
+
+      if (self._appending.indexOf(stream) !== 0) {
+        stream.once('continue', function () {
+          open(buffers, cb)
+        })
+      } else {
+        start = self.content.blocks
+        if (self.options.storage) {
+          self.options.storage.openAppend(entry.name, opts.indexing)
+        }
+        write(buffers, cb)
+      }
+    })
+  }
+
+  function write (buffers, cb) {
+    if (!opened) return open(buffers, cb)
+    for (var i = 0; i < buffers.length; i++) entry.length += byteLength(buffers[i])
+    self.content.append(buffers, cb)
+  }
+
+  function end (cb) {
+    entry.blocks = self.content.blocks - start
+    if (self.options.storage) self.options.storage.closeAppend(done)
+    else done(null)
+
+    function done (err) {
+      if (err) return cb(err)
+      self._writeEntry(entry, cb)
     }
   }
 }
 
-Archive.prototype.append = function (entry, opts, cb) {
-  if (typeof opts === 'function') return this.append(entry, null, opts)
-  if (typeof entry === 'string') entry = {name: entry, type: 'file'}
-  if (!entry.name) throw new Error('entry.name is required')
-  if (!opts) opts = {}
-
+Archive.prototype.createFileReadStream = function (entry) {
   var self = this
+  var opened = false
+  var start = 0
+  var end = 0
 
-  if (entry.type !== 'file') {
-    append(null, cb)
-    return null
+  return from(read)
+
+  function read (size, cb) {
+    if (!opened) return open(size, cb)
+    if (start >= end) return cb(null, null)
+    self.content.get(start++, cb)
   }
 
-  entry.name = normalizeFilename(entry.name) // for win32
-
-  if (opts.filename === true) opts.filename = entry.name
-
-  var size = 0
-  var stats = opts.stats
-  var feed = this.core.add({filename: opts.filename && path.resolve(this.directory, opts.filename)})
-  var stream = pumpify(rabin(), bulk(write, end))
-
-  feed.on('get', function (block, data) {
-    self.emit('file-upload', entry, data, block)
-  })
-
-  if (cb) {
-    stream.on('error', cb)
-    stream.on('finish', forward)
-  }
-
-  return stream
-
-  function forward () {
-    cb(null, entry)
-  }
-
-  function append (link, cb) {
-    if (link) self.stats.filesRead++
-    entry.size = size
-    entry.link = link
-    if (self._first) {
-      // first block is gonna be a human readable metadata block
-      // this makes updating the protocol easier in the future
-      self.feed.append(JSON.stringify(self.metadata))
-      self._first = false
-    }
-    self.feed.append(messages.Entry.encode(entry), done)
-
-    function done (err) {
+  function open (size, cb) {
+    opened = true
+    self._range(entry, function (err, startBlock, endBlock) {
       if (err) return cb(err)
-      self.entries++
-      cb(null)
-    }
-  }
-
-  function write (buffers, cb) {
-    for (var i = 0; i < buffers.length; i++) {
-      size += buffers[i].length
-      if (stats) stats.bytesRead += buffers[i].length
-      self.stats.bytesRead += buffers[i].length
-    }
-    feed.append(buffers, cb)
-  }
-
-  function end (cb) {
-    feed.finalize(function (err) {
-      if (err) return cb(err)
-      if (!feed.id) return append(null, cb)
-
-      var link = {
-        id: feed.id,
-        blocks: feed.blocks,
-        index: deltas.pack(feed._storage._index)
-      }
-
-      append(link, cb)
+      start = startBlock
+      end = endBlock
+      read(size, cb)
     })
   }
 }
 
-Archive.prototype.appendFile = function (filename, name, cb) {
-  if (typeof name === 'function') return this.appendFile(filename, null, name)
+Archive.prototype.append = function (entry, cb) {
   if (!cb) cb = noop
-  if (!name) name = filename
+  assertFinalized(this)
+
+  if (typeof entry === 'string') entry = {name: entry}
+  if (!entry.type) entry.type = messages.TYPE.FILE
 
   var self = this
-  var stats = new Progress()
 
-  fs.lstat(filename, function (err, st) {
-    if (err) return done(err)
+  this.open(function (err) {
+    if (err) return cb(err)
 
-    var opts = {filename: filename, stats: stats}
-    var ws = self.append({
-      type: modeToType(st.mode),
-      name: name,
-      size: 0,
-      link: null
-    }, opts, done)
+    if (entry.type === messages.TYPE.FILE) {
+      if (!self.options.storage) throw new Error('Set options.file to append files')
 
-    stats.bytesTotal = st.size
-    stats.emit('ready')
-
-    if (ws) {
-      var readStream = fs.createReadStream(path.resolve(self.directory, filename))
-      pump(readStream, ws)
+      var rs = fileReadStream(self.options.file(entry.name, self.options))
+      var ws = self.createFileWriteStream(entry, {indexing: true})
+      pump(rs, ws, cb)
+    } else {
+      // we rely on these internally so we override them here to avoid an external
+      // user messing them up
+      entry.length = 0
+      entry.blocks = 0
+      self._writeEntry(entry, cb)
     }
   })
+}
 
-  return stats
+Archive.prototype.download = function (entry, cb) {
+  var self = this
 
-  function done (err) {
-    stats.end(err)
-    cb(err)
+  this._range(entry, function (err, start, end) {
+    if (err) return cb(err)
+
+    self.content.on('download', kick)
+    kick()
+
+    function kick () {
+      while (true) {
+        if (start === end) return done()
+        if (!self.content.has(start)) return
+        start++
+      }
+    }
+
+    function done () {
+      self.content.removeListener('download', kick)
+      cb()
+    }
+  })
+}
+
+Archive.prototype._range = function (entry, cb) {
+  var startBlock = 0
+  var self = this
+
+  this.get(entry, function (err, result) {
+    if (err) return cb(err)
+
+    var name = result.name
+    var i = 0
+
+    self.get(i, loop)
+
+    function loop (err, st) {
+      if (err) return cb(err)
+      if (st.name === name) return cb(null, startBlock, startBlock + st.blocks)
+      startBlock += st.blocks
+      self.get(++i, loop)
+    }
+  })
+}
+
+Archive.prototype._open = function (cb) {
+  var self = this
+
+  this.metadata.open(function (err) {
+    if (err) return cb(err)
+
+    if (!self.owner && self.metadata.secretKey) self.owner = true // TODO: hypercore should tell you this
+
+    if (!self.owner || self.metadata.blocks) waitForIndex(null)
+    else onindex(null)
+  })
+
+  function waitForIndex (err) {
+    if (err) return cb(err)
+    if (!self.metadata.blocks) return self.metadata.get(0, waitForIndex)
+    self._indexBlock = self.metadata.live ? 0 : self.metadata.blocks - 1
+
+    self.metadata.get(self._indexBlock, function (err, buf) {
+      if (err) return cb(err)
+
+      try {
+        var index = messages.Index.decode(buf)
+      } catch (err) {
+        return cb(err)
+      }
+
+      if (index.version && index.version !== 0) {
+        return cb(new Error('Archive is using an updated version of hyperdrive. Please upgrade.'))
+      }
+
+      onindex(index)
+    })
   }
+
+  function onindex (index) {
+    if (self.options.file) self.options.storage = storage(self)
+    self.options.key = index && index.content
+    self.content = self.drive.core.createFeed(null, self.options)
+
+    self.content.on('download', function (block, data) {
+      self.emit('download', data)
+    })
+
+    self.content.on('upload', function (block, data) {
+      self.emit('upload', data)
+    })
+
+    if (self.metadata.live && !index) self._writeIndex(opened)
+    else opened(null)
+  }
+
+  function opened (err) {
+    if (err) return cb(err)
+    self.content.open(cb)
+  }
+}
+
+Archive.prototype._writeIndex = function (cb) {
+  var index = {version: 0, content: this.content.key}
+  this._indexBlock = this.metadata.blocks
+  this.metadata.append(messages.Index.encode(index), cb)
+}
+
+Archive.prototype._writeEntry = function (entry, cb) {
+  entry.type = toTypeNumber(entry.type)
+  this.metadata.append(messages.Entry.encode(entry), cb)
 }
 
 function noop () {}
 
-function modeToType (mode) { // from tar-stream
-  switch (mode & constants.S_IFMT) {
-    case constants.S_IFBLK: return 'block-device'
-    case constants.S_IFCHR: return 'character-device'
-    case constants.S_IFDIR: return 'directory'
-    case constants.S_IFIFO: return 'fifo'
-    case constants.S_IFLNK: return 'symlink'
-  }
-
-  return 'file'
+function byteLength (buf) {
+  return Buffer.isBuffer(buf) ? buf.length : Buffer.byteLength(buf)
 }
 
-function join (a, b) {
-  return path.join(a, path.resolve('/', b))
+function fileReadStream (store) {
+  var opened = false
+  var offset = 0
+
+  return from(read)
+
+  function read (size, cb) {
+    if (!opened) return open(size, cb)
+    var len = Math.min(65536, store.length - offset)
+    if (!len) return close(cb)
+    var off = offset
+    offset += len
+    store.read(off, len, cb)
+  }
+
+  function close (cb) {
+    if (!store.close) return cb(null, null)
+    store.close(function (err) {
+      if (err) return cb(err)
+      cb(null, null)
+    })
+  }
+
+  function open (size, cb) {
+    opened = true
+    if (!store.open) return read(size, cb)
+    store.open(function (err) {
+      if (err) return cb(err)
+      read(size, cb)
+    })
+  }
+}
+
+function assertRepliction (self) {
+  if (!self.key) throw new Error('Finalize the archive before replicating it')
+}
+
+function assertFinalized (self) {
+  if (self._finalized && !self.metadata.live) throw new Error('Cannot append any entries after the archive is finalized')
+}
+
+function toTypeString (t) {
+  switch (t) {
+    case 0: return 'file'
+    case 1: return 'directory'
+    case 2: return 'symlink'
+    case 3: return 'hardlink'
+  }
+
+  return 'unknown'
+}
+
+function toTypeNumber (t) {
+  switch (t) {
+    case 'file': return 0
+    case 'directory': return 1
+    case 'symlink': return 2
+    case 'hardlink': return 3
+  }
+
+  return 0
 }

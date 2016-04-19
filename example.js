@@ -1,24 +1,38 @@
-var hyperdrive = require('hyperdrive')
-var memdb = require('memdb')
+var raf = require('random-access-file')
+var path = require('path')
+var hyperdrive = require('./')
 
-var drive = hyperdrive(memdb())
-var drive2 = hyperdrive(memdb())
+var drive = hyperdrive(require('memdb')())
+var otherDrive = hyperdrive(require('memdb')())
 
-var archive = drive.add('.')
+var archive = drive.createArchive({
+  file: function (name) {
+    return raf(path.join(__dirname, name))
+  }
+})
 
-archive.appendFile('index.js', function (err) {
+archive.append('example.js')
+archive.append('index.js')
+
+archive.finalize(function (err) {
   if (err) throw err
-  archive.finalize(function (err) {
-    if (err) throw err
-    console.log(archive.id)
 
-    var clone = drive2.get(archive.id, 'clone')
+  var otherArchive = otherDrive.createArchive(archive.key)
+  var stream = otherArchive.replicate()
 
-    clone.select(0)
+  stream.pipe(archive.replicate()).pipe(stream)
 
-    var p1 = drive.createPeerStream()
-    var p2 = drive2.createPeerStream()
+  console.log('Archive key is ' + archive.key.toString('hex'))
 
-    p1.pipe(p2).pipe(p1)
+  otherArchive.on('download', function (data) {
+    console.log('(downloaded %d bytes)', data.length)
+  })
+
+  otherArchive.download(0, function () {
+    console.log('first entry was downloaded')
+  })
+
+  otherArchive.download(1, function () {
+    console.log('second entry was downloaded')
   })
 })
