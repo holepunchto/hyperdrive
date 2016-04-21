@@ -46,6 +46,7 @@ Hyperdrive.prototype.createPeerStream = function () {
 
 Hyperdrive.prototype.get = function (id, folder) {
   if (!folder || !id) throw new Error('id and folder required')
+  id = new Buffer(id, 'hex')
   return new Archive(this, folder, id)
 }
 

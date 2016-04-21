@@ -18,7 +18,10 @@ tape('replicates file', function (t) {
       t.error(err, 'no error')
 
       var tmp = path.join(os.tmpdir(), 'hyperdrive-' + process.pid + '-' + Date.now())
-      var clone = driveClone.get(archive.id, tmp)
+
+      // to make sure .get can take plain string link
+      var link = archive.id.toString('hex')
+      var clone = driveClone.get(link, tmp)
 
       clone.download(0, function () {
         var buf = []
