@@ -39,7 +39,7 @@ tape('download file', function (t) {
     }
   })
 
-  archive.append('selection.js', function (err) {
+  archive.append('misc.js', function (err) {
     t.error(err, 'no error')
   })
 
