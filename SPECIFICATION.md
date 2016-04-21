@@ -10,7 +10,7 @@ The protocol itself draws heavy inspiration from existing file sharing systems s
 
 ## Goals
 
-The goals of hyperdrive is to distribute static feeds of binary data to a swarm of peers in an as efficient as possible way.
+The goal of hyperdrive is to distribute static feeds of binary data to a swarm of peers in an as efficient as possible way.
 It uses merkle trees to verify and deduplicate content so that if you share the same file twice it'll only have to downloaded one time. Merkle trees also allows for partial deduplication so if you make changes to a file only the changes and a small overhead of data will have to be replicated.
 
 A core goal is to be as simple and pragmatic as possible. This allows for easier implementations of clients which is an often overlooked property when implementing distributed systems. First class browser support is also an important goal as p2p data sharing in browsers is becoming more viable every day as WebRTC matures.
