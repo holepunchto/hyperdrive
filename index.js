@@ -123,6 +123,8 @@ Archive.prototype.list = function (cb) {
 
 Archive.prototype.get = function (index, cb) {
   if (typeof index === 'object' && index.name) return cb(null, index)
+  if (typeof index === 'string') return this.lookup(index, cb)
+
   var self = this
 
   this.open(function (err) {
@@ -143,6 +145,27 @@ Archive.prototype.get = function (index, cb) {
       cb(null, entry)
     })
   })
+}
+
+Archive.prototype.lookup = function (name, cb) {
+  var entries = this.list()
+  var result = null
+
+  entries.on('data', function (data) {
+    if (data.name !== name) return
+    result = data
+    entries.destroy()
+    cb(null, data)
+  })
+
+  entries.on('error', done)
+  entries.on('close', done)
+  entries.on('end', done)
+
+  function done (err) {
+    if (result) return
+    cb(err || new Error('Could not find entry'))
+  }
 }
 
 Archive.prototype.finalize = function (cb) {
