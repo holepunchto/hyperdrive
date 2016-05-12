@@ -152,7 +152,7 @@ Archive.prototype.lookup = function (name, cb) {
   var result = null
 
   entries.on('data', function (data) {
-    if (data.name !== name) return
+    if (data.name !== name || result) return
     result = data
     entries.destroy()
     cb(null, data)
