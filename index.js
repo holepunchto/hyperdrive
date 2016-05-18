@@ -152,10 +152,8 @@ Archive.prototype.lookup = function (name, cb) {
   var result = null
 
   entries.on('data', function (data) {
-    if (data.name !== name || result) return
+    if (data.name !== name) return
     result = data
-    entries.destroy()
-    cb(null, data)
   })
 
   entries.on('error', done)
@@ -163,7 +161,7 @@ Archive.prototype.lookup = function (name, cb) {
   entries.on('end', done)
 
   function done (err) {
-    if (result) return
+    if (result) return cb(null, result)
     cb(err || new Error('Could not find entry'))
   }
 }
