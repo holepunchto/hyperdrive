@@ -352,13 +352,19 @@ Archive.prototype._range = function (entry, cb) {
 
     var name = result.name
     var i = 0
+    var startResult = 0
+    var endResult = 0
 
     self.get(i, loop)
 
     function loop (err, st) {
       if (err) return cb(err)
-      if (st.name === name) return cb(null, startBlock, startBlock + st.blocks)
+      if (st.name === name) {
+        startResult = startBlock
+        endResult = startBlock + st.blocks
+      }
       startBlock += st.blocks
+      if (i + 1 === self.metadata.blocks - 1) return cb(null, startResult, endResult)
       self.get(++i, loop)
     }
   })
