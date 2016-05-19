@@ -60,3 +60,15 @@ tape('download file', function (t) {
     stream.pipe(streamClone).pipe(stream)
   })
 })
+
+tape('empty write stream', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var ws = archive.createFileWriteStream('empty.txt')
+
+  ws.end(function () {
+    t.pass('stream ended')
+    t.end()
+  })
+})

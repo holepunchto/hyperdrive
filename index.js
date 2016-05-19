@@ -258,14 +258,18 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
   }
 
   function end (cb) {
-    entry.blocks = self.content.blocks - start
-    if (self.options.storage) self.options.storage.closeAppend(done)
-    else done(null)
-
-    function done (err) {
+    self.open(function (err) {
       if (err) return cb(err)
-      self._writeEntry(entry, cb)
-    }
+
+      entry.blocks = self.content.blocks - start
+      if (self.options.storage) self.options.storage.closeAppend(done)
+      else done(null)
+
+      function done (err) {
+        if (err) return cb(err)
+        self._writeEntry(entry, cb)
+      }
+    })
   }
 }
 
