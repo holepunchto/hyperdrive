@@ -84,11 +84,14 @@ Archive.prototype.unreplicate = function (stream) {
   return stream
 }
 
-Archive.prototype.list = function (cb) {
+Archive.prototype.list = function (opts, cb) {
+  if (typeof opts === 'function') return this.list(null, opts)
+  if (!opts) opts = {}
+
   var self = this
   var opened = false
   var offset = 0
-  var live = !cb
+  var live = opts.live === false ? false : (opts.live || !cb)
 
   return collect(from.obj(read), cb)
 
@@ -148,7 +151,7 @@ Archive.prototype.get = function (index, cb) {
 }
 
 Archive.prototype.lookup = function (name, cb) {
-  var entries = this.list()
+  var entries = this.list({live: false})
   var result = null
 
   entries.on('data', function (data) {

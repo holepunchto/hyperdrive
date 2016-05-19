@@ -14,7 +14,7 @@ test('overwrite', function (t) {
     check('BEEP BOOP\n', function () {
       var w2 = archive.createFileWriteStream('hello.txt')
       w2.end('HEY WHATEVER\n')
-      w2.once('finsih', function () {
+      w2.once('finish', function () {
         check('HEY WHATEVER\n')
       })
     })
