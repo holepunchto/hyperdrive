@@ -99,7 +99,7 @@ Archive.prototype.list = function (opts, cb) {
     opened = true
     self.open(function (err) {
       if (err) return cb(err)
-      if (!self.live) live = false
+      if (!self.live && opts.live !== true) live = false
       read(size, cb)
     })
   }
