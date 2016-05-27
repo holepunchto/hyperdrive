@@ -71,7 +71,7 @@ Archive.prototype.list = function (opts, cb) {
 
   var self = this
   var opened = false
-  var offset = 0
+  var offset = opts.offset || 0
   var live = opts.live === false ? false : (opts.live || !cb)
 
   return collect(from.obj(read), cb)
