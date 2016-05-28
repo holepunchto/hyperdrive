@@ -29,6 +29,38 @@ tape('list', function (t) {
   })
 })
 
+tape('list offset', function (t) {
+  t.plan(10)
+  var drive = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name), {readable: true, writable: false})
+    }
+  })
+
+  archive.append('misc.js')
+  archive.append('replicates.js')
+  archive.append('overwrite.js')
+
+  archive.finalize(function () {
+    archive.list({ offset: 1 }, function (err, list) {
+      t.error(err, 'no error')
+      t.same(list.length, 2, 'two entries with offset: 1')
+      t.same(list[0].type, 'file')
+      t.same(list[0].name, 'replicates.js')
+      t.same(list[1].type, 'file')
+      t.same(list[1].name, 'overwrite.js')
+    })
+    archive.list({ offset: 2 }, function (err, list) {
+      t.error(err, 'no error')
+      t.same(list.length, 1, 'one entry with offset: 2')
+      t.same(list[0].type, 'file')
+      t.same(list[0].name, 'overwrite.js')
+    })
+  })
+})
+
 tape('download file', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
