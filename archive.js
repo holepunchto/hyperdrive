@@ -44,22 +44,8 @@ Archive.prototype.replicate = function (stream) {
 
   this.open(function (err) {
     if (err) return stream.destroy(err)
-    self.metadata.join(stream)
-    if (self.content.key) self.content.join(stream)
-  })
-
-  return stream
-}
-
-Archive.prototype.unreplicate = function (stream) {
-  assertRepliction(this)
-
-  var self = this
-
-  this.open(function (err) {
-    if (err) return stream.destroy(err)
-    self.metadata.leave(stream)
-    if (self.content.key) self.content.leave(stream)
+    self.metadata.replicate({stream: stream})
+    if (self.content.key) self.content.replicate({stream: stream})
   })
 
   return stream
