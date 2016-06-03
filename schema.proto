@@ -1,25 +1,32 @@
-enum LAYOUT {
-  UNKNOWN = 0;
-  DFS = 1;
-  BFS = 2;
-}
-
-enum TYPE {
-  FILE = 0;
-  DIRECTORY = 1;
-  SYMLINK = 2;
-  HARDLINK = 3;
-}
-
 message Index {
-  optional uint64 version = 1;
-  optional bytes content = 2;
-  optional LAYOUT layout = 3;
+  optional bytes content = 1;
+}
+
+message File {
+  message Content {
+    required uint64 blockOffset = 0;
+    required uint64 bytesOffset = 1;
+  }
+
+  required string name = 1;
+  optional uint64 length = 2;
+  optional uint64 blocks = 3;
+  optional uint32 mode = 4;
+  optional uint32 uid = 5;
+  optional uint32 gid = 6;
+  optional uint64 mtime = 7;
+  optional uint64 ctime = 8;
+  optional Content content = 9;
 }
 
 message Entry {
-  optional TYPE type = 1 [default = FILE];
-  required string name = 2;
+  message Content {
+    required uint64 blockOffset = 1;
+    required uint64 bytesOffset = 2;
+  }
+
+  required string name = 1;
+  optional string linkname = 2;
   optional uint64 length = 3;
   optional uint64 blocks = 4;
   optional uint32 mode = 5;
@@ -27,10 +34,20 @@ message Entry {
   optional uint32 gid = 7;
   optional uint64 mtime = 8;
   optional uint64 ctime = 9;
-
-  // TODO: these make metadata diffing harder when entries are moved around.
-  // Investigate potential better solution. Only needed for metadata random access.
-
-  optional uint64 bytesOffset = 10;
-  optional uint64 blockOffset = 11;
+  optional Content content = 10;
 }
+
+// message Unlink {
+//  required string name = 1;
+//}
+
+// message Rename {
+//  required string source = 1;
+//  required string destination = 2;
+//}
+
+//message Rmdir {
+//  required string name = 1;
+//}
+
+// missing: truncate, chown, chmod,

@@ -10,6 +10,14 @@ var collect = require('stream-collector')
 var messages = require('./messages')
 var storage = require('./storage')
 
+var TYPES = [
+  messages.Index,
+  messages.Entry, // file
+  messages.Entry, // directory
+  messages.Entry, // symlink
+  messages.Entry  // hardlink
+]
+
 module.exports = Archive
 
 function Archive (drive, key, opts) {
@@ -71,8 +79,7 @@ Archive.prototype.list = function (opts, cb) {
       if (err || !buf) return cb(err, buf)
 
       try {
-        var entry = messages.Entry.decode(buf)
-        entry.type = toTypeString(entry.type)
+        var entry = decodeEntry(buf)
       } catch (err) {
         return cb(err)
       }
@@ -106,8 +113,7 @@ Archive.prototype.get = function (index, cb) {
       if (!buf) return cb(null, null)
 
       try {
-        var entry = messages.Entry.decode(buf)
-        entry.type = toTypeString(entry.type)
+        var entry = decodeEntry(buf)
       } catch (err) {
         return cb(err)
       }
@@ -270,14 +276,14 @@ Archive.prototype.append = function (entry, cb) {
   assertFinalized(this)
 
   if (typeof entry === 'string') entry = {name: entry}
-  if (!entry.type) entry.type = messages.TYPE.FILE
+  if (!entry.type) entry.type = 'file'
 
   var self = this
 
   this.open(function (err) {
     if (err) return cb(err)
 
-    if (entry.type === messages.TYPE.FILE) {
+    if (entry.type === 'file') {
       if (!self.options.storage) throw new Error('Set options.file to append files')
 
       var rs = fileReadStream(self.options.file(entry.name, self.options))
@@ -364,14 +370,13 @@ Archive.prototype._open = function (cb) {
     self.metadata.get(self._indexBlock, function (err, buf) {
       if (err) return cb(err)
 
+      var type = buf[0]
+      if (type !== 0) return cb(new Error('Expected block to be index'))
+
       try {
-        var index = messages.Index.decode(buf)
+        var index = messages.Index.decode(buf, 1)
       } catch (err) {
         return cb(err)
-      }
-
-      if (index.version && index.version !== 0) {
-        return cb(new Error('Archive is using an updated version of hyperdrive. Please upgrade.'))
       }
 
       onindex(index)
@@ -402,14 +407,21 @@ Archive.prototype._open = function (cb) {
 }
 
 Archive.prototype._writeIndex = function (cb) {
-  var index = {version: 0, content: this.content.key}
+  var index = {content: this.content.key}
   this._indexBlock = this.metadata.blocks
-  this.metadata.append(messages.Index.encode(index), cb)
+  this._writeMessage(0, index, cb)
 }
 
 Archive.prototype._writeEntry = function (entry, cb) {
-  entry.type = toTypeNumber(entry.type)
-  this.metadata.append(messages.Entry.encode(entry), cb)
+  this._writeMessage(toTypeNumber(entry.type || 'file'), entry, cb)
+}
+
+Archive.prototype._writeMessage = function (type, message, cb) {
+  var enc = TYPES[type]
+  var buf = Buffer(enc.encodingLength(message) + 1)
+  enc.encode(message, buf, 1)
+  buf[0] = type
+  this.metadata.append(buf, cb)
 }
 
 function noop () {}
@@ -459,12 +471,21 @@ function assertFinalized (self) {
   if (self._finalized && !self.metadata.live) throw new Error('Cannot append any entries after the archive is finalized')
 }
 
+function decodeEntry (buf) {
+  var type = buf[0]
+  if (type > 4) throw new Error('Unknown message type: ' + type)
+  var entry = messages.Entry.decode(buf, 1)
+  entry.type = toTypeString(type)
+  return entry
+}
+
 function toTypeString (t) {
   switch (t) {
-    case 0: return 'file'
-    case 1: return 'directory'
-    case 2: return 'symlink'
-    case 3: return 'hardlink'
+    case 0: return 'index'
+    case 1: return 'file'
+    case 2: return 'directory'
+    case 3: return 'symlink'
+    case 4: return 'hardlink'
   }
 
   return 'unknown'
@@ -472,11 +493,12 @@ function toTypeString (t) {
 
 function toTypeNumber (t) {
   switch (t) {
-    case 'file': return 0
-    case 'directory': return 1
-    case 'symlink': return 2
-    case 'hardlink': return 3
+    case 'index': return 0
+    case 'file': return 1
+    case 'directory': return 2
+    case 'symlink': return 3
+    case 'hardlink': return 4
   }
 
-  return 0
+  return -1
 }
