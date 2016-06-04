@@ -219,7 +219,9 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
         if (self.options.storage) {
           self.options.storage.openAppend(entry.name, opts.indexing)
         }
-        write(buffers, cb)
+
+        if (buffers.length) write(buffers, cb)
+        else cb()
       }
     })
   }
@@ -231,7 +233,10 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
   }
 
   function end (cb) {
-    self.open(function (err) {
+    if (opened) done()
+    else open([], done)
+
+    function done (err) {
       if (err) return cb(err)
 
       entry.blocks = self.content.blocks - start
@@ -242,7 +247,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
         if (err) return cb(err)
         self._writeEntry(entry, cb)
       }
-    })
+    }
   }
 }
 
