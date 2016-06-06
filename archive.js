@@ -30,6 +30,7 @@ function Archive (drive, key, opts) {
   this.metadata = drive.core.createFeed(key, this.options)
   this.content = null
   this.key = key || this.metadata.key
+  this.discoveryKey = this.metadata.discoveryKey
   this.owner = !key
   this.open = thunky(open)
   this.id = drive.id
@@ -173,6 +174,7 @@ Archive.prototype.finalize = function (cb) {
   function done (err) {
     if (err) return cb(err)
     self.key = self.metadata.key
+    self.discoveryKey = self.metadata.discoveryKey
     cb(null)
   }
 }
