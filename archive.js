@@ -32,6 +32,7 @@ function Archive (drive, key, opts) {
   this.key = key || this.metadata.key
   this.owner = !key
   this.open = thunky(open)
+  this.id = drive.id
 
   this._appending = []
   this._indexBlock = -1
