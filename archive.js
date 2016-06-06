@@ -44,15 +44,16 @@ function Archive (drive, key, opts) {
 
 inherits(Archive, events.EventEmitter)
 
-Archive.prototype.replicate = function (stream) {
+Archive.prototype.replicate = function (opts) {
+  if (!opts) opts = {}
   assertRepliction(this)
 
+  var stream = isStream(opts) ? opts : opts.stream
   var self = this
-  if (!stream) stream = this.metadata.replicate()
+  if (!stream) stream = this.metadata.replicate(opts)
 
   this.open(function (err) {
     if (err) return stream.destroy(err)
-    self.metadata.replicate({stream: stream})
     if (self.content.key) self.content.replicate({stream: stream})
   })
 
@@ -506,4 +507,8 @@ function toTypeNumber (t) {
   }
 
   return -1
+}
+
+function isStream (stream) {
+  return stream && typeof stream.pipe === 'function'
 }
