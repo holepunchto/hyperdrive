@@ -48,7 +48,7 @@ inherits(Archive, events.EventEmitter)
 
 Archive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
-  assertRepliction(this)
+  assertReplication(this)
 
   var stream = isStream(opts) ? opts : opts.stream
   var self = this
@@ -472,7 +472,7 @@ function fileReadStream (store) {
   }
 }
 
-function assertRepliction (self) {
+function assertReplication (self) {
   if (!self.key) throw new Error('Finalize the archive before replicating it')
 }
 
