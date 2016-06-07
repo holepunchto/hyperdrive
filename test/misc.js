@@ -93,7 +93,7 @@ tape('download file', function (t) {
   })
 })
 
-tape('byte/block offsets with one file', function (t) {
+tape('bytes/block offsets with one file', function (t) {
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive({
     file: function (name) {
@@ -114,7 +114,7 @@ tape('byte/block offsets with one file', function (t) {
   })
 })
 
-tape('byte/block offsets with two files', function (t) {
+tape('bytes/block offsets with two files', function (t) {
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive({
     file: function (name) {
