@@ -189,7 +189,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
   var self = this
   var opened = false
   var start = 0
-  var byteOffset = this.content.bytes
+  var bytesOffset = 0
   var stream = pumpify(rabin(), bulk.obj(write, end))
 
   entry.length = 0
@@ -221,6 +221,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
         })
       } else {
         start = self.content.blocks
+        bytesOffset = self.content.bytes
         if (self.options.storage) {
           self.options.storage.openAppend(entry.name, opts.indexing)
         }
@@ -245,7 +246,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
       if (err) return cb(err)
 
       entry.content = {
-        byteOffset: byteOffset,
+        bytesOffset: bytesOffset,
         blockOffset: start
       }
       entry.blocks = self.content.blocks - start
@@ -309,7 +310,7 @@ Archive.prototype.append = function (entry, cb) {
       entry.length = 0
       entry.blocks = 0
       entry.content = {
-        byteOffset: self.content.bytes,
+        bytesOffset: self.content.bytes,
         blockOffset: self.content.blocks
       }
       self._writeEntry(entry, cb)
