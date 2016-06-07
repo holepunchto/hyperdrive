@@ -309,7 +309,7 @@ Archive.prototype.append = function (entry, cb) {
       entry.length = 0
       entry.blocks = 0
       entry.content = {
-        byteOffset: self.content.bytes
+        byteOffset: self.content.bytes,
         blockOffset: self.content.blocks
       }
       self._writeEntry(entry, cb)
