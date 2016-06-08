@@ -48,7 +48,7 @@ inherits(Archive, events.EventEmitter)
 
 Archive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
-  assertRepliction(this)
+  assertReplication(this)
 
   var stream = isStream(opts) ? opts : opts.stream
   var self = this
@@ -189,6 +189,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
   var self = this
   var opened = false
   var start = 0
+  var bytesOffset = 0
   var stream = pumpify(rabin(), bulk.obj(write, end))
 
   entry.length = 0
@@ -220,6 +221,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
         })
       } else {
         start = self.content.blocks
+        bytesOffset = self.content.bytes
         if (self.options.storage) {
           self.options.storage.openAppend(entry.name, opts.indexing)
         }
@@ -243,6 +245,10 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
     function done (err) {
       if (err) return cb(err)
 
+      entry.content = {
+        bytesOffset: bytesOffset,
+        blockOffset: start
+      }
       entry.blocks = self.content.blocks - start
       if (self.options.storage) self.options.storage.closeAppend(done)
       else done(null)
@@ -303,6 +309,10 @@ Archive.prototype.append = function (entry, cb) {
       // user messing them up
       entry.length = 0
       entry.blocks = 0
+      entry.content = {
+        bytesOffset: self.content.bytes,
+        blockOffset: self.content.blocks
+      }
       self._writeEntry(entry, cb)
     }
   })
@@ -472,7 +482,7 @@ function fileReadStream (store) {
   }
 }
 
-function assertRepliction (self) {
+function assertReplication (self) {
   if (!self.key) throw new Error('Finalize the archive before replicating it')
 }
 
