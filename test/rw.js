@@ -97,7 +97,7 @@ test('random access read spanning multiple blocks', function (t) {
   for (var i = 0; i < 10000 * 2; i++) {
     arr.push(Math.floor(Math.random() * 100))
   }
-  var testBuffer = Buffer.from(arr)
+  var testBuffer = new Buffer(arr)
 
   function verifyBlock (idx, cursor, core, cb) {
     cursor.next(function (err, cursorData) {
@@ -149,6 +149,26 @@ test('random access read with offset', function (t) {
           t.pass('random access read passes with nonzero starting offset')
           t.end()
         })
+      })
+    })
+  })
+})
+
+test('random access read with huge first offset', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var testString1 = 'BEEP BOOP\n'
+
+  archive.createFileWriteStream('hello.txt').end(testString1)
+  archive.finalize(function () {
+    archive.createByteCursor('hello.txt', 5000000, function (err, cursor) {
+      t.error(err, 'no error')
+      cursor.next(function (err, data) {
+        t.error(err, 'no error')
+        t.same(data, null, 'data for huge offset should be null')
+        t.pass('next returned null for large offset')
+        t.end()
       })
     })
   })
