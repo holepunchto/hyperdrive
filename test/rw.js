@@ -17,6 +17,143 @@ test('write and read', function (t) {
   })
 })
 
+test('random access read in-bounds', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var testString = 'BEEP BOOP\n'
+
+  archive.createFileWriteStream('hello.txt').end(testString)
+  archive.finalize(function () {
+    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+      t.error(err, 'no error')
+      cursor.next(function (err, data) {
+        t.error(err, 'no error')
+        t.notEquals(data, null, 'data is not null')
+        t.same(data.length, 10, 'data length is valid')
+        t.pass('in-bounds random access read passes')
+        t.end()
+      })
+    })
+  })
+})
+
+test('random access read no more data', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var testString = 'BEEP BOOP\n'
+
+  archive.createFileWriteStream('hello.txt').end(testString)
+  archive.finalize(function () {
+    archive.getBytesCursor('hello.txt', 5, function (err, cursor) {
+      t.error(err, 'no error')
+      cursor.next(function (err, data) {
+        t.error(err, 'no error')
+        t.notEquals(data, null, 'data is not null')
+        t.same(data.length, 5, 'data length is valid')
+        cursor.next(function (err, data) {
+          t.error(err, 'no error')
+          t.equals(data, null, 'returns null when data is not available')
+          t.pass('random access read passes when no more data is available')
+          t.end()
+        })
+      })
+    })
+  })
+})
+
+test('random access read with two files', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var testString = 'BEEP BOOP\n'
+
+  archive.createFileWriteStream('hello.txt').end(testString)
+  archive.createFileWriteStream('world.txt').end(testString)
+  archive.finalize(function () {
+    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+      t.error(err, 'no error')
+      cursor.next(function (err, data) {
+        t.error(err, 'no error')
+        t.notEquals(data, null, 'data is not null')
+        t.same(data.length, 10, 'data length is valid')
+        cursor.next(function (err, data) {
+          t.error(err, 'no error')
+          t.equals(data, null, 'returns null when file boundary is reached')
+          t.pass('random access read passes when file boundary is reached')
+          t.end()
+        })
+      })
+    })
+  })
+})
+
+test('random access read spanning multiple blocks', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var arr = []
+  for (var i = 0; i < 10000 * 2; i++) {
+    arr.push(Math.floor(Math.random() * 100))
+  }
+  var testBuffer = Buffer.from(arr)
+
+  function verifyBlock (idx, cursor, core, cb) {
+    cursor.next(function (err, cursorData) {
+      t.error(err, 'no error')
+      core.get(idx, function (err, coreData) {
+        t.error(err, 'no error')
+        t.same(coreData, cursorData, 'cursor/block data is the same')
+        cb()
+      })
+    })
+  }
+
+  archive.createFileWriteStream('hello.txt').end(testBuffer)
+  archive.finalize(function () {
+    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+      t.error(err, 'no error')
+      archive.get('hello.txt', function (err, entry) {
+        console.log('entry.blocks', entry.blocks)
+        t.error(err, 'no error')
+        verifyBlock(0, cursor, archive.content, function () {
+          verifyBlock(1, cursor, archive.content, function () {
+            t.pass('cursor data is always the same as block data')
+            t.end()
+          })
+        })
+      })
+    })
+  })
+})
+
+test('random access read with offset', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var testString1 = 'BEEP BOOP\n'
+  var testString2 = 'BOOP BEEP\n'
+
+  archive.createFileWriteStream('hello.txt').end(testString1)
+  archive.createFileWriteStream('world.txt').end(testString2)
+  archive.finalize(function () {
+    archive.getBytesCursor('world.txt', 5, function (err, cursor) {
+      t.error(err, 'no error')
+      cursor.next(function (err, data) {
+        t.error(err, 'no error')
+        t.same(data.toString('utf8'), 'BEEP\n', 'data at offset equals BEEP')
+        cursor.next(function (err, data) {
+          t.error(err, 'no error')
+          t.equals(data, null, 'returns null when file boundary is reached')
+          t.pass('random access read passes with nonzero starting offset')
+          t.end()
+        })
+      })
+    })
+  })
+})
+
 test('write and read after replication', function (t) {
   t.plan(1)
   var drive = hyperdrive(memdb())

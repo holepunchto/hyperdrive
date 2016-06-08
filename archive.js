@@ -9,6 +9,7 @@ var pumpify = require('pumpify')
 var collect = require('stream-collector')
 var messages = require('./messages')
 var storage = require('./storage')
+var cursor = require('./cursor')
 
 var TYPES = [
   messages.Index,
@@ -259,6 +260,14 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
       }
     }
   }
+}
+
+Archive.prototype.getBytesCursor = function (entry, offset, cb) {
+  var self = this
+  this.get(entry, function (err, result) {
+    if (err) return cb(err)
+    return cb(null, cursor(result, self.content, offset))
+  })
 }
 
 Archive.prototype.createFileReadStream = function (entry) {
