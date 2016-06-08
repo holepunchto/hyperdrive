@@ -25,7 +25,7 @@ test('random access read in-bounds', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.finalize(function () {
-    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
       t.error(err, 'no error')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
@@ -46,7 +46,7 @@ test('random access read no more data', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.finalize(function () {
-    archive.getBytesCursor('hello.txt', 5, function (err, cursor) {
+    archive.createByteCursor('hello.txt', 5, function (err, cursor) {
       t.error(err, 'no error')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
@@ -72,7 +72,7 @@ test('random access read with two files', function (t) {
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.createFileWriteStream('world.txt').end(testString)
   archive.finalize(function () {
-    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
       t.error(err, 'no error')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
@@ -112,7 +112,7 @@ test('random access read spanning multiple blocks', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testBuffer)
   archive.finalize(function () {
-    archive.getBytesCursor('hello.txt', 0, function (err, cursor) {
+    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
       t.error(err, 'no error')
       archive.get('hello.txt', function (err, entry) {
         console.log('entry.blocks', entry.blocks)
@@ -138,7 +138,7 @@ test('random access read with offset', function (t) {
   archive.createFileWriteStream('hello.txt').end(testString1)
   archive.createFileWriteStream('world.txt').end(testString2)
   archive.finalize(function () {
-    archive.getBytesCursor('world.txt', 5, function (err, cursor) {
+    archive.createByteCursor('world.txt', 5, function (err, cursor) {
       t.error(err, 'no error')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
