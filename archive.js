@@ -27,7 +27,7 @@ function Archive (drive, key, opts) {
 
   this.options = opts || {}
   this.drive = drive
-  this.live = this.options.live = !key && !!this.options.live
+  this.live = this.options.live = !!this.options.live
   this.metadata = drive.core.createFeed(key, this.options)
   this.content = null
   this.key = key || this.metadata.key
@@ -415,6 +415,7 @@ Archive.prototype._open = function (cb) {
     if (self.options.file) self.options.storage = storage(self)
     self.options.key = index && index.content
     self.content = self.drive.core.createFeed(null, self.options)
+    self.live = self.metadata.live
 
     self.content.on('download', function (block, data) {
       self.emit('download', data)
