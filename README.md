@@ -1,12 +1,14 @@
 # hyperdrive
 
-A file sharing network based on [rabin](https://github.com/maxogden/rabin) file chunking and append only feeds of data verified by merkle trees.
+A file sharing network based on [rabin](https://github.com/maxogden/rabin) file chunking and [append only feeds of data verified by merkle trees](https://github.com/mafintosh/hypercore).
 
 ```
 npm install hyperdrive
 ```
 
 [![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
+
+If you are interested in learning how hyperdrive works on a technical level a specification is available in the [Dat docs repo](https://github.com/datproject/docs/blob/master/hyperdrive.md)
 
 ## Usage
 
@@ -57,7 +59,7 @@ the content in the feed by doing
 ``` js
 var archive = drive.createArchive(link) // the link identifies/verifies the content
 
-archive.stat(0, function (err, entry) { // get the first file entry
+archive.get(0, function (err, entry) { // get the first file entry
   console.log(entry) // prints {name: 'hello.txt', ...}
   var stream = archive.createFileReadStream(entry)
   stream.on('data', function (data) {
