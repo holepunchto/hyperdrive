@@ -25,15 +25,13 @@ test('random access read in-bounds', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.finalize(function () {
-    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
+    var cursor = archive.createByteCursor('hello.txt', 0)
+    cursor.next(function (err, data) {
       t.error(err, 'no error')
-      cursor.next(function (err, data) {
-        t.error(err, 'no error')
-        t.notEquals(data, null, 'data is not null')
-        t.same(data.length, 10, 'data length is valid')
-        t.pass('in-bounds random access read passes')
-        t.end()
-      })
+      t.notEquals(data, null, 'data is not null')
+      t.same(data.length, 10, 'data length is valid')
+      t.pass('in-bounds random access read passes')
+      t.end()
     })
   })
 })
@@ -46,18 +44,16 @@ test('random access read no more data', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.finalize(function () {
-    archive.createByteCursor('hello.txt', 5, function (err, cursor) {
+    var cursor = archive.createByteCursor('hello.txt', 5)
+    cursor.next(function (err, data) {
       t.error(err, 'no error')
+      t.notEquals(data, null, 'data is not null')
+      t.same(data.length, 5, 'data length is valid')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
-        t.notEquals(data, null, 'data is not null')
-        t.same(data.length, 5, 'data length is valid')
-        cursor.next(function (err, data) {
-          t.error(err, 'no error')
-          t.equals(data, null, 'returns null when data is not available')
-          t.pass('random access read passes when no more data is available')
-          t.end()
-        })
+        t.equals(data, null, 'returns null when data is not available')
+        t.pass('random access read passes when no more data is available')
+        t.end()
       })
     })
   })
@@ -72,18 +68,16 @@ test('random access read with two files', function (t) {
   archive.createFileWriteStream('hello.txt').end(testString)
   archive.createFileWriteStream('world.txt').end(testString)
   archive.finalize(function () {
-    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
+    var cursor = archive.createByteCursor('hello.txt', 0)
+    cursor.next(function (err, data) {
       t.error(err, 'no error')
+      t.notEquals(data, null, 'data is not null')
+      t.same(data.length, 10, 'data length is valid')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
-        t.notEquals(data, null, 'data is not null')
-        t.same(data.length, 10, 'data length is valid')
-        cursor.next(function (err, data) {
-          t.error(err, 'no error')
-          t.equals(data, null, 'returns null when file boundary is reached')
-          t.pass('random access read passes when file boundary is reached')
-          t.end()
-        })
+        t.equals(data, null, 'returns null when file boundary is reached')
+        t.pass('random access read passes when file boundary is reached')
+        t.end()
       })
     })
   })
@@ -112,16 +106,14 @@ test('random access read spanning multiple blocks', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testBuffer)
   archive.finalize(function () {
-    archive.createByteCursor('hello.txt', 0, function (err, cursor) {
+    var cursor = archive.createByteCursor('hello.txt', 0)
+    archive.get('hello.txt', function (err, entry) {
+      console.log('entry.blocks', entry.blocks)
       t.error(err, 'no error')
-      archive.get('hello.txt', function (err, entry) {
-        console.log('entry.blocks', entry.blocks)
-        t.error(err, 'no error')
-        verifyBlock(0, cursor, archive.content, function () {
-          verifyBlock(1, cursor, archive.content, function () {
-            t.pass('cursor data is always the same as block data')
-            t.end()
-          })
+      verifyBlock(0, cursor, archive.content, function () {
+        verifyBlock(1, cursor, archive.content, function () {
+          t.pass('cursor data is always the same as block data')
+          t.end()
         })
       })
     })
@@ -138,17 +130,15 @@ test('random access read with offset', function (t) {
   archive.createFileWriteStream('hello.txt').end(testString1)
   archive.createFileWriteStream('world.txt').end(testString2)
   archive.finalize(function () {
-    archive.createByteCursor('world.txt', 5, function (err, cursor) {
+    var cursor = archive.createByteCursor('world.txt', 5)
+    cursor.next(function (err, data) {
       t.error(err, 'no error')
+      t.same(data.toString('utf8'), 'BEEP\n', 'data at offset equals BEEP')
       cursor.next(function (err, data) {
         t.error(err, 'no error')
-        t.same(data.toString('utf8'), 'BEEP\n', 'data at offset equals BEEP')
-        cursor.next(function (err, data) {
-          t.error(err, 'no error')
-          t.equals(data, null, 'returns null when file boundary is reached')
-          t.pass('random access read passes with nonzero starting offset')
-          t.end()
-        })
+        t.equals(data, null, 'returns null when file boundary is reached')
+        t.pass('random access read passes with nonzero starting offset')
+        t.end()
       })
     })
   })
@@ -162,14 +152,12 @@ test('random access read with huge first offset', function (t) {
 
   archive.createFileWriteStream('hello.txt').end(testString1)
   archive.finalize(function () {
-    archive.createByteCursor('hello.txt', 5000000, function (err, cursor) {
+    var cursor = archive.createByteCursor('hello.txt', 5000000)
+    cursor.next(function (err, data) {
       t.error(err, 'no error')
-      cursor.next(function (err, data) {
-        t.error(err, 'no error')
-        t.same(data, null, 'data for huge offset should be null')
-        t.pass('next returned null for large offset')
-        t.end()
-      })
+      t.same(data, null, 'data for huge offset should be null')
+      t.pass('next returned null for large offset')
+      t.end()
     })
   })
 })
