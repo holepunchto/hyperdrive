@@ -12,11 +12,12 @@ If you are interested in learning how hyperdrive works on a technical level a sp
 
 ## Usage
 
-First create a new feed to share
+First create a new feed and share it
 
 ``` js
 var hyperdrive = require('hyperdrive')
 var level = require('level')
+var swarm = require('discovery-swarm')()
 
 var db = level('./hyperdrive.db')
 var drive = hyperdrive(db)
@@ -31,15 +32,24 @@ ws.end()
 archive.finalize(function () { // finalize the archive
   var link = archive.key.toString('hex')
   console.log(link, '<-- this is your hyperdrive link')
+
+  // the archive is now ready for sharing.
+  // we can use swarm to replicate it to other peers
+  swarm.listen()
+  swarm.join(new Buffer(link, 'hex'))
+  swarm.on('connection', function (connection) {
+    connection.pipe(archive.replicate()).pipe(connection)
+  })
 })
 ```
 
-Then to share it
+Then we can access the content from another process with the following code
 
 ``` js
 var swarm = require('discovery-swarm')()
 var hyperdrive = require('hyperdrive')
 var level = require('level')
+
 var db = level('./another-hyperdrive.db')
 var drive = hyperdrive(db)
 
@@ -50,23 +60,15 @@ swarm.listen()
 swarm.join(link)
 swarm.on('connection', function (connection) {
   connection.pipe(archive.replicate()).pipe(connection)
-})
-```
-
-If you run this code on multiple computers you should be able to access
-the content in the feed by doing
-
-``` js
-var archive = drive.createArchive(link) // the link identifies/verifies the content
-
-archive.get(0, function (err, entry) { // get the first file entry
-  console.log(entry) // prints {name: 'hello.txt', ...}
-  var stream = archive.createFileReadStream(entry)
-  stream.on('data', function (data) {
-    console.log(data) // <-- file data
-  })
-  stream.on('end', function () {
-    console.log('no more data')
+  archive.get(0, function (err, entry) { // get the first file entry
+    console.log(entry) // prints {name: 'hello.txt', ...}
+    var stream = archive.createFileReadStream(entry)
+    stream.on('data', function (data) {
+      console.log(data) // <-- file data
+    })
+    stream.on('end', function () {
+      console.log('no more data')
+    })
   })
 })
 ```
