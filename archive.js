@@ -262,12 +262,8 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
   }
 }
 
-Archive.prototype.createByteCursor = function (entry, offset, cb) {
-  var self = this
-  this.get(entry, function (err, result) {
-    if (err) return cb(err)
-    return cb(null, cursor(result, self.content, offset))
-  })
+Archive.prototype.createByteCursor = function (index, offset, cb) {
+  return cursor(this, index, offset)
 }
 
 Archive.prototype.createFileReadStream = function (entry) {
