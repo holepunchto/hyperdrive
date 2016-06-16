@@ -54,6 +54,7 @@ Archive.prototype.replicate = function (opts) {
   var stream = isStream(opts) ? opts : opts.stream
   var self = this
   if (!stream) stream = this.metadata.replicate(opts)
+  else this.metadata.replicate({stream: stream})
 
   this.open(function (err) {
     if (err) return stream.destroy(err)
