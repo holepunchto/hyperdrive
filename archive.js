@@ -36,6 +36,7 @@ function Archive (drive, key, opts) {
   this.open = thunky(open)
   this.id = drive.id
 
+  this._closed = false
   this._appending = []
   this._indexBlock = -1
   this._finalized = false
@@ -324,6 +325,16 @@ Archive.prototype.append = function (entry, cb) {
   })
 }
 
+Archive.prototype.close = function (cb) {
+  if (!cb) cb = noop
+  var self = this
+  this._closed = true
+  this.metadata.close(function () {
+    if (!self.content) return cb()
+    self.content.close(cb)
+  })
+}
+
 Archive.prototype.download = function (entry, cb) {
   var self = this
 
@@ -376,10 +387,12 @@ Archive.prototype._range = function (entry, cb) {
 }
 
 Archive.prototype._open = function (cb) {
+  if (this._closed) return cb(new Error('Archive is closed'))
   var self = this
 
   this.metadata.open(function (err) {
     if (err) return cb(err)
+    if (self._closed) return cb(new Error('Archive is closed'))
 
     if (!self.owner && self.metadata.secretKey) self.owner = true // TODO: hypercore should tell you this
 
@@ -389,6 +402,7 @@ Archive.prototype._open = function (cb) {
 
   function waitForIndex (err) {
     if (err) return cb(err)
+    if (self._closed) return cb(new Error('Archive is closed'))
     if (!self.metadata.blocks) return self.metadata.get(0, waitForIndex)
     self._indexBlock = self.metadata.live ? 0 : self.metadata.blocks - 1
 
@@ -409,6 +423,7 @@ Archive.prototype._open = function (cb) {
   }
 
   function onindex (index) {
+    if (self._closed) return cb(new Error('Archive is closed'))
     if (self.options.file) self.options.storage = storage(self)
     self.options.key = index && index.content
     self.content = self.drive.core.createFeed(null, self.options)

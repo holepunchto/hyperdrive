@@ -147,6 +147,10 @@ Reads an entry from the archive.
 
 Fully downloads a file / entry from the archive and calls the callback afterwards.
 
+#### `archive.close([callback])`
+
+Closes and releases all resources used by the archive. Call this when you are done using it.
+
 #### `archive.on('download', data)`
 
 Emitted every time a piece of data is downloaded
