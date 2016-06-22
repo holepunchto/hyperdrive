@@ -266,12 +266,17 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
 
 Archive.prototype.createByteCursor = function (index, opts) {
   if (typeof opts === 'number') opts = {start: opts}
+  if (!opts) opts = {}
+  if (opts.length) opts.end = (opts.start || 0) + opts.length
   return cursor(this, index, opts)
 }
 
-Archive.prototype.createFileReadStream = function (entry) {
+Archive.prototype.createFileReadStream = function (entry, opts) {
+  if (!opts) opts = {}
+
   var self = this
   var opened = false
+  var cur = null
   var start = 0
   var end = 0
 
@@ -279,16 +284,18 @@ Archive.prototype.createFileReadStream = function (entry) {
 
   function read (size, cb) {
     if (!opened) return open(size, cb)
+    if (cur) return cur.next(cb)
     if (start >= end) return cb(null, null)
     self.content.get(start++, cb)
   }
 
   function open (size, cb) {
     opened = true
-    self._range(entry, function (err, startBlock, endBlock) {
+    self._range(entry, function (err, startBlock, endBlock, latest) {
       if (err) return cb(err)
       start = startBlock
       end = endBlock
+      if (opts.start) cur = self.createByteCursor(latest, opts)
       read(size, cb)
     })
   }
@@ -367,6 +374,7 @@ Archive.prototype._range = function (entry, cb) {
   this.get(entry, function (err, result) {
     if (err) return cb(err)
 
+    var latest = null
     var name = result.name
     var i = 0
     var startResult = 0
@@ -377,11 +385,12 @@ Archive.prototype._range = function (entry, cb) {
     function loop (err, st) {
       if (err) return cb(err)
       if (st.name === name) {
+        latest = st
         startResult = startBlock
         endResult = startBlock + st.blocks
       }
       startBlock += st.blocks
-      if (i + 1 === self.metadata.blocks - 1) return cb(null, startResult, endResult)
+      if (i + 1 === self.metadata.blocks - 1) return cb(null, startResult, endResult, latest)
       self.get(++i, loop)
     }
   })

@@ -100,10 +100,9 @@ Cursor.prototype._next = function (cb) {
 Cursor.prototype._open = function (cb) {
   var self = this
   this.archive.get(this.file, function (err, entry) {
-    if (err) return cb(err)
-    if (!entry.content) return cb(new Error('entry.content is required for byte cursors'))
+    if (err) return done(err)
+    if (!entry.content) return done(new Error('entry.content is required for byte cursors'))
 
-    self.opened = true
     self.entry = entry
 
     var max = entry.content.bytesOffset + entry.length
@@ -112,9 +111,15 @@ Cursor.prototype._open = function (cb) {
     self.end = Math.min(self.end + entry.content.bytesOffset, max)
     self._block = entry.content.blockOffset
 
-    if (self.start !== entry.content.bytesOffset) self.seek(self.start, cb)
-    else cb(null)
+    if (self.start !== entry.content.bytesOffset) self._seek(self.start, done)
+    else done(null)
   })
+
+  function done (err) {
+    if (err) return cb(err)
+    self.opened = true
+    cb(null)
+  }
 }
 
 Cursor.prototype._openAndSeek = function (offset, cb) {

@@ -17,6 +17,34 @@ test('write and read', function (t) {
   })
 })
 
+test('write and read with start offset', function (t) {
+  t.plan(1)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  archive.createFileWriteStream('hello.txt').end('BEEP BOOP\n')
+  archive.finalize(function () {
+    archive.createFileReadStream('hello.txt', {start: 1})
+      .pipe(concat(function (body) {
+        t.equal(body.toString(), 'EEP BOOP\n')
+      }))
+  })
+})
+
+test('write and read with start, end offset', function (t) {
+  t.plan(1)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  archive.createFileWriteStream('hello.txt').end('BEEP BOOP\n')
+  archive.finalize(function () {
+    archive.createFileReadStream('hello.txt', {start: 1, end: 4})
+      .pipe(concat(function (body) {
+        t.equal(body.toString(), 'EEP')
+      }))
+  })
+})
+
 test('random access read in-bounds', function (t) {
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive()

@@ -168,9 +168,18 @@ Returns a readable stream of all entries in the archive.
 
 You can collect the results of the stream with `cb(err, entries)`.
 
-#### `var rs = archive.createFileReadStream(entry)`
+#### `var rs = archive.createFileReadStream(entry, [options])`
 
 Returns a readable stream of the file content of an file in the archive.
+
+Options include:
+
+``` js
+{
+  start: startOffset, // defaults to 0
+  end: endOffset // defaults to file.length
+}
+```
 
 #### `var ws = archive.createFileWriteStream(entry)`
 
