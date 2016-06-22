@@ -177,6 +177,35 @@ Returns a readable stream of the file content of an file in the archive.
 Returns a writable stream that writes a new file to the archive. Only possible if the archive is live and you own it
 or if the archive is not finalized.
 
+#### `var cursor = archive.createByteCursor(entry, [options])`
+
+Creates a cursor that can seek and traverse parts of the file.
+
+``` js
+var cursor = archive.createByteCursor('hello.txt')
+
+// seek to byte offset 10000 and read the rest.
+cursor.seek(10000, function (err) {
+  if (err) throw err
+  cursor.next(function loop (err, data) {
+    if (err) throw err
+    if (!data) return console.log('no more data')
+    console.log('cursor.position is ' + cursor.position)
+    console.log('read', data.length, 'bytes')
+    cursor.next(loop)
+  })
+})
+```
+
+Options include
+
+``` js
+{
+  start: startOffset, // defaults to 0
+  end: endOffset // defaults to file.length
+}
+```
+
 #### `var stream = archive.replicate()`
 
 Pipe this stream together with another peer that is interested in the same archive to replicate the content.
