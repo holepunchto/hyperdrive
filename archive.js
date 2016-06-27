@@ -59,7 +59,7 @@ Archive.prototype.replicate = function (opts) {
 
   this.open(function (err) {
     if (err) return stream.destroy(err)
-    if (self.content.key) self.content.replicate({stream: stream})
+    if (self.content && self.content.key) self.content.replicate({stream: stream})
   })
 
   return stream
