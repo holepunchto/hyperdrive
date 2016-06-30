@@ -81,7 +81,7 @@ Cursor.prototype._seek = function (offset, cb) {
     self.position = offset
 
     self._clear()
-    self._range = self.archive.content.prioritize({start: block, priority: 4})
+    self._range = self.archive.content.prioritize({start: block, priority: 4, linear: true})
 
     cb(null)
   })
@@ -135,7 +135,7 @@ Cursor.prototype._open = function (cb) {
     if (self.start !== entry.content.bytesOffset) return self._seek(self.start, done)
 
     self.position = self.start
-    self._range = self.archive.content.prioritize({start: self._block, priority: 4})
+    self._range = self.archive.content.prioritize({start: self._block, priority: 4, linear: true})
     done(null)
   })
 
