@@ -10,6 +10,7 @@ function Cursor (archive, file, opts) {
 
   this._nextOffset = 0
   this._block = 0
+  this._range = null
 
   this.archive = archive
   this.options = opts
@@ -48,13 +49,27 @@ Cursor.prototype.next = function (cb) {
   this._next(cb)
 }
 
+Cursor.prototype.destroy = function (cb) {
+  if (!cb) cb = noop
+  var self = this
+  this.open(function (err) {
+    self._clear()
+    cb(err)
+  })
+}
+
+Cursor.prototype._clear = function () {
+  if (this._range) this.archive.content.unprioritize(this._range)
+}
+
 Cursor.prototype._seek = function (offset, cb) {
   var self = this
 
   if (offset < this.start) offset = this.start
 
   if (offset >= this.end) {
-    self.position = this.end
+    this._clear()
+    this.position = this.end
     return cb(null)
   }
 
@@ -65,6 +80,9 @@ Cursor.prototype._seek = function (offset, cb) {
     self._nextOffset = rel
     self.position = offset
 
+    self._clear()
+    self._range = self.archive.content.prioritize({start: block, priority: 4})
+
     cb(null)
   })
 }
@@ -74,7 +92,10 @@ Cursor.prototype._next = function (cb) {
   var block = this._block
   var pos = this.position
 
-  if (self.position >= self.end) return cb(null, null)
+  if (this.position >= this.end) {
+    this._clear()
+    return cb(null, null)
+  }
 
   this.archive.content.get(block, function (err, data) {
     if (err) return cb(err)
@@ -111,8 +132,11 @@ Cursor.prototype._open = function (cb) {
     self.end = Math.min(self.end + entry.content.bytesOffset, max)
     self._block = entry.content.blockOffset
 
-    if (self.start !== entry.content.bytesOffset) self._seek(self.start, done)
-    else done(null)
+    if (self.start !== entry.content.bytesOffset) return self._seek(self.start, done)
+
+    self.position = self.start
+    self._range = self.archive.content.prioritize({start: self._block, priority: 4})
+    done(null)
   })
 
   function done (err) {

@@ -277,25 +277,31 @@ Archive.prototype.createFileReadStream = function (entry, opts) {
   var self = this
   var opened = false
   var cur = null
-  var start = 0
-  var end = 0
+  var destroyed = false
 
-  return from(read)
+  var stream = from(read)
+
+  stream.on('end', cleanup)
+  stream.on('close', cleanup)
+
+  return stream
+
+  function cleanup () {
+    destroyed = true
+    if (cur) cur.destroy()
+  }
 
   function read (size, cb) {
     if (!opened) return open(size, cb)
-    if (cur) return cur.next(cb)
-    if (start >= end) return cb(null, null)
-    self.content.get(start++, cb)
+    cur.next(cb)
   }
 
   function open (size, cb) {
     opened = true
     self._range(entry, function (err, startBlock, endBlock, latest) {
       if (err) return cb(err)
-      start = startBlock
-      end = endBlock
-      if (opts.start) cur = self.createByteCursor(latest, opts)
+      if (destroyed) return
+      cur = self.createByteCursor(latest, opts)
       read(size, cb)
     })
   }
