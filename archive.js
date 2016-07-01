@@ -7,6 +7,7 @@ var rabin = process.browser ? require('through2') : require('rabin')
 var pump = require('pump')
 var pumpify = require('pumpify')
 var collect = require('stream-collector')
+var xtend = require('xtend')
 var messages = require('./messages')
 var storage = require('./storage')
 var cursor = require('./cursor')
@@ -40,6 +41,7 @@ function Archive (drive, key, opts) {
   this._appending = []
   this._indexBlock = -1
   this._finalized = false
+  this._checkoutBlock = null
 
   function open (cb) {
     self._open(cb)
@@ -184,6 +186,9 @@ Archive.prototype.finalize = function (cb) {
 
 Archive.prototype.createFileWriteStream = function (entry, opts) {
   assertFinalized(this)
+  if (this.options.checkout !== undefined) {
+    throw new Error('Cannot write to checked out archive')
+  }
 
   if (typeof entry === 'string') entry = {name: entry}
   if (!entry.type) entry.type = 'file'
@@ -367,11 +372,24 @@ Archive.prototype.download = function (entry, cb) {
   })
 }
 
+Archive.prototype.checkout = function (hash) {
+  var ch = new Archive(this.drive, this.key,
+    xtend(this.options, { checkout: hash }))
+  return ch
+}
+
 Archive.prototype._range = function (entry, cb) {
   var startBlock = 0
   var self = this
 
-  this.get(entry, function (err, result) {
+  var chblock = null
+  self._getCheckoutBlock(function (err, block) {
+    if (err) return cb(err)
+    chblock = block === null ? Infinity : block
+    self.get(entry, onget)
+  })
+
+  function onget (err, result) {
     if (err) return cb(err)
 
     var latest = null
@@ -379,6 +397,7 @@ Archive.prototype._range = function (entry, cb) {
     var i = 0
     var startResult = 0
     var endResult = 0
+    var endpos = Math.min(self.metadata.blocks - 1, chblock)
 
     self.get(i, loop)
 
@@ -390,9 +409,23 @@ Archive.prototype._range = function (entry, cb) {
         endResult = startBlock + st.blocks
       }
       startBlock += st.blocks
-      if (i + 1 === self.metadata.blocks - 1) return cb(null, startResult, endResult, latest)
+      if (i + 1 === endpos) return cb(null, startResult, endResult, latest)
       self.get(++i, loop)
     }
+  }
+}
+
+Archive.prototype._getCheckoutBlock = function (cb) {
+  var self = this
+  var ch = self.options.checkout
+  if (self._checkoutBlock !== null) return cb(null, self._checkoutBlock)
+  if (ch === null || ch === undefined) return cb(null, null)
+  if (typeof ch === 'number') return cb(null, ch)
+
+  self.metadata.getBlockFromHash(ch, function (err, block) {
+    if (err) return cb(err)
+    self._checkoutBlock = block
+    cb(null, block)
   })
 }
 

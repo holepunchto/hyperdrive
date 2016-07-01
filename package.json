@@ -23,7 +23,8 @@
     "rabin": "^1.4.0",
     "stream-collector": "^1.0.1",
     "through2": "^2.0.1",
-    "thunky": "^0.1.0"
+    "thunky": "^0.1.0",
+    "xtend": "^4.0.1"
   },
   "devDependencies": {
     "concat-stream": "^1.5.1",
