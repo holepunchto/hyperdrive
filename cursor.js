@@ -10,6 +10,7 @@ function Cursor (archive, file, opts) {
 
   this._nextOffset = 0
   this._block = 0
+  this._endBlock = 0
   this._range = null
 
   this.archive = archive
@@ -81,7 +82,7 @@ Cursor.prototype._seek = function (offset, cb) {
     self.position = offset
 
     self._clear()
-    self._range = self.archive.content.prioritize({start: block, priority: 4, linear: true})
+    self._range = self.archive.content.prioritize({start: block, end: self._endBlock, priority: 4, linear: true})
 
     cb(null)
   })
@@ -131,11 +132,12 @@ Cursor.prototype._open = function (cb) {
     self.start = Math.min(self.start + entry.content.bytesOffset, max)
     self.end = Math.min(self.end + entry.content.bytesOffset, max)
     self._block = entry.content.blockOffset
+    self._endBlock = entry.content.blockOffset + entry.blocks
 
     if (self.start !== entry.content.bytesOffset) return self._seek(self.start, done)
 
     self.position = self.start
-    self._range = self.archive.content.prioritize({start: self._block, priority: 4, linear: true})
+    self._range = self.archive.content.prioritize({start: self._block, end: self._endBlock, priority: 4, linear: true})
     done(null)
   })
 
