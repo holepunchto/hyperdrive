@@ -136,7 +136,6 @@ test('random access read spanning multiple blocks', function (t) {
   archive.finalize(function () {
     var cursor = archive.createByteCursor('hello.txt', 0)
     archive.get('hello.txt', function (err, entry) {
-      console.log('entry.blocks', entry.blocks)
       t.error(err, 'no error')
       verifyBlock(0, cursor, archive.content, function () {
         verifyBlock(1, cursor, archive.content, function () {
