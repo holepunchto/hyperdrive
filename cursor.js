@@ -74,7 +74,9 @@ Cursor.prototype._seek = function (offset, cb) {
     return cb(null)
   }
 
-  this.archive.content.seek(offset, function (err, block, rel) {
+  var opts = {start: this.entry.content.blockOffset, end: this._endBlock}
+
+  this.archive.content.seek(offset, opts, function (err, block, rel) {
     if (err) return cb(err)
 
     self._block = block
