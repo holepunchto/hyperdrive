@@ -116,7 +116,7 @@ test('random access read spanning multiple blocks', function (t) {
   var archive = drive.createArchive()
 
   var arr = []
-  for (var i = 0; i < 10000 * 2; i++) {
+  for (var i = 0; i < 10000 * 4; i++) {
     arr.push(Math.floor(Math.random() * 100))
   }
   var testBuffer = new Buffer(arr)
