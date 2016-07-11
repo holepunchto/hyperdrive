@@ -27,7 +27,7 @@ function Archive (drive, key, opts) {
 
   this.options = opts || {}
   this.drive = drive
-  this.live = this.options.live = !!this.options.live
+  this.live = this.options.live = (this.options.live !== false)
   this.metadata = drive.core.createFeed(key, this.options)
   this.content = null
   this.key = key || this.metadata.key

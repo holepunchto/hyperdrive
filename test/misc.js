@@ -9,6 +9,7 @@ tape('list', function (t) {
   var drive = hyperdrive(memdb())
 
   var archive = drive.createArchive({
+    live: false,
     file: function (name) {
       return raf(path.join(__dirname, name), {readable: true, writable: false})
     }
@@ -34,6 +35,7 @@ tape('list offset', function (t) {
   var drive = hyperdrive(memdb())
 
   var archive = drive.createArchive({
+    live: false,
     file: function (name) {
       return raf(path.join(__dirname, name), {readable: true, writable: false})
     }
@@ -151,4 +153,12 @@ tape('empty write stream', function (t) {
     t.pass('stream ended')
     t.end()
   })
+})
+
+tape('live by default', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  t.ok(archive.live, 'live')
+  t.end()
 })
