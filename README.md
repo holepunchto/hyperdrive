@@ -114,6 +114,10 @@ If you do not provide the file option all file data is stored in the leveldb.
 A buffer that verifies the archive content. In live mode this is a 32 byte public key.
 Otherwise it is a 32 byte hash.
 
+#### `archive.live`
+
+Boolean whether archive is live. `true` by default. Note that its only populated after archive.open(cb) has been fired.
+
 #### `archive.append(entry, callback)`
 
 Append an entry to the archive. Only possible if this is an live archive you originally created

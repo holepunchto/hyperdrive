@@ -6,7 +6,7 @@ var concat = require('concat-stream')
 test('overwrite', function (t) {
   t.plan(2)
   var drive = hyperdrive(memdb())
-  var archive = drive.createArchive(undefined, { live: true })
+  var archive = drive.createArchive()
 
   var w1 = archive.createFileWriteStream('hello.txt')
   w1.end('BEEP BOOP\n')
