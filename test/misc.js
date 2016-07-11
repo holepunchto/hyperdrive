@@ -162,3 +162,55 @@ tape('live by default', function (t) {
   t.ok(archive.live, 'live')
   t.end()
 })
+
+tape('archive events', function (t) {
+  t.plan(9)
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name), {readable: true, writable: false})
+    }
+  })
+
+  archive.append('misc.js', function (err) {
+    t.error(err, 'no error')
+  })
+
+  archive.on('upload', function (data) {
+    t.pass('upload event')
+  })
+
+  archive.on('finalized', function () {
+    t.pass('finalized event')
+  })
+
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
+
+    var clone = driveClone.createArchive(archive.key)
+
+    clone.download('misc.js', function (err) {
+      t.error(err, 'no error')
+      t.pass('file was downloaded')
+    })
+
+    clone.on('download', function (data) {
+      t.pass('download event')
+    })
+
+    clone.on('file-download-finished', function (entry) {
+      t.ok(entry === 'misc.js', 'file downloaded event')
+    })
+
+    clone.on('download-finished', function () {
+      t.pass('download finished event')
+    })
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
+})

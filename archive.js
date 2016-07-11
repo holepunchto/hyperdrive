@@ -178,6 +178,7 @@ Archive.prototype.finalize = function (cb) {
     if (err) return cb(err)
     self.key = self.metadata.key
     self.discoveryKey = self.metadata.discoveryKey
+    self.emit('finalized')
     cb(null)
   }
 }
@@ -367,6 +368,7 @@ Archive.prototype.download = function (entry, cb) {
     }
 
     function done () {
+      self.emit('file-download-finished', entry)
       self.content.removeListener('download', kick)
       cb()
     }
@@ -451,6 +453,10 @@ Archive.prototype._open = function (cb) {
 
     self.content.on('upload', function (block, data) {
       self.emit('upload', data)
+    })
+
+    self.content.on('download-finished', function () {
+      self.emit('download-finished')
     })
 
     if (self.metadata.live && !index) self._writeIndex(opened)
