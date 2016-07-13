@@ -137,8 +137,7 @@ tape('downloads empty files to fs', function (t) {
 
       clone.download(entry, function (err) {
         var fileList = fs.readdirSync(tmpdir.name).join(' ')
-        // TODO: change this to t.ok
-        t.skip(fileList.indexOf('empty.txt') > -1, 'has empty file')
+        t.ok(fileList.indexOf('empty.txt') > -1, 'has empty file')
         t.error(err, 'no error')
         t.end()
       })
@@ -175,14 +174,15 @@ tape('downloads empty directories to fs', function (t) {
     clone.get(0, function (err, entry) {
       t.error(err, 'no error')
         // TODO: change these to t.same
-      t.skip(entry.type, 'directory')
-      t.skip(entry.name, 'a-dir')
-      t.skip(entry.length, 0, 'empty')
+      t.same(entry.type, 'directory')
+      t.same(entry.name, 'a-dir')
+      t.same(entry.length, 0, 'empty')
 
-      clone.download(0, function (err) {
+      clone.download(entry, function (err) {
         var fileList = fs.readdirSync(tmpdir.name).join(' ')
         // TODO: change this to t.ok
         t.skip(fileList.indexOf('a-dir') > -1, 'has empty dir')
+        // TODO: test a-dir is actually a directory
         t.error(err, 'no error')
         t.end()
       })
