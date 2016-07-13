@@ -355,6 +355,18 @@ Archive.prototype.download = function (entry, cb) {
   this._range(entry, function (err, start, end) {
     if (err) return cb(err)
 
+    if (start === end && entry.type === 'file') {
+      var storage = self.options.storage
+      if (storage) {
+        storage.openAppend(entry.name, true)
+        storage.write(0, '', function (err) {
+          if (err) return cb(err)
+          self.options.storage.closeAppend(cb)
+        })
+        return
+      }
+    }
+
     self.content.on('download', kick)
     kick()
 
