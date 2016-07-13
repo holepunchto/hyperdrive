@@ -2,7 +2,7 @@ var tape = require('tape')
 var memdb = require('memdb')
 var path = require('path')
 var fs = require('fs')
-var os = require('os')
+var tmp = require('tmp')
 var raf = require('random-access-file')
 var hyperdrive = require('../')
 
@@ -115,8 +115,7 @@ tape('replicates empty directories', function (t) {
 tape('downloads empty files to fs', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
-  var tmp = path.join(os.tmpdir(), 'hyperdrive-test')
-  try { fs.mkdirSync(tmp) } catch (e) { /* ignore error */ }
+  var tmpdir = tmp.dirSync()
 
   var archive = drive.createArchive()
 
@@ -127,18 +126,17 @@ tape('downloads empty files to fs', function (t) {
 
     var clone = driveClone.createArchive(archive.key, {
       file: function (name) {
-        return raf(path.join(tmp, name))
+        return raf(path.join(tmpdir.name, name))
       }
     })
 
     clone.get(0, function (err, entry) {
       t.error(err, 'no error')
-      // TODO: change these to t.same
-      t.skip(entry.name, 'empty.txt')
-      t.skip(entry.length, 0, 'empty')
+      t.same(entry.name, 'empty.txt')
+      t.same(entry.length, 0, 'empty')
 
       clone.download(entry, function (err) {
-        var fileList = fs.readdirSync(tmp).join(' ')
+        var fileList = fs.readdirSync(tmpdir.name).join(' ')
         // TODO: change this to t.ok
         t.skip(fileList.indexOf('empty.txt') > -1, 'has empty file')
         t.error(err, 'no error')
@@ -156,8 +154,7 @@ tape('downloads empty files to fs', function (t) {
 tape('downloads empty directories to fs', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
-  var tmp = path.join(os.tmpdir(), 'hyperdrive-test-2')
-  try { fs.mkdirSync(tmp) } catch (e) { /* ignore error */ }
+  var tmpdir = tmp.dirSync()
 
   var archive = drive.createArchive()
 
@@ -171,7 +168,7 @@ tape('downloads empty directories to fs', function (t) {
 
     var clone = driveClone.createArchive(archive.key, {
       file: function (name) {
-        return raf(path.join(tmp, name))
+        return raf(path.join(tmpdir.name, name))
       }
     })
 
@@ -183,7 +180,7 @@ tape('downloads empty directories to fs', function (t) {
       t.skip(entry.length, 0, 'empty')
 
       clone.download(0, function (err) {
-        var fileList = fs.readdirSync(tmp).join(' ')
+        var fileList = fs.readdirSync(tmpdir.name).join(' ')
         // TODO: change this to t.ok
         t.skip(fileList.indexOf('a-dir') > -1, 'has empty dir')
         t.error(err, 'no error')
