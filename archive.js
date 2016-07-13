@@ -359,7 +359,7 @@ Archive.prototype.download = function (entry, cb) {
       var storage = self.options.storage
       if (storage) {
         storage.openAppend(entry.name, true)
-        storage.write(0, '', function (err) {
+        storage.write(0, Buffer(0), function (err) {
           if (err) return cb(err)
           self.options.storage.closeAppend(cb)
         })
