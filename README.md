@@ -98,6 +98,7 @@ as the first argument. Options include
 ``` js
 {
   live: false, // set this to share the archive without finalizing it
+  sparse: false, // set this to only download the pieces of the feed you are requesting / prioritizing
   file: function (name) {
     // set this to determine how file data is stored.
     // the storage instance should implement the hypercore storage api
