@@ -224,6 +224,10 @@ Options include
 
 Pipe this stream together with another peer that is interested in the same archive to replicate the content.
 
+#### `var subArchive = archive.checkout(hashOrBlock)`
+
+Create a read-only sub-archive rooted at a rolling hash buffer or block index.
+
 ## License
 
 MIT
