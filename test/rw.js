@@ -206,7 +206,7 @@ test('write and read after replication', function (t) {
   })
 })
 
-test.only('read previous entries', function (t) {
+test('read previous entries', function (t) {
   t.plan(5)
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive(null, { live: true })
