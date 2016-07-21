@@ -238,8 +238,8 @@ test('read previous entries', function (t) {
     archive.list({ live: false }, function (err, files) {
       t.error(err)
       files.forEach(function (file) {
+        var e = expected.shift()
         archive.createFileReadStream(file).pipe(concat(function (body) {
-          var e = expected.shift()
           t.equal(body.toString(), e.body, e.name)
         }))
       })
