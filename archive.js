@@ -389,6 +389,11 @@ Archive.prototype._range = function (entry, cb) {
   var startBlock = 0
   var self = this
 
+  if (entry && entry.content && entry.blocks !== undefined) {
+    return process.nextTick(function () {
+      cb(null, entry.content.blockOffset, entry.content.blockOffset + entry.blocks, entry)
+    })
+  }
   this.get(entry, function (err, result) {
     if (err) return cb(err)
 
