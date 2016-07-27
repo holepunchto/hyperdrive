@@ -162,3 +162,25 @@ tape('live by default', function (t) {
   t.ok(archive.live, 'live')
   t.end()
 })
+
+tape('mtime preserved', function (t) {
+  t.plan(2)
+  var txt = '/tmp/mtime.txt'
+  var mtime = new Date(1000 *
+    Math.round((Date.now() + 1000 * 60 * 60 * 10) / 1000))
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive({
+    file: function () { return raf(txt) }
+  })
+  archive.createFileWriteStream({
+    name: 'mtime.txt',
+    mtime: mtime
+  })
+  .on('finish', function () {
+    fs.stat(txt, function (err, stat) {
+      t.error(err)
+      t.deepEqual(stat.mtime, mtime)
+    })
+  })
+  .end('hyper hyper')
+})

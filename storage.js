@@ -45,6 +45,20 @@ Storage.prototype.write = function (offset, buf, cb) {
   s.storage.write(offset - s.start, buf, cb)
 }
 
+Storage.prototype.end = function (offset, options, cb) {
+  var s = this._get(offset)
+  if (!s) {
+    var self = this
+    return this._open(offset, 0, null, function (err) {
+      if (err) return cb(err)
+      self.end(offset, options, cb)
+    })
+  }
+  if (this._readonly && s === this._appending) return cb(null)
+  if (s.storage.end) return s.storage.end(options, cb)
+  cb()
+}
+
 Storage.prototype._get = function (offset) {
   for (var i = 0; i < this._opened.length; i++) {
     var s = this._opened[i]
