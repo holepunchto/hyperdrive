@@ -150,6 +150,31 @@ tape('downloads empty files to fs', function (t) {
   })
 })
 
+tape('replicates static archives', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    live: false
+  })
+
+  archive.createFileWriteStream('empty.txt').end(function () {
+    archive.finalize(function () {
+      var clone = driveClone.createArchive(archive.key)
+
+      clone.download(0, function () {
+        t.pass('archive replicated')
+        t.end()
+      })
+
+      var stream = archive.replicate()
+      var streamClone = clone.replicate()
+
+      stream.pipe(streamClone).pipe(stream)
+    })
+  })
+})
+
 tape('downloads empty directories to fs', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
