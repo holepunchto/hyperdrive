@@ -164,6 +164,18 @@ Emitted every time a piece of data is downloaded
 
 Emitted every time a piece of data is uploaded
 
+#### `archive.on('file-download-finished', entry)`
+
+Emitted every time an entry is downloaded
+
+#### `archive.on('download-finished')`
+
+Emitted when archive is finished downloading. Will also fire when live archive updates finish.
+
+#### `archive.on('finalized')`
+
+Emitted when archive is finalized after `archive.finalize` call. Emitted when `archive.finalize` cb() is called.
+
 #### `var rs = archive.list(opts={}, cb)`
 
 Returns a readable stream of all entries in the archive.
