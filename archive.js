@@ -470,6 +470,8 @@ Archive.prototype._open = function (cb) {
       self.emit('upload', data)
     })
 
+    self.emit('content')
+
     if (self.metadata.live && !index) self._writeIndex(opened)
     else opened(null)
   }
