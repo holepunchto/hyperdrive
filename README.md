@@ -29,17 +29,15 @@ ws.write('hello')
 ws.write('world')
 ws.end()
 
-archive.finalize(function () { // finalize the archive
-  var link = archive.key.toString('hex')
-  console.log(link, '<-- this is your hyperdrive link')
+var link = archive.key.toString('hex')
+console.log(link, '<-- this is your hyperdrive link')
 
-  // the archive is now ready for sharing.
-  // we can use swarm to replicate it to other peers
-  swarm.listen()
-  swarm.join(new Buffer(link, 'hex'))
-  swarm.on('connection', function (connection) {
-    connection.pipe(archive.replicate()).pipe(connection)
-  })
+// the archive is now ready for sharing.
+// we can use swarm to replicate it to other peers
+swarm.listen()
+swarm.join(new Buffer(link, 'hex'))
+swarm.on('connection', function (connection) {
+  connection.pipe(archive.replicate()).pipe(connection)
 })
 ```
 
@@ -142,7 +140,7 @@ archive.append('hello.txt', function () {
 
 #### `archive.finalize([callback])`
 
-Finalize the archive. You need to do this before sharing it if the archive is not live.
+Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
 
 #### `archive.get(index, callback)`
 
