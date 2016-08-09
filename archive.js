@@ -254,7 +254,7 @@ Archive.prototype.createFileWriteStream = function (entry, opts) {
       }
       entry.blocks = self.content.blocks - start
       if (self.options.storage) {
-        self.options.storage.end(start, entry, function (err) {
+        self.options.storage.end(bytesOffset, entry, function (err) {
           if (err) return cb(err)
           self.options.storage.closeAppend(done)
         })
