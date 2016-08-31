@@ -15,7 +15,7 @@
     "brfs": "^1.4.3",
     "bulk-write-stream": "^1.1.1",
     "from2": "^2.1.1",
-    "hypercore": "^4.7.0",
+    "hypercore": "^4.10.0",
     "inherits": "^2.0.1",
     "protocol-buffers": "^3.1.6",
     "pump": "^1.0.1",

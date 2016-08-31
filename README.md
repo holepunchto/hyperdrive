@@ -218,9 +218,17 @@ Options include
 }
 ```
 
-#### `var stream = archive.replicate()`
+#### `var stream = archive.replicate([options])`
 
 Pipe this stream together with another peer that is interested in the same archive to replicate the content.
+Options include:
+
+``` js
+{
+  upload: true, // upload content to remote peer
+  download: true // downlod content from remote peer
+}
+```
 
 ## License
 

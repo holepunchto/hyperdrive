@@ -50,16 +50,18 @@ inherits(Archive, events.EventEmitter)
 
 Archive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
+  if (isStream(opts)) opts = {stream: opts}
+
   assertReplication(this)
 
-  var stream = isStream(opts) ? opts : opts.stream
+  var stream = opts.stream
   var self = this
-  if (!stream) stream = this.metadata.replicate(opts)
-  else this.metadata.replicate({stream: stream})
+  if (!stream) stream = opts.stream = this.metadata.replicate(opts)
+  else this.metadata.replicate(opts)
 
   this.open(function (err) {
     if (err) return stream.destroy(err)
-    if (self.content && self.content.key) self.content.replicate({stream: stream})
+    if (self.content && self.content.key) self.content.replicate(opts)
   })
 
   return stream

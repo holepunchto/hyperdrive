@@ -9,8 +9,8 @@ function Drive (db, opts) {
   this.id = this.core.id
 }
 
-Drive.prototype.replicate = function () {
-  return this.core.replicate()
+Drive.prototype.replicate = function (opts) {
+  return this.core.replicate(opts)
 }
 
 Drive.prototype.createArchive = function (key, opts) {
