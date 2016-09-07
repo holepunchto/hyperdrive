@@ -30,6 +30,8 @@ function Archive (drive, key, opts) {
   this.live = this.options.live = !key && (this.options.live !== false)
   this.metadata = drive.core.createFeed(key, this.options)
   this.content = null
+  this.downloadProgress = null
+  this.bytesDownloaded = null
   this.key = key || this.metadata.key
   this.discoveryKey = this.metadata.discoveryKey
   this.owner = !key
@@ -469,8 +471,12 @@ Archive.prototype._open = function (cb) {
     self.options.key = index && index.content
     self.content = self.drive.core.createFeed(null, self.options)
     self.live = self.metadata.live
+    self.downloadProgress = 0
+    self.bytesDownloaded = 0
 
     self.content.on('download', function (block, data) {
+      self.bytesDownloaded += data.length
+      self.downloadProgress = self.bytesDownloaded / self.content.bytes
       self.emit('download', data)
     })
 
