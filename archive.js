@@ -36,6 +36,7 @@ function Archive (drive, key, opts) {
   this.open = thunky(open)
   this.id = drive.id
 
+  this._sparse = !!this.options.sparse
   this._closed = false
   this._appending = []
   this._indexBlock = -1
@@ -373,6 +374,10 @@ Archive.prototype.download = function (entry, cb) {
         })
         return
       }
+    }
+
+    if (self._sparse) {
+      self.content.prioritize({start: start, end: end})
     }
 
     self.content.on('download', kick)

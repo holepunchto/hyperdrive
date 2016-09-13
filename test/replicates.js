@@ -46,6 +46,46 @@ tape('replicates file', function (t) {
   })
 })
 
+tape('replicates file with sparse mode', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name))
+    }
+  })
+
+  archive.append('replicates.js', function (err) {
+    t.error(err, 'no error')
+  })
+
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
+
+    var clone = driveClone.createArchive(archive.key, {sparse: true})
+    var buf = []
+
+    clone.download(0, function (err) {
+      t.error(err, 'no error')
+
+      clone.createFileReadStream(0)
+        .on('data', function (data) {
+          buf.push(data)
+        })
+        .on('end', function () {
+          t.same(Buffer.concat(buf), fs.readFileSync(__filename))
+          t.end()
+        })
+    })
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
+})
+
 tape('replicates empty files', function (t) {
   var drive = hyperdrive(memdb())
   var driveClone = hyperdrive(memdb())
