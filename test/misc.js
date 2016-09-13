@@ -105,7 +105,7 @@ tape('bytes/block offsets with one file', function (t) {
 
   archive.append('misc.js', function (err) {
     t.error(err, 'no error')
-    archive.list(function (err, entries) {
+    archive.history(function (err, entries) {
       t.error(err, 'no error')
       t.same(entries.length, 1, 'one entry')
       t.same(entries[0].content.blockOffset, 0, 'block offset is 0')
@@ -131,7 +131,7 @@ tape('bytes/block offsets with two files', function (t) {
     var correctBlocks = archive.content.blocks
     archive.append('misc.js', function (err) {
       t.error(err, 'no error')
-      archive.list(function (err, entries) {
+      archive.history(function (err, entries) {
         t.error(err, 'no error')
         t.same(entries.length, 2, 'two entries')
         t.same(entries[1].content.bytesOffset, correctBytes, 'correct offset')

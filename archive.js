@@ -68,8 +68,8 @@ Archive.prototype.replicate = function (opts) {
   return stream
 }
 
-Archive.prototype.list = function (opts, cb) {
-  if (typeof opts === 'function') return this.list(null, opts)
+Archive.prototype.history = function (opts, cb) {
+  if (typeof opts === 'function') return this.history(null, opts)
   if (!opts) opts = {}
 
   var self = this
@@ -107,6 +107,50 @@ Archive.prototype.list = function (opts, cb) {
   }
 }
 
+Archive.prototype.list = function (opts, cb) {
+  if (typeof opts === 'function') return this.list(null, opts)
+  if (!opts) opts = {}
+
+  var self = this
+  var entries = false // object mapping name -> entry
+  var entryNames = null // keys from entries
+  var currentEntry = 0 // entry currently getting read
+  var offset = opts.offset || 0
+
+  return collect(from.obj(read), cb)
+
+  function read (size, cb2) {
+    if (!entries) return buildEntries(size, cb2)
+
+    var entryName = entryNames[currentEntry++]
+    if (!entryName) return cb2(null, null) // done
+    return cb2(null, entries[entryName])
+  }
+
+  function buildEntries (size, cb2) {
+    // build a map of the entries, name -> data
+    entries = {}
+    var historyStream = self.history({ offset: offset, live: false })
+    historyStream.on('data', function (data) {
+      if (!data.name) return
+      if (data.type === 'unlink') {
+        delete entries[data.name]
+      } else {
+        entries[data.name] = data
+      }
+    })
+    historyStream.on('error', done)
+    historyStream.on('close', done)
+    historyStream.on('end', done)
+
+    function done (err) {
+      if (err) return cb(err)
+      entryNames = Object.keys(entries)
+      read(size, cb2)
+    }
+  }
+}
+
 Archive.prototype.get = function (index, cb) {
   if (typeof index === 'object' && index.name) return cb(null, index)
   if (typeof index === 'string') return this.lookup(index, cb)
@@ -137,8 +181,10 @@ Archive.prototype.lookup = function (name, cb) {
   var result = null
 
   entries.on('data', function (data) {
-    if (data.name !== name) return
-    result = data
+    if (data.name === name) {
+      result = data
+      cb(null, result)
+    }
   })
 
   entries.on('error', done)
@@ -146,8 +192,7 @@ Archive.prototype.lookup = function (name, cb) {
   entries.on('end', done)
 
   function done (err) {
-    if (result) return cb(null, result)
-    cb(err || new Error('Could not find entry'))
+    if (!result) cb(err || new Error('Could not find entry'))
   }
 }
 

@@ -207,7 +207,7 @@ test('write and read after replication', function (t) {
 })
 
 test('read previous entries', function (t) {
-  t.plan(5)
+  t.plan(9)
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive(null, { live: true })
   var data = [
@@ -215,12 +215,16 @@ test('read previous entries', function (t) {
     { 'hello.txt': 'WHAT', 'index.html': '<h1>hey</h1>' },
     { 'hello.txt': '!' }
   ]
-  var expected = [
+  var expectedHistory = [
     { name: 'hello.txt', body: 'HI' },
     { name: 'hello.txt', body: 'WHAT' },
     { name: 'index.html', body: '<h1>hey</h1>' },
     { name: 'hello.txt', body: '!' }
   ]
+  var expectedListing = {
+    'index.html': { body: '<h1>hey</h1>' },
+    'hello.txt': { body: '!' }
+  }
   ;(function next () {
     if (data.length === 0) return check()
     var files = data.shift()
@@ -235,14 +239,23 @@ test('read previous entries', function (t) {
     function done () { if (--pending === 0) next() }
   })()
   function check () {
-    archive.list({ live: false }, function (err, files) {
+    archive.history({ live: false }, function (err, files) {
       t.error(err)
       files.forEach(function (file) {
-        var e = expected.shift()
-        archive.createFileReadStream(file).pipe(concat(function (body) {
-          t.equal(body.toString(), e.body, e.name)
-        }))
+        checkFile(expectedHistory.shift(), file, 'history: ' + file.name)
       })
     })
+    archive.list({ live: false }, function (err, files) {
+      t.error(err)
+      t.equal(files.length, 2)
+      files.forEach(function (file) {
+        checkFile(expectedListing[file.name], file, 'list: ' + file.name)
+      })
+    })
+  }
+  function checkFile (e, file, msg) {
+    archive.createFileReadStream(file).pipe(concat(function (body) {
+      t.equal(body.toString(), e.body, msg)
+    }))
   }
 })

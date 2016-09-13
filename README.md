@@ -162,12 +162,20 @@ Emitted every time a piece of data is downloaded
 
 Emitted every time a piece of data is uploaded
 
-#### `var rs = archive.list(opts={}, cb)`
+#### `var rs = archive.history(opts={}, cb)`
 
-Returns a readable stream of all entries in the archive.
+Returns a readable stream of the history of the entries in the archive.
 
 * `opts.offset` - start streaming from this offset (default: 0)
 * `opts.live` - keep the stream open as new updates arrive (default: false)
+
+You can collect the results of the stream with `cb(err, entries)`.
+
+#### `var rs = archive.list(opts={}, cb)`
+
+Returns a readable stream of all current entries in the archive.
+
+* `opts.offset` - start streaming from this offset (default: 0)
 
 You can collect the results of the stream with `cb(err, entries)`.
 
