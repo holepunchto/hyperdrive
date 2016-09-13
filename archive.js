@@ -16,7 +16,8 @@ var TYPES = [
   messages.Entry, // file
   messages.Entry, // directory
   messages.Entry, // symlink
-  messages.Entry  // hardlink
+  messages.Entry, // hardlink
+  messages.Unlink
 ]
 
 module.exports = Archive
@@ -121,14 +122,13 @@ Archive.prototype.list = function (opts, cb) {
 
   function read (size, cb2) {
     if (!entries) return buildEntries(size, cb2)
-
     var entryName = entryNames[currentEntry++]
     if (!entryName) return cb2(null, null) // done
     return cb2(null, entries[entryName])
   }
 
   function buildEntries (size, cb2) {
-    // build a map of the entries, name -> data
+    // build a map of the history entries
     entries = {}
     var historyStream = self.history({ offset: offset, live: false })
     historyStream.on('data', function (data) {
@@ -393,6 +393,19 @@ Archive.prototype.append = function (entry, cb) {
   })
 }
 
+Archive.prototype.unlink = function (entry, cb) {
+  if (!cb) cb = noop
+  assertFinalized(this)
+
+  var entryName = (typeof entry === 'string') ? entry : entry.name
+  var self = this
+
+  this.open(function (err) {
+    if (err) return cb(err)
+    self._writeEntry({ type: 'unlink', name: entryName }, cb)
+  })
+}
+
 Archive.prototype.close = function (cb) {
   if (!cb) cb = noop
   var self = this
@@ -606,10 +619,12 @@ function assertFinalized (self) {
 }
 
 function decodeEntry (buf) {
-  var type = buf[0]
-  if (type > 4) throw new Error('Unknown message type: ' + type)
-  var entry = messages.Entry.decode(buf, 1)
-  entry.type = toTypeString(type)
+  var entry
+  var typeNum = buf[0]
+  var type = TYPES[typeNum]
+  if (!type) throw new Error('Unknown message type: ' + typeNum)
+  entry = type.decode(buf, 1)
+  entry.type = toTypeString(typeNum)
   return entry
 }
 
@@ -620,6 +635,7 @@ function toTypeString (t) {
     case 2: return 'directory'
     case 3: return 'symlink'
     case 4: return 'hardlink'
+    case 5: return 'unlink'
   }
 
   return 'unknown'
@@ -632,6 +648,7 @@ function toTypeNumber (t) {
     case 'directory': return 2
     case 'symlink': return 3
     case 'hardlink': return 4
+    case 'unlink': return 5
   }
 
   return -1

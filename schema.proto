@@ -20,9 +20,9 @@ message Entry {
   optional Content content = 10;
 }
 
-// message Unlink {
-//  required string name = 1;
-//}
+message Unlink {
+  required string name = 1;
+}
 
 // message Rename {
 //  required string source = 1;

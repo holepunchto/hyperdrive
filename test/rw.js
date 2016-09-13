@@ -259,3 +259,52 @@ test('read previous entries', function (t) {
     }))
   }
 })
+
+test('write and unlink', function (t) {
+  t.plan(5)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var ws = archive.createFileWriteStream('hello.txt')
+  ws.end('BEEP BOOP\n')
+  ws.on('finish', function () {
+    archive.unlink('hello.txt', function (err) {
+      t.error(err)
+      archive.list(function (err, files) {
+        t.error(err)
+        t.equal(files.length, 0, 'list() should provide no files')
+      })
+      archive.lookup('hello.txt', function (err, result) {
+        t.ok(err, 'lookup() should fail')
+      })
+      var rs = archive.createFileReadStream('hello.txt')
+      rs.on('error', function (err) {
+        t.ok(err, 'createFileReadStream() should fail')
+      })
+      rs.on('data', function (data) {
+        throw new Error('createFileReadStream() should not give unlinked data')
+      })
+    })
+  })
+})
+
+test('write and unlink, then write again', function (t) {
+  t.plan(2)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var ws = archive.createFileWriteStream('hello.txt')
+  ws.end('BEEP BOOP\n')
+  ws.on('finish', function () {
+    archive.unlink('hello.txt', function (err) {
+      t.error(err)
+      archive.createFileWriteStream('hello.txt').end('BEEP BEEP\n')
+      archive.finalize(function () {
+        archive.createFileReadStream('hello.txt')
+          .pipe(concat(function (body) {
+            t.equal(body.toString(), 'BEEP BEEP\n')
+          }))
+      })
+    })
+  })
+})

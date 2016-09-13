@@ -138,6 +138,13 @@ archive.append('hello.txt', function () {
 })
 ```
 
+#### `archive.unlink(entry, callback)`
+
+Remove an entry from the archive. Only possible if this is an live archive you originally created
+or an unfinalized archive.
+
+This will not affect the files on the disk, even if you set the file option in the archive constructor.
+
 #### `archive.finalize([callback])`
 
 Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
