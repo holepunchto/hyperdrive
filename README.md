@@ -230,6 +230,20 @@ Options include:
 }
 ```
 
+#### `archive.countDownloadedBlocks(entry)`
+
+Count the number of blocks in the entry that have been downloaded.
+You can calculate the file's download progress, as a percentage, with:
+
+```js
+var downloaded = archive.countDownloadedBlocks(entry)
+var progress =  downloaded / entry.blocks
+```
+
+#### `archive.isEntryDownloaded(entry)`
+
+Has all of the entry's blocks been downloaded?
+
 ## License
 
 MIT

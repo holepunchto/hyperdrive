@@ -143,6 +143,50 @@ tape('bytes/block offsets with two files', function (t) {
   })
 })
 
+tape('file-download progress', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name), {readable: true, writable: false})
+    }
+  })
+
+  archive.append('misc.js', function (err) {
+    t.error(err, 'no error')
+  })
+
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
+
+    archive.list(function (err, entries) {
+      t.error(err, 'no error')
+      t.equal(entries.length, 1)
+      t.equal(archive.countDownloadedBlocks(entries[0]), entries[0].blocks)
+      t.equal(archive.isEntryDownloaded(entries[0]), true)
+
+      var clone = driveClone.createArchive(archive.key)
+
+      t.equal(clone.countDownloadedBlocks(entries[0]), 0)
+      t.equal(clone.isEntryDownloaded(entries[0]), false)
+
+      clone.download(0, function (err) {
+        t.error(err, 'no error')
+        t.pass('file was downloaded')
+        t.equal(clone.countDownloadedBlocks(entries[0]), entries[0].blocks)
+        t.equal(clone.isEntryDownloaded(entries[0]), true)
+        t.end()
+      })
+
+      var stream = archive.replicate()
+      var streamClone = clone.replicate()
+
+      stream.pipe(streamClone).pipe(stream)
+    })
+  })
+})
+
 tape('empty write stream', function (t) {
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive()

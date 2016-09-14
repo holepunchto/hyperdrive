@@ -151,6 +151,27 @@ Archive.prototype.lookup = function (name, cb) {
   }
 }
 
+Archive.prototype.countDownloadedBlocks = function (entry) {
+  // no content hypercore yet? then nothing is downloaded
+  if (!this.content) {
+    return 0
+  }
+
+  // iterate and tally the entry's blocks
+  var b = 0
+  var offset = entry.content.blockOffset
+  for (var i = 0; i < entry.blocks; i++) {
+    if (this.content.has(i + offset)) {
+      b++
+    }
+  }
+  return b
+}
+
+Archive.prototype.isEntryDownloaded = function (entry) {
+  return this.countDownloadedBlocks(entry) === entry.blocks
+}
+
 Archive.prototype.finalize = function (cb) {
   if (!cb) cb = noop
   var self = this
