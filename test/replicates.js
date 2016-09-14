@@ -4,6 +4,7 @@ var path = require('path')
 var fs = require('fs')
 var tmp = require('tmp')
 var raf = require('random-access-file')
+var concat = require('concat-stream')
 var hyperdrive = require('../')
 
 tape('replicates file', function (t) {
@@ -258,4 +259,71 @@ tape('downloads empty directories to fs', function (t) {
 
     stream.pipe(streamClone).pipe(stream)
   })
+})
+
+tape('replicates unlinks', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+  var tmpdir1 = tmp.dirSync()
+  var tmpdir2 = tmp.dirSync()
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(tmpdir1.name, name))
+    }
+  })
+
+  var clone = driveClone.createArchive(archive.key, {
+    file: function (name) {
+      return raf(path.join(tmpdir2.name, name))
+    }    
+  })
+
+  var stream = archive.replicate()
+  var streamClone = clone.replicate()
+
+  stream.pipe(streamClone).pipe(stream)
+
+  // write hello.txt to original
+  var ws = archive.createFileWriteStream('hello.txt')
+  ws.end('BEEP BOOP\n')
+  ws.on('finish', function () {
+
+    // replicate and ensure content
+    clone.download(0, function (err) {
+      t.error(err, 'no error')
+
+      clone.createFileReadStream('hello.txt').pipe(concat(function (body) {
+        t.equal(body.toString(), 'BEEP BOOP\n')
+
+        // unlink hello.txt from original
+        archive.unlink('hello.txt', function (err) {
+          t.error(err, 'no error')
+
+          ensureDeleted(path.join(tmpdir1.name, 'hello.txt'), 'original')
+          
+          // replicate and ensure deletion
+          clone.download(1, function (err) {
+            t.error(err, 'no error')
+
+            ensureDeleted(path.join(tmpdir2.name, 'hello.txt'), 'clone')
+            t.end()
+          })
+
+        })
+      }))
+    })
+  })
+
+  function ensureDeleted (filepath, archiveName) {
+    var notFound = true
+    try {
+      var stat = fs.statSync(filepath)
+      // file may not be deleted fully yet due to open handles, but it has been unlinked
+      // in this case, the stat.blocks will be zero
+      notFound = stat.blocks === 0
+    } catch (e) {}
+    if (notFound) t.pass(path.basename(filepath) + ' was deleted in ' + archiveName)
+    else          t.fail(path.basename(filepath) + ' should have been deleted in ' + archiveName)
+  }
 })

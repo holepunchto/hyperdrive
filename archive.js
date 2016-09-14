@@ -402,7 +402,14 @@ Archive.prototype.unlink = function (entry, cb) {
 
   this.open(function (err) {
     if (err) return cb(err)
-    self._writeEntry({ type: 'unlink', name: entryName }, cb)
+    self._writeEntry({ type: 'unlink', name: entryName }, function (err) {
+      if (err) return cb(err)
+      if (self.options.file) {
+        self.options.file(entryName, self.options).unlink(cb)
+      } else {
+        cb()
+      }
+    })
   })
 }
 
@@ -420,8 +427,20 @@ Archive.prototype.download = function (entry, cb) {
   var self = this
 
   this._range(entry, function (err, start, end) {
-    if (err) return cb(err)
+    if (err) {
+      // deletions
+      if (err.fileWasUnlinked) {
+        if (self.options.file) {
+          return self.options.file(err.fileName, self.options).unlink(cb)
+        } else {
+          return cb()
+        }
+      }
+      // other errors
+      return cb(err)
+    }
 
+    // empty files
     if (start === end && entry.type === 'file') {
       var storage = self.options.storage
       if (storage) {
@@ -467,6 +486,12 @@ Archive.prototype._range = function (entry, cb) {
   }
   this.get(entry, function (err, result) {
     if (err) return cb(err)
+    if (result.type == 'unlink') {
+      err = new Error('File was unlinked')
+      err.fileWasUnlinked = true
+      err.fileName = result.name
+      return cb(err)
+    }
 
     var latest = null
     var name = result.name
