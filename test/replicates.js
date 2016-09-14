@@ -276,7 +276,7 @@ tape('replicates unlinks', function (t) {
   var clone = driveClone.createArchive(archive.key, {
     file: function (name) {
       return raf(path.join(tmpdir2.name, name))
-    }    
+    }
   })
 
   var stream = archive.replicate()
@@ -288,7 +288,6 @@ tape('replicates unlinks', function (t) {
   var ws = archive.createFileWriteStream('hello.txt')
   ws.end('BEEP BOOP\n')
   ws.on('finish', function () {
-
     // replicate and ensure content
     clone.download(0, function (err) {
       t.error(err, 'no error')
@@ -301,7 +300,7 @@ tape('replicates unlinks', function (t) {
           t.error(err, 'no error')
 
           ensureDeleted(path.join(tmpdir1.name, 'hello.txt'), 'original')
-          
+
           // replicate and ensure deletion
           clone.download(1, function (err) {
             t.error(err, 'no error')
@@ -309,7 +308,6 @@ tape('replicates unlinks', function (t) {
             ensureDeleted(path.join(tmpdir2.name, 'hello.txt'), 'clone')
             t.end()
           })
-
         })
       }))
     })
@@ -324,6 +322,6 @@ tape('replicates unlinks', function (t) {
       notFound = stat.blocks === 0
     } catch (e) {}
     if (notFound) t.pass(path.basename(filepath) + ' was deleted in ' + archiveName)
-    else          t.fail(path.basename(filepath) + ' should have been deleted in ' + archiveName)
+    else t.fail(path.basename(filepath) + ' should have been deleted in ' + archiveName)
   }
 })

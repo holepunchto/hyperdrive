@@ -486,7 +486,7 @@ Archive.prototype._range = function (entry, cb) {
   }
   this.get(entry, function (err, result) {
     if (err) return cb(err)
-    if (result.type == 'unlink') {
+    if (result.type === 'unlink') {
       err = new Error('File was unlinked')
       err.fileWasUnlinked = true
       err.fileName = result.name
