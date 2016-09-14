@@ -207,7 +207,7 @@ test('write and read after replication', function (t) {
 })
 
 test('read previous entries', function (t) {
-  t.plan(5)
+  t.plan(9)
   var drive = hyperdrive(memdb())
   var archive = drive.createArchive(null, { live: true })
   var data = [
@@ -215,12 +215,16 @@ test('read previous entries', function (t) {
     { 'hello.txt': 'WHAT', 'index.html': '<h1>hey</h1>' },
     { 'hello.txt': '!' }
   ]
-  var expected = [
+  var expectedHistory = [
     { name: 'hello.txt', body: 'HI' },
     { name: 'hello.txt', body: 'WHAT' },
     { name: 'index.html', body: '<h1>hey</h1>' },
     { name: 'hello.txt', body: '!' }
   ]
+  var expectedListing = {
+    'index.html': { body: '<h1>hey</h1>' },
+    'hello.txt': { body: '!' }
+  }
   ;(function next () {
     if (data.length === 0) return check()
     var files = data.shift()
@@ -235,14 +239,72 @@ test('read previous entries', function (t) {
     function done () { if (--pending === 0) next() }
   })()
   function check () {
-    archive.list({ live: false }, function (err, files) {
+    archive.history({ live: false }, function (err, files) {
       t.error(err)
       files.forEach(function (file) {
-        var e = expected.shift()
-        archive.createFileReadStream(file).pipe(concat(function (body) {
-          t.equal(body.toString(), e.body, e.name)
-        }))
+        checkFile(expectedHistory.shift(), file, 'history: ' + file.name)
+      })
+    })
+    archive.list({ live: false }, function (err, files) {
+      t.error(err)
+      t.equal(files.length, 2)
+      files.forEach(function (file) {
+        checkFile(expectedListing[file.name], file, 'list: ' + file.name)
       })
     })
   }
+  function checkFile (e, file, msg) {
+    archive.createFileReadStream(file).pipe(concat(function (body) {
+      t.equal(body.toString(), e.body, msg)
+    }))
+  }
+})
+
+test('write and unlink', function (t) {
+  t.plan(5)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var ws = archive.createFileWriteStream('hello.txt')
+  ws.end('BEEP BOOP\n')
+  ws.on('finish', function () {
+    archive.unlink('hello.txt', function (err) {
+      t.error(err)
+      archive.list(function (err, files) {
+        t.error(err)
+        t.equal(files.length, 0, 'list() should provide no files')
+      })
+      archive.lookup('hello.txt', function (err, result) {
+        t.ok(err, 'lookup() should fail')
+      })
+      var rs = archive.createFileReadStream('hello.txt')
+      rs.on('error', function (err) {
+        t.ok(err, 'createFileReadStream() should fail')
+      })
+      rs.on('data', function (data) {
+        throw new Error('createFileReadStream() should not give unlinked data')
+      })
+    })
+  })
+})
+
+test('write and unlink, then write again', function (t) {
+  t.plan(2)
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  var ws = archive.createFileWriteStream('hello.txt')
+  ws.end('BEEP BOOP\n')
+  ws.on('finish', function () {
+    archive.unlink('hello.txt', function (err) {
+      t.error(err)
+      archive.createFileWriteStream('hello.txt').end('BEEP BEEP\n')
+      archive.finalize(function () {
+        archive.createFileReadStream('hello.txt')
+          .pipe(concat(function (body) {
+            t.equal(body.toString(), 'BEEP BEEP\n')
+          }))
+      })
+    })
+  })
 })

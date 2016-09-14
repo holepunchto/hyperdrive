@@ -16,7 +16,8 @@ var TYPES = [
   messages.Entry, // file
   messages.Entry, // directory
   messages.Entry, // symlink
-  messages.Entry  // hardlink
+  messages.Entry, // hardlink
+  messages.Unlink
 ]
 
 module.exports = Archive
@@ -68,8 +69,8 @@ Archive.prototype.replicate = function (opts) {
   return stream
 }
 
-Archive.prototype.list = function (opts, cb) {
-  if (typeof opts === 'function') return this.list(null, opts)
+Archive.prototype.history = function (opts, cb) {
+  if (typeof opts === 'function') return this.history(null, opts)
   if (!opts) opts = {}
 
   var self = this
@@ -107,6 +108,49 @@ Archive.prototype.list = function (opts, cb) {
   }
 }
 
+Archive.prototype.list = function (opts, cb) {
+  if (typeof opts === 'function') return this.list(null, opts)
+  if (!opts) opts = {}
+
+  var self = this
+  var entries = false // object mapping name -> entry
+  var entryNames = null // keys from entries
+  var currentEntry = 0 // entry currently getting read
+  var offset = opts.offset || 0
+
+  return collect(from.obj(read), cb)
+
+  function read (size, cb2) {
+    if (!entries) return buildEntries(size, cb2)
+    var entryName = entryNames[currentEntry++]
+    if (!entryName) return cb2(null, null) // done
+    return cb2(null, entries[entryName])
+  }
+
+  function buildEntries (size, cb2) {
+    // build a map of the history entries
+    entries = {}
+    var historyStream = self.history({ offset: offset, live: false })
+    historyStream.on('data', function (data) {
+      if (!data.name) return
+      if (data.type === 'unlink') {
+        delete entries[data.name]
+      } else {
+        entries[data.name] = data
+      }
+    })
+    historyStream.on('error', done)
+    historyStream.on('close', done)
+    historyStream.on('end', done)
+
+    function done (err) {
+      if (err) return cb(err)
+      entryNames = Object.keys(entries)
+      read(size, cb2)
+    }
+  }
+}
+
 Archive.prototype.get = function (index, cb) {
   if (typeof index === 'object' && index.name) return cb(null, index)
   if (typeof index === 'string') return this.lookup(index, cb)
@@ -137,8 +181,10 @@ Archive.prototype.lookup = function (name, cb) {
   var result = null
 
   entries.on('data', function (data) {
-    if (data.name !== name) return
-    result = data
+    if (data.name === name) {
+      result = data
+      cb(null, result)
+    }
   })
 
   entries.on('error', done)
@@ -146,8 +192,7 @@ Archive.prototype.lookup = function (name, cb) {
   entries.on('end', done)
 
   function done (err) {
-    if (result) return cb(null, result)
-    cb(err || new Error('Could not find entry'))
+    if (!result) cb(err || new Error('Could not find entry'))
   }
 }
 
@@ -369,6 +414,26 @@ Archive.prototype.append = function (entry, cb) {
   })
 }
 
+Archive.prototype.unlink = function (entry, cb) {
+  if (!cb) cb = noop
+  assertFinalized(this)
+
+  var entryName = (typeof entry === 'string') ? entry : entry.name
+  var self = this
+
+  this.open(function (err) {
+    if (err) return cb(err)
+    self._writeEntry({ type: 'unlink', name: entryName }, function (err) {
+      if (err) return cb(err)
+      if (self.options.file) {
+        self.options.file(entryName, self.options).unlink(cb)
+      } else {
+        cb()
+      }
+    })
+  })
+}
+
 Archive.prototype.close = function (cb) {
   if (!cb) cb = noop
   var self = this
@@ -383,8 +448,20 @@ Archive.prototype.download = function (entry, cb) {
   var self = this
 
   this._range(entry, function (err, start, end) {
-    if (err) return cb(err)
+    if (err) {
+      // deletions
+      if (err.fileWasUnlinked) {
+        if (self.options.file) {
+          return self.options.file(err.fileName, self.options).unlink(cb)
+        } else {
+          return cb()
+        }
+      }
+      // other errors
+      return cb(err)
+    }
 
+    // empty files
     if (start === end && entry.type === 'file') {
       var storage = self.options.storage
       if (storage) {
@@ -430,6 +507,12 @@ Archive.prototype._range = function (entry, cb) {
   }
   this.get(entry, function (err, result) {
     if (err) return cb(err)
+    if (result.type === 'unlink') {
+      err = new Error('File was unlinked')
+      err.fileWasUnlinked = true
+      err.fileName = result.name
+      return cb(err)
+    }
 
     var latest = null
     var name = result.name
@@ -582,10 +665,12 @@ function assertFinalized (self) {
 }
 
 function decodeEntry (buf) {
-  var type = buf[0]
-  if (type > 4) throw new Error('Unknown message type: ' + type)
-  var entry = messages.Entry.decode(buf, 1)
-  entry.type = toTypeString(type)
+  var entry
+  var typeNum = buf[0]
+  var type = TYPES[typeNum]
+  if (!type) throw new Error('Unknown message type: ' + typeNum)
+  entry = type.decode(buf, 1)
+  entry.type = toTypeString(typeNum)
   return entry
 }
 
@@ -596,6 +681,7 @@ function toTypeString (t) {
     case 2: return 'directory'
     case 3: return 'symlink'
     case 4: return 'hardlink'
+    case 5: return 'unlink'
   }
 
   return 'unknown'
@@ -608,6 +694,7 @@ function toTypeNumber (t) {
     case 'directory': return 2
     case 'symlink': return 3
     case 'hardlink': return 4
+    case 'unlink': return 5
   }
 
   return -1
