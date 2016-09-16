@@ -30,6 +30,16 @@ tape('list', function (t) {
   })
 })
 
+tape('get timeout', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive(new Buffer(32)) // some archive
+
+  archive.get('nope', {timeout: 10}, function (err) {
+    t.ok(err, 'had error')
+    t.end()
+  })
+})
+
 tape('list offset', function (t) {
   t.plan(10)
   var drive = hyperdrive(memdb())

@@ -142,9 +142,15 @@ archive.append('hello.txt', function () {
 
 Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
 
-#### `archive.get(index, callback)`
+#### `archive.get(index, [options], callback)`
 
-Reads an entry from the archive.
+Reads an entry from the archive. Options include:
+
+``` js
+{
+  timeout: 1000 // time out after 1000ms. Default is Infinity
+}
+```
 
 #### `archive.download(index, callback)`
 

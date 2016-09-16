@@ -107,29 +107,52 @@ Archive.prototype.list = function (opts, cb) {
   }
 }
 
-Archive.prototype.get = function (index, cb) {
+Archive.prototype.get = function (index, opts, cb) {
+  if (typeof opts === 'function') return this.get(index, null, opts)
   if (typeof index === 'object' && index.name) return cb(null, index)
-  if (typeof index === 'string') return this.lookup(index, cb)
+  if (!opts) opts = {}
 
   var self = this
+  var called = false
+  var timeout = null
+
+  if (opts.timeout) {
+    timeout = setTimeout(ontimeout, opts.timeout)
+  }
+
+  if (typeof index === 'string') return this.lookup(index, done)
 
   this.open(function (err) {
-    if (err) return cb(err)
+    if (err) return done(err)
     if (self._indexBlock <= index && self._indexBlock > -1) index++
 
     self.metadata.get(index, function (err, buf) {
-      if (err) return cb(err)
-      if (!buf) return cb(null, null)
+      if (err) return done(err)
+      if (!buf) return done(null, null)
 
       try {
         var entry = decodeEntry(buf)
       } catch (err) {
-        return cb(err)
+        return done(err)
       }
 
-      cb(null, entry)
+      done(null, entry)
     })
   })
+
+  function ontimeout () {
+    var err = new Error('Get timed out')
+    err.timeout = true
+    err.code = 'ETIMEDOUT'
+    done(err)
+  }
+
+  function done (err, val) {
+    if (timeout) clearTimeout(timeout)
+    if (called) return
+    called = true
+    cb(err, val)
+  }
 }
 
 Archive.prototype.lookup = function (name, cb) {
