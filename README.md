@@ -126,6 +126,15 @@ Otherwise it is a 32 byte hash.
 
 Boolean whether archive is live. `true` by default. Note that its only populated after archive.open(cb) has been fired.
 
+#### `archive.version`
+
+The label of the most recent checkpoint.
+
+#### `archive.semver`
+
+The label of the most recent semantic-version checkpoint.
+This can differ from `archive.version` when the most recent checkpoint was not a semver. 
+
 #### `archive.append(entry, callback)`
 
 Append an entry to the archive. Only possible if this is an live archive you originally created
@@ -146,6 +155,25 @@ archive.append('hello.txt', function () {
   console.log('hello.txt was read and appended')
 })
 ```
+
+#### `archive.checkpoint(version, [callback])`
+
+Write a version checkpoint to the archive, marking the state for future reference. Version includes:
+
+```js
+{
+  label: '1.0.0', // can be any string, but semantic versions are recommended
+  message: 'The first version!' // an optional string describing the checkpoint
+}
+```
+
+If the label has been used before, Hyperdrive will error.
+If the label is a semantic version, Hyperdrive will error if it isn't a greater version than all previous semver checkpoints.
+
+You can mix semvers with non-semver labels.
+
+Hyperdrive automatically adds a `.timestamp` value to `version`, using `Date.now()`.
+You can override this by setting your own `.timestamp` if needed.
 
 #### `archive.finalize([callback])`
 
@@ -188,6 +216,15 @@ Returns a readable stream of all entries in the archive.
 * `opts.live` - keep the stream open as new updates arrive (default: `true` if no callback given, `false` if callback is given)
 
 You can collect the results of the stream with `cb(err, entries)`.
+
+#### `var rs = archive.versions(opts={}, cb)`
+
+Returns a readable stream of all version checkpoints in the archive.
+
+* `opts.offset` - start streaming from this offset (default: 0)
+* `opts.live` - keep the stream open as new updates arrive (default: false)
+
+You can collect the results of the stream with `cb(err, versions)`.
 
 #### `var rs = archive.createFileReadStream(entry, [options])`
 
