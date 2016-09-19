@@ -142,7 +142,7 @@ archive.append('hello.txt', function () {
 
 Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
 
-You should only call `archive.finalize()` on owned archive.
+You should only call `archive.finalize()` on archives you own.
 
 #### `archive.get(index, [options], callback)`
 
