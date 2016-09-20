@@ -128,12 +128,7 @@ Boolean whether archive is live. `true` by default. Note that its only populated
 
 #### `archive.version`
 
-The label of the most recent checkpoint.
-
-#### `archive.semver`
-
-The label of the most recent semantic-version checkpoint.
-This can differ from `archive.version` when the most recent checkpoint was not a semver. 
+The label of the most recent checkpoint. Note that its only populated after archive.open(cb) has been fired.
 
 #### `archive.append(entry, callback)`
 
@@ -156,23 +151,23 @@ archive.append('hello.txt', function () {
 })
 ```
 
-#### `archive.checkpoint(version, [callback])`
+#### `archive.checkpoint(desc, [callback])`
 
-Write a version checkpoint to the archive, marking the state for future reference. Version includes:
+Write a version checkpoint to the archive, marking the state for future reference. Desc includes:
 
 ```js
 {
-  label: '1.0.0', // can be any string, but semantic versions are recommended
+  version: '1.0.0', // can be any string, but semantic versions are recommended
   message: 'The first version!' // an optional string describing the checkpoint
 }
 ```
 
-If the label has been used before, Hyperdrive will error.
-If the label is a semantic version, Hyperdrive will error if it isn't a greater version than all previous semver checkpoints.
+If the version has been used before, Hyperdrive will error.
+If the version is a [Semantic Version](http://semver.org/), Hyperdrive will error if it isn't a greater version than all previous semver checkpoints.
 
 You can mix semvers with non-semver labels.
 
-Hyperdrive automatically adds a `.timestamp` value to `version`, using `Date.now()`.
+Hyperdrive automatically adds a `.timestamp` value to `desc`, using `Date.now()`.
 You can override this by setting your own `.timestamp` if needed.
 
 #### `archive.finalize([callback])`
