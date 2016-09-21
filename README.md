@@ -126,10 +126,6 @@ Otherwise it is a 32 byte hash.
 
 Boolean whether archive is live. `true` by default. Note that its only populated after archive.open(cb) has been fired.
 
-#### `archive.version`
-
-The label of the most recent checkpoint. Note that its only populated after archive.open(cb) has been fired.
-
 #### `archive.append(entry, callback)`
 
 Append an entry to the archive. Only possible if this is an live archive you originally created
@@ -153,19 +149,16 @@ archive.append('hello.txt', function () {
 
 #### `archive.checkpoint(desc, [callback])`
 
-Write a version checkpoint to the archive, marking the state for future reference. Desc includes:
+Write a checkpoint to the archive, marking the state for future reference. Desc includes:
 
 ```js
 {
-  version: '1.0.0', // can be any string, but semantic versions are recommended
+  name: '1.0.0', // can be any string
   message: 'The first version!' // an optional string describing the checkpoint
 }
 ```
 
-If the version has been used before, Hyperdrive will error.
-If the version is a [Semantic Version](http://semver.org/), Hyperdrive will error if it isn't a greater version than all previous semver checkpoints.
-
-You can mix semvers with non-semver labels.
+If the name has been used before, Hyperdrive will error.
 
 Hyperdrive automatically adds a `.timestamp` value to `desc`, using `Date.now()`.
 You can override this by setting your own `.timestamp` if needed.
@@ -212,14 +205,14 @@ Returns a readable stream of all entries in the archive.
 
 You can collect the results of the stream with `cb(err, entries)`.
 
-#### `var rs = archive.versions(opts={}, cb)`
+#### `var rs = archive.checkpoints(opts={}, cb)`
 
-Returns a readable stream of all version checkpoints in the archive.
+Returns a readable stream of all checkpoints in the archive.
 
 * `opts.offset` - start streaming from this offset (default: 0)
 * `opts.live` - keep the stream open as new updates arrive (default: false)
 
-You can collect the results of the stream with `cb(err, versions)`.
+You can collect the results of the stream with `cb(err, checkpoints)`.
 
 #### `var rs = archive.createFileReadStream(entry, [options])`
 
