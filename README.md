@@ -154,7 +154,7 @@ Write a checkpoint to the archive, marking the state for future reference. Desc 
 ```js
 {
   name: '1.0.0', // can be any string
-  message: 'The first version!' // an optional string describing the checkpoint
+  description: 'The first version!' // an optional string describing the checkpoint
 }
 ```
 
