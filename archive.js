@@ -7,17 +7,9 @@ var rabin = process.browser ? require('through2') : require('rabin')
 var pump = require('pump')
 var pumpify = require('pumpify')
 var collect = require('stream-collector')
-var messages = require('./messages')
 var storage = require('./storage')
 var cursor = require('./cursor')
-
-var TYPES = [
-  messages.Index,
-  messages.Entry, // file
-  messages.Entry, // directory
-  messages.Entry, // symlink
-  messages.Entry  // hardlink
-]
+var encoding = require('hyperdrive-encoding')
 
 module.exports = Archive
 
@@ -88,7 +80,7 @@ Archive.prototype.list = function (opts, cb) {
       if (err || !buf) return cb(err, buf)
 
       try {
-        var entry = decodeEntry(buf)
+        var entry = encoding.decodeEntry(buf)
       } catch (err) {
         return cb(err)
       }
@@ -131,7 +123,7 @@ Archive.prototype.get = function (index, opts, cb) {
       if (!buf) return done(null, null)
 
       try {
-        var entry = decodeEntry(buf)
+        var entry = encoding.decodeEntry(buf)
       } catch (err) {
         return done(err)
       }
@@ -499,11 +491,8 @@ Archive.prototype._open = function (cb) {
     self.metadata.get(self._indexBlock, function (err, buf) {
       if (err) return cb(err)
 
-      var type = buf[0]
-      if (type !== 0) return cb(new Error('Expected block to be index'))
-
       try {
-        var index = messages.Index.decode(buf, 1)
+        var index = encoding.decodeIndex(buf)
       } catch (err) {
         return cb(err)
       }
@@ -546,15 +535,11 @@ Archive.prototype._writeIndex = function (cb) {
 }
 
 Archive.prototype._writeEntry = function (entry, cb) {
-  this._writeMessage(toTypeNumber(entry.type || 'file'), entry, cb)
+  this._writeMessage(entry.type, entry, cb)
 }
 
 Archive.prototype._writeMessage = function (type, message, cb) {
-  var enc = TYPES[type]
-  var buf = Buffer(enc.encodingLength(message) + 1)
-  enc.encode(message, buf, 1)
-  buf[0] = type
-  this.metadata.append(buf, cb)
+  this.metadata.append(encoding.encode(type, message), cb)
 }
 
 function noop () {}
@@ -602,38 +587,6 @@ function assertReplication (self) {
 
 function assertFinalized (self) {
   if (self._finalized && !self.metadata.live) throw new Error('Cannot append any entries after the archive is finalized')
-}
-
-function decodeEntry (buf) {
-  var type = buf[0]
-  if (type > 4) throw new Error('Unknown message type: ' + type)
-  var entry = messages.Entry.decode(buf, 1)
-  entry.type = toTypeString(type)
-  return entry
-}
-
-function toTypeString (t) {
-  switch (t) {
-    case 0: return 'index'
-    case 1: return 'file'
-    case 2: return 'directory'
-    case 3: return 'symlink'
-    case 4: return 'hardlink'
-  }
-
-  return 'unknown'
-}
-
-function toTypeNumber (t) {
-  switch (t) {
-    case 'index': return 0
-    case 'file': return 1
-    case 'directory': return 2
-    case 'symlink': return 3
-    case 'hardlink': return 4
-  }
-
-  return -1
 }
 
 function isStream (stream) {
