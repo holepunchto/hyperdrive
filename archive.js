@@ -80,7 +80,7 @@ Archive.prototype.list = function (opts, cb) {
       if (err || !buf) return cb(err, buf)
 
       try {
-        var entry = encoding.decodeEntry(buf)
+        var entry = encoding.decode(buf)
       } catch (err) {
         return cb(err)
       }
@@ -123,7 +123,7 @@ Archive.prototype.get = function (index, opts, cb) {
       if (!buf) return done(null, null)
 
       try {
-        var entry = encoding.decodeEntry(buf)
+        var entry = encoding.decode(buf)
       } catch (err) {
         return done(err)
       }
@@ -492,7 +492,8 @@ Archive.prototype._open = function (cb) {
       if (err) return cb(err)
 
       try {
-        var index = encoding.decodeIndex(buf)
+        var index = encoding.decode(buf)
+        if (index.type !== 'index') throw new Error('Expected block to be index')
       } catch (err) {
         return cb(err)
       }
@@ -529,17 +530,17 @@ Archive.prototype._open = function (cb) {
 }
 
 Archive.prototype._writeIndex = function (cb) {
-  var index = {content: this.content.key}
+  var index = {content: this.content.key, type: 'index'}
   this._indexBlock = this.metadata.blocks
-  this._writeMessage(0, index, cb)
+  this._writeMessage(index, cb)
 }
 
 Archive.prototype._writeEntry = function (entry, cb) {
-  this._writeMessage(entry.type, entry, cb)
+  this._writeMessage(entry, cb)
 }
 
-Archive.prototype._writeMessage = function (type, message, cb) {
-  this.metadata.append(encoding.encode(type, message), cb)
+Archive.prototype._writeMessage = function (message, cb) {
+  this.metadata.append(encoding.encode(message), cb)
 }
 
 function noop () {}
