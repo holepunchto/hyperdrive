@@ -6,13 +6,7 @@
   "scripts": {
     "test": "standard && tape test/*.js"
   },
-  "browserify": {
-    "transform": [
-      "brfs"
-    ]
-  },
   "dependencies": {
-    "brfs": "^1.4.3",
     "bulk-write-stream": "^1.1.1",
     "from2": "^2.1.1",
     "hypercore": "^4.10.0",
