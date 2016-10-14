@@ -67,6 +67,7 @@ Archive.prototype.list = function (opts, cb) {
   var self = this
   var opened = false
   var offset = opts.offset || 0
+  var limit = opts.limit || Infinity
   var live = opts.live === false ? false : (opts.live || !cb)
 
   return collect(from.obj(read), cb)
@@ -75,6 +76,7 @@ Archive.prototype.list = function (opts, cb) {
     if (!opened) return open(size, cb)
     if (offset === self._indexBlock) offset++
     if (offset === self.metadata.blocks && !live) return cb(null, null)
+    if (limit--) return cb(null, null)
 
     self.metadata.get(offset++, function (err, buf) {
       if (err || !buf) return cb(err, buf)
