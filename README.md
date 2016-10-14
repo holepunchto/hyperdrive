@@ -175,6 +175,7 @@ Emitted every time a piece of data is uploaded
 Returns a readable stream of all entries in the archive.
 
 * `opts.offset` - start streaming from this offset (default: 0)
+* `opts.limit` - stop streaming at this offset (default: no limit)
 * `opts.live` - keep the stream open as new updates arrive (default: false)
 
 You can collect the results of the stream with `cb(err, entries)`.
