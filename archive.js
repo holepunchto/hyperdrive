@@ -76,7 +76,7 @@ Archive.prototype.list = function (opts, cb) {
     if (!opened) return open(size, cb)
     if (offset === self._indexBlock) offset++
     if (offset === self.metadata.blocks && !live) return cb(null, null)
-    if (limit--) return cb(null, null)
+    if (!limit--) return cb(null, null)
 
     self.metadata.get(offset++, function (err, buf) {
       if (err || !buf) return cb(err, buf)
