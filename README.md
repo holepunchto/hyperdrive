@@ -176,7 +176,7 @@ Returns a readable stream of all entries in the archive.
 
 * `opts.offset` - start streaming from this offset (default: 0)
 * `opts.limit` - stop streaming at this offset (default: no limit)
-* `opts.live` - keep the stream open as new updates arrive (default: false)
+* `opts.live` - keep the stream open as new updates arrive (default: `true` if no callback given, `false` if callback is given)
 
 You can collect the results of the stream with `cb(err, entries)`.
 
