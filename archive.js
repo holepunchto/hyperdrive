@@ -69,8 +69,14 @@ Archive.prototype.list = function (opts, cb) {
   var offset = opts.offset || 0
   var limit = opts.limit || Infinity
   var live = opts.live === false ? false : (opts.live || !cb)
+  var range = null
+  var stream = from.obj(read)
 
-  return collect(from.obj(read), cb)
+  return collect(stream.on('end', cleanup).on('close', cleanup), cb)
+
+  function cleanup () {
+    if (range) self.metadata.unprioritize(range)
+  }
 
   function read (size, cb) {
     if (!opened) return open(size, cb)
@@ -94,8 +100,10 @@ Archive.prototype.list = function (opts, cb) {
   function open (size, cb) {
     opened = true
     self.open(function (err) {
+      if (stream.destroyed) return
       if (err) return cb(err)
       if (!self.live && opts.live !== true) live = false
+      range = self.metadata.prioritize({prioritize: 3, start: offset, end: offset + limit, linear: true})
       read(size, cb)
     })
   }
