@@ -20,8 +20,8 @@ function Archive (drive, key, opts) {
   this.options = opts || {}
   this.drive = drive
   this.live = this.options.live = !key && (this.options.live !== false)
-  this.metadata = drive.core.createFeed(key, this.options)
-  this.content = null
+  this.metadata = this.options.metadata || drive.core.createFeed(key, this.options)
+  this.content = this.options.content || null
   this.key = key || this.metadata.key
   this.discoveryKey = this.metadata.discoveryKey
   this.owner = !key
@@ -528,7 +528,7 @@ Archive.prototype._open = function (cb) {
     if (self._closed) return cb(new Error('Archive is closed'))
     if (self.options.file) self.options.storage = storage(self)
     self.options.key = index && index.content
-    self.content = self.drive.core.createFeed(null, self.options)
+    if (!self.content) self.content = self.drive.core.createFeed(null, self.options)
     self.live = self.metadata.live
 
     self.content.on('download', function (block, data) {

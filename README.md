@@ -108,6 +108,15 @@ as the first argument. Options include
 
 If you do not provide the file option all file data is stored in the leveldb.
 
+If the `metadata` and `content` hypercore feeds were already created, they can be passed in directly as options:
+
+```js
+var archive = drive.createArchive(key, {
+  metadata: core.createFeed(key),
+  content: core.createFeed(contentKey)
+})
+```
+
 #### `archive.key`
 
 A buffer that verifies the archive content. In live mode this is a 32 byte public key.

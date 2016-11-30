@@ -3,6 +3,7 @@ var tape = require('tape')
 var memdb = require('memdb')
 var path = require('path')
 var raf = require('random-access-file')
+var hypercore = require('hypercore')
 var hyperdrive = require('../')
 
 tape('list', function (t) {
@@ -237,4 +238,45 @@ tape('mtime preserved', function (t) {
     })
   })
   .end('hyper hyper')
+})
+
+tape('create archive with feeds', function (t) {
+  var drive = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    live: false,
+    file: function (name) {
+      return raf(path.join(__dirname, name), {readable: true, writable: false})
+    }
+  })
+  archive.append('misc.js')
+  archive.append('replicates.js')
+
+  archive.finalize(function () {
+    var core = hypercore(memdb())
+    var drive2 = hyperdrive(memdb())
+    var archive2 = drive2.createArchive(archive.metadata.key, {
+      metadata: core.createFeed(archive.metadata.key),
+      content: core.createFeed(archive.content.key)
+    })
+
+    archive2.content.on('download-finished', function () {
+      t.ok(archive2.metadata, 'has metadata set')
+      t.ok(archive2.content, 'has content set')
+      archive2.list(function (err, list) {
+        t.error(err, 'no error')
+        t.same(list.length, 2, 'two entries')
+        t.same(list[0].type, 'file')
+        t.same(list[0].name, 'misc.js')
+        t.same(list[1].type, 'file')
+        t.same(list[1].name, 'replicates.js')
+        t.end()
+      })
+    })
+
+    var stream = archive.replicate()
+    var streamClone = archive2.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
 })
