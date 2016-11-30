@@ -239,6 +239,10 @@ Options include:
 }
 ```
 
+#### `archive.unreplicate(stream)`
+
+Stop replicating an archive to a specific stream.
+
 #### `archive.countDownloadedBlocks(entry)`
 
 Count the number of blocks in the entry that have been downloaded.

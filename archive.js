@@ -60,6 +60,18 @@ Archive.prototype.replicate = function (opts) {
   return stream
 }
 
+Archive.prototype.unreplicate = function (stream) {
+  var self = this
+
+  this.metadata.unreplicate(stream)
+  this.open(function (err) {
+    if (err) return
+    if (self.content && self.content.key) self.content.unreplicate(stream)
+  })
+
+  return stream
+}
+
 Archive.prototype.list = function (opts, cb) {
   if (typeof opts === 'function') return this.list(null, opts)
   if (!opts) opts = {}

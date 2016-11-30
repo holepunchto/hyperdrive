@@ -13,10 +13,6 @@ Drive.prototype.replicate = function (opts) {
   return this.core.replicate(opts)
 }
 
-Drive.prototype.unreplicate = function (opts) {
-  return this.core.unreplicate(opts)
-}
-
 Drive.prototype.createArchive = function (key, opts) {
   if (typeof key === 'object' && !Buffer.isBuffer(key) && key) {
     opts = key
