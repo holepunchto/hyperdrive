@@ -239,9 +239,9 @@ Options include:
 }
 ```
 
-#### `archive.unreplicate(stream)`
+#### `archive.unreplicate([stream])`
 
-Stop replicating an archive to a specific stream.
+Stop replicating an archive to all streams, or to a specific stream.
 
 #### `archive.countDownloadedBlocks(entry)`
 
