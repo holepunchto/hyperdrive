@@ -434,12 +434,19 @@ Archive.prototype.download = function (entry, cb) {
       }
     }
 
-    if (self._sparse) {
-      self.content.prioritize({start: start, end: end})
-    }
+    if (self.content) ready(null)
+    else self.open(ready)
 
-    self.content.on('download', kick)
-    kick()
+    function ready (err) {
+      if (err) return cb(err)
+
+      if (self._sparse) {
+        self.content.prioritize({start: start, end: end})
+      }
+
+      self.content.on('download', kick)
+      kick()
+    }
 
     function kick () {
       while (true) {
