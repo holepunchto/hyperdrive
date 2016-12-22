@@ -1,3 +1,5 @@
+var fns = require('sorted-array-functions')
+
 module.exports = Storage
 
 function Storage (archive) {
@@ -5,7 +7,7 @@ function Storage (archive) {
 
   this.archive = archive
   this._opened = []
-  this._maxStores = 64
+  this._maxStores = 128 // TODO: be more fancy here - try and upgrade based on EACESS etc
   this._appending = null
   this._appendingName = null
   this._readonly = false
@@ -60,94 +62,110 @@ Storage.prototype.end = function (offset, options, cb) {
 }
 
 Storage.prototype._get = function (offset) {
-  for (var i = 0; i < this._opened.length; i++) {
-    var s = this._opened[i]
-    if (s.start <= offset && offset < s.end) {
-      if (i) this._active(s, i)
-      return s
-    }
-  }
-
-  return null
+  var i = fns.lte(this._opened, {start: offset}, cmp)
+  if (i === -1) return null
+  var file = this._opened[i]
+  return offset < file.end ? file : null
 }
 
 Storage.prototype._open = function (offset, length, buf, cb) {
-  var i = 0
-  var self = this
-  var result = null
-  var byteOffset = 0
+  if (!this._appendingName) return bisect(this, offset, length, buf, cb)
 
-  if (this._appendingName) {
-    result = {
-      start: offset,
-      end: Infinity,
-      storage: self.archive.options.file(this._appendingName, this.archive.options)
-    }
-    this._appendingName = null
-    this._appending = result
-    open(result, onopen)
-    return
+  var result = {
+    start: offset,
+    end: Infinity,
+    storage: this.archive.options.file(this._appendingName, this.archive.options)
   }
-
-  this.archive.get(i, loop)
-
-  function loop (err, st) {
-    if (err) return cb(err)
-
-    var start = byteOffset
-    var end = byteOffset + st.length
-
-    byteOffset = end
-
-    if (!(start <= offset && offset < end)) return self.archive.get(++i, loop)
-
-    result = {
-      start: start,
-      end: end,
-      storage: self.archive.options.file(st.name, self.archive.options)
-    }
-
-    open(result, onopen)
-  }
-
-  function onopen (err) {
-    if (err) return cb(err)
-
-    var clone = self._get(offset)
-    if (clone) return close(result, onready)
-
-    self._opened.unshift(result)
-    self._kick(onready)
-  }
-
-  function onready (err) {
-    if (err) return cb(err)
-
-    if (buf) self.write(offset, buf, cb)
-    else self.read(offset, length, cb)
-  }
+  this._appendingName = null
+  this._appending = result
+  this._opened.push(result)
+  if (buf) this.write(offset, buf, cb)
+  else this.read(offset, length, cb)
 }
 
 Storage.prototype._kick = function (cb) {
-  if (this._opened.length <= this._maxStores) return cb(null)
-  close(this._opened.pop(), cb)
-}
+  // TODO: use actual LRU cache here
+  var self = this
 
-Storage.prototype._active = function (s, i) {
-  // TODO: move to linked list for true lru behaivor
-  // move to front.
-  this._opened[i] = this._opened[0]
-  this._opened[0] = s
+  loop(null)
+
+  function loop (err) {
+    if (err) return cb(err)
+    if (self._opened.length < self._maxStores) return cb(null)
+
+    var oldest = Math.floor(Math.random() * self._opened.length)
+    var removed = self._opened[oldest]
+    self._opened.splice(oldest, 1)
+    close(removed, loop)
+  }
 }
 
 function noop () {}
 
-function open (item, cb) {
-  if (item.storage.open) item.storage.open(cb)
-  else cb(null)
-}
-
 function close (item, cb) {
   if (item.storage.close) item.storage.close(cb)
   else cb(null)
+}
+
+function bisect (self, offset, length, buffer, cb) {
+  var btm = 0
+  var top = self.archive.metadata.blocks ? self.archive.metadata.blocks - 1 : 0
+  var mid = Math.floor((btm + top) / 2)
+
+  loop(null, null)
+
+  function done (start, end, data) {
+    self._kick(function (err) {
+      if (err) return cb(err)
+
+      var result = {
+        start: start,
+        end: end,
+        storage: self.archive.options.file(data.name, self.archive.options)
+      }
+
+      fns.add(self._opened, result, cmp)
+      if (buffer) self.write(offset, buffer, cb)
+      else self.read(offset, length, cb)
+    })
+  }
+
+  function loop (err, data) {
+    if (err) return cb(err)
+    if (!data) return self.archive.get(mid, loop)
+
+    if (!data.content) { // index message (TODO: just add .content to this)
+      if (mid === 0) btm++
+      else top--
+      mid = Math.floor((btm + top) / 2)
+      return self.archive.get(mid, loop)
+    }
+
+    var start = data.content.bytesOffset
+    var end = data.content.bytesOffset + data.length
+
+    if (start <= offset && offset < end) {
+      if (data.type !== 'file') {
+        mid++
+        return self.archive.get(mid, loop)
+      }
+
+      return done(start, end, data)
+    }
+
+    if (btm === top) return bisect(self, offset, length, buffer, cb) // retry
+
+    if (offset < start) {
+      top = mid - 1
+    } else {
+      btm = mid + 1
+    }
+
+    mid = Math.floor((btm + top) / 2)
+    self.archive.get(mid, loop)
+  }
+}
+
+function cmp (a, b) {
+  return a.start - b.start
 }
