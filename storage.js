@@ -7,7 +7,7 @@ function Storage (archive) {
 
   this.archive = archive
   this._opened = []
-  this._maxStores = 2048
+  this._maxStores = 128 // TODO: be more fancy here - try and upgrade based on EACESS etc
   this._appending = null
   this._appendingName = null
   this._readonly = false
