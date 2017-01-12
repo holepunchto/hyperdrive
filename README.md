@@ -202,10 +202,18 @@ Options include:
 }
 ```
 
-#### `var ws = archive.createFileWriteStream(entry)`
+#### `var ws = archive.createFileWriteStream(entry, [options])`
 
 Returns a writable stream that writes a new file to the archive. Only possible if the archive is live and you own it
 or if the archive is not finalized.
+
+Options include
+
+``` js
+{
+  indexing: false // indexing: true tells hyperdrive that you dont want to rewrite the data, simply index it
+}
+```
 
 #### `var cursor = archive.createByteCursor(entry, [options])`
 
