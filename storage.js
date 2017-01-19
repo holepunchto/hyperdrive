@@ -74,7 +74,7 @@ Storage.prototype._open = function (offset, length, buf, cb) {
   var result = {
     start: offset,
     end: Infinity,
-    storage: this.archive.options.file(this._appendingName, this.archive.options)
+    storage: this.archive.options.file(this._appendingName, this.archive.options, this.archive.metadata.blocks)
   }
   this._appendingName = null
   this._appending = result
@@ -121,7 +121,7 @@ function bisect (self, offset, length, buffer, cb) {
       var result = {
         start: start,
         end: end,
-        storage: self.archive.options.file(data.name, self.archive.options)
+        storage: self.archive.options.file(data.name, self.archive.options, mid)
       }
 
       fns.add(self._opened, result, cmp)

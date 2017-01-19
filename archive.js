@@ -389,7 +389,7 @@ Archive.prototype.append = function (entry, cb) {
     if (entry.type === 'file') {
       if (!self.options.storage) throw new Error('Set options.file to append files')
 
-      var rs = fileReadStream(self.options.file(entry.name, self.options))
+      var rs = fileReadStream(self.options.file(entry.name, self.options, self.metadata.blocks))
       var ws = self.createFileWriteStream(entry, {indexing: true})
       pump(rs, ws, cb)
     } else {
