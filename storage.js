@@ -83,7 +83,7 @@ Storage.prototype._open = function (offset, length, buf, cb) {
   if (buf) this.write(offset, buf, cb)
   else this.read(offset, length, cb)
 }
-console.log('?????')
+
 Storage.prototype._kick = function (cb) {
   // TODO: use actual LRU cache here
   var self = this
