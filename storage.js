@@ -1,4 +1,5 @@
 var fns = require('sorted-array-functions')
+var xtend = require('xtend')
 
 module.exports = Storage
 
@@ -82,7 +83,7 @@ Storage.prototype._open = function (offset, length, buf, cb) {
   if (buf) this.write(offset, buf, cb)
   else this.read(offset, length, cb)
 }
-
+console.log('?????')
 Storage.prototype._kick = function (cb) {
   // TODO: use actual LRU cache here
   var self = this
@@ -121,7 +122,7 @@ function bisect (self, offset, length, buffer, cb) {
       var result = {
         start: start,
         end: end,
-        storage: self.archive.options.file(data.name, self.archive.options, mid)
+        storage: self.archive.options.file(data.name, xtend({length: data.length}, self.archive.options), mid)
       }
 
       fns.add(self._opened, result, cmp)
