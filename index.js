@@ -1,5 +1,6 @@
 var hypercore = require('hypercore')
 var Archive = require('./archive')
+var xtend = require('xtend')
 
 module.exports = Drive
 
@@ -23,5 +24,5 @@ Drive.prototype.createArchive = function (key, opts) {
     key = Buffer(key, 'hex')
   }
 
-  return new Archive(this, key, opts)
+  return new Archive(this, key, xtend({}, opts))
 }
