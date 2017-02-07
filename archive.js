@@ -5,6 +5,8 @@ var bulk = require('bulk-write-stream')
 var from = require('from2')
 var rabin = process.browser ? require('through2') : require('rabin')
 var pump = require('pump')
+var each = require('stream-each')
+var xtend = require('xtend')
 var pumpify = require('pumpify')
 var collect = require('stream-collector')
 var storage = require('./storage')
@@ -28,6 +30,7 @@ function Archive (drive, key, opts) {
   this.open = thunky(open)
   this.id = drive.id
 
+  this._onlyLatest = !!opts.file
   this._sparse = !!this.options.sparse
   this._closed = false
   this._appending = []
@@ -40,6 +43,65 @@ function Archive (drive, key, opts) {
 }
 
 inherits(Archive, events.EventEmitter)
+
+Archive.prototype._selectLatest = function () {
+  var blk = -1
+  var self = this
+  var latest = {}
+  var cnt = 0
+
+  each(this.list({live: true}), function (data, next) {
+    if (blk === -1) {
+      blk = self.metadata.blocks - 1
+      if (blk > 1) reverseDownload(blk)
+    }
+    if (data.content && data.type === 'file') latest[data.name] = data
+    cnt++
+    if (cnt < blk) return next()
+
+    downloadAll(latest, function (err) {
+      if (err) return next(err)
+      latest = {}
+      blk = -1
+      next()
+    })
+  })
+
+  function reverseDownload (blk) {
+    var downloaded = {}
+
+    loop()
+
+    function loop () {
+      self.get(--blk, function (err, entry) {
+        if (err) return
+        if (!entry.content || entry.type !== 'file') return loop()
+        if (downloaded[entry.name]) return loop()
+        downloaded[entry.name] = true
+        self.download(entry, true, loop)
+      })
+    }
+  }
+
+  function downloadAll (latest, cb) {
+    var names = Object.keys(latest)
+    if (!names.length) return cb()
+    var downloading = 0
+
+    for (var i = 0; i < 64; i++) loop()
+
+    function loop () {
+      if (downloading > 64 || !names.length) return
+      var next = names.shift()
+      downloading++
+      self.download(latest[next], true, function () {
+        downloading--
+        if (!downloading && !names.length) return cb()
+        loop()
+      })
+    }
+  }
+}
 
 Archive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
@@ -416,7 +478,8 @@ Archive.prototype.close = function (cb) {
   })
 }
 
-Archive.prototype.download = function (entry, cb) {
+Archive.prototype.download = function (entry, force, cb) {
+  if (typeof force === 'function') return this.download(entry, false, force)
   var self = this
 
   this._range(entry, function (err, start, end) {
@@ -440,10 +503,11 @@ Archive.prototype.download = function (entry, cb) {
     function ready (err) {
       if (err) return cb(err)
 
-      if (self._sparse) {
+      if (self._sparse || force) {
         self.content.prioritize({start: start, end: end})
       }
 
+      self.content.setMaxListeners(0)
       self.content.on('download', kick)
       kick()
     }
@@ -458,7 +522,7 @@ Archive.prototype.download = function (entry, cb) {
 
     function done () {
       self.content.removeListener('download', kick)
-      cb()
+      process.nextTick(cb)
     }
   })
 }
@@ -535,9 +599,12 @@ Archive.prototype._open = function (cb) {
     if (self._closed) return cb(new Error('Archive is closed'))
     if (self.options.file) self.options.storage = storage(self)
     self.options.key = index && index.content
+    if (!self.metadata.live) self._onlyLatest = false
+    var contentOpts = self._onlyLatest ? {sparse: true} : {}
     if (self.options.contentStorage) self.options.storage = self.options.contentStorage
-    if (!self.content) self.content = self.drive.core.createFeed(null, self.options)
+    if (!self.content) self.content = self.drive.core.createFeed(null, xtend(self.options, contentOpts))
     self.live = self.metadata.live
+    if (self._onlyLatest) self._selectLatest()
 
     self.content.on('download', function (block, data) {
       self.emit('download', data)
