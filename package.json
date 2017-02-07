@@ -17,6 +17,7 @@
     "rabin": "^1.4.0",
     "sorted-array-functions": "^1.0.0",
     "stream-collector": "^1.0.1",
+    "stream-each": "^1.2.0",
     "through2": "^2.0.1",
     "thunky": "^0.1.0",
     "xtend": "^4.0.1"
