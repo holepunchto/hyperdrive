@@ -119,10 +119,11 @@ function bisect (self, offset, length, buffer, cb) {
     self._kick(function (err) {
       if (err) return cb(err)
 
+      var opts = buffer ? xtend({length: data.length}, self.archive.options) : self.archive.options
       var result = {
         start: start,
         end: end,
-        storage: self.archive.options.file(data.name, xtend({length: data.length}, self.archive.options), mid)
+        storage: self.archive.options.file(data.name, opts, mid)
       }
 
       fns.add(self._opened, result, cmp)
