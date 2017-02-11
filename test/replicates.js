@@ -295,7 +295,7 @@ tape('replicates file after update without raf opts', function (t) {
 
     clone.open(function () {
       clone.content.on('download-finished', function () {
-        clone.createFileReadStream(0)
+        clone.createFileReadStream(1)
         .on('data', function (data) {
           buf.push(data)
         })
@@ -346,7 +346,9 @@ tape('replicates file after update with raf opts', function (t) {
 
   function doClone () {
     var clone = driveClone.createArchive(archive.key, {
-      verifyReplicationReads: true
+      file: function (name, opts) {
+        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+      }
     })
     var buf = []
 
@@ -404,13 +406,17 @@ tape('replicates file after update via download with raf opts', function (t) {
 
   function doClone () {
     var clone = driveClone.createArchive(archive.key, {
-      verifyReplicationReads: true
+      verifyReplicationReads: true,
+      sparse: true,
+      file: function (name, opts) {
+        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+      }
     })
     var buf = []
 
     clone.open(function () {
-      clone.download(0, function () {
-        clone.createFileReadStream(0)
+      clone.download(1, function () {
+        clone.createFileReadStream(1)
         .on('data', function (data) {
           buf.push(data)
         })
@@ -462,8 +468,8 @@ tape('replicates file with sparse mode and raf opts', function (t) {
 
   function doClone () {
     var clone = driveClone.createArchive(archive.key, {
-      sparse: true,
-      verifyReplicationReads: true,
+      sparse: false,
+      verifyReplicationReads: false,
       file: function (name, opts) {
         return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
       }
