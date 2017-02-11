@@ -430,3 +430,70 @@ tape('replicates file after update via download with raf opts', function (t) {
     stream.pipe(streamClone).pipe(stream)
   }
 })
+
+tape('replicates file with sparse mode and raf opts', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name))
+    }
+  })
+
+  var testFile = path.join(__dirname, 'test.txt')
+
+  fs.writeFile(testFile, 'hello', function (err) {
+    t.error(err, 'no err')
+
+    archive.append('test.txt', function (err) {
+      t.error(err, 'no error')
+
+      fs.appendFile(testFile, '\nworld', function (err) {
+        t.error(err, 'no err')
+
+        archive.append('test.txt', function (err) {
+          t.error(err, 'no error')
+          doClone()
+        })
+      })
+    })
+  })
+
+  function doClone () {
+    var clone = driveClone.createArchive(archive.key, {
+      sparse: true,
+      verifyReplicationReads: true,
+      file: function (name, opts) {
+        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+      }
+    })
+    var buf = []
+
+    clone.open(function () {
+      clone.list(function (_, entries) {
+        t.pass('open')
+        clone.content.on('download-finished', function () {
+          clone.createFileReadStream(entries[entries.length - 1])
+          .on('data', function (data) {
+            buf.push(data)
+          })
+          .on('end', function () {
+            t.same(Buffer.concat(buf), fs.readFileSync(testFile))
+            fs.unlink(testFile, function () {
+              clone.list(function (_, entries) {
+                console.log(entries)
+                t.end()
+              })
+            })
+          })
+        })
+      })
+    })
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  }
+})
