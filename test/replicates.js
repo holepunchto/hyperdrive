@@ -4,6 +4,7 @@ var path = require('path')
 var fs = require('fs')
 var tmp = require('tmp')
 var raf = require('random-access-file')
+var rimraf = require('rimraf')
 var hyperdrive = require('../')
 
 tape('replicates file', function (t) {
@@ -345,9 +346,11 @@ tape('replicates file after update with raf opts', function (t) {
   })
 
   function doClone () {
+    var cloneDir = path.join(__dirname, 'tmp')
+    rimraf.sync(cloneDir)
     var clone = driveClone.createArchive(archive.key, {
       file: function (name, opts) {
-        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+        return raf(path.join(cloneDir, name), opts && typeof opts.length === 'number' && {length: opts.length})
       }
     })
     var buf = []
@@ -362,6 +365,7 @@ tape('replicates file after update with raf opts', function (t) {
         .on('end', function () {
           t.same(Buffer.concat(buf), fs.readFileSync(testFile))
           fs.unlink(testFile, function () {
+            rimraf.sync(cloneDir)
             t.end()
           })
         })
@@ -405,11 +409,13 @@ tape('replicates file after update via download with raf opts', function (t) {
   })
 
   function doClone () {
+    var cloneDir = path.join(__dirname, 'tmp')
+    rimraf.sync(cloneDir)
     var clone = driveClone.createArchive(archive.key, {
       verifyReplicationReads: true,
       sparse: true,
       file: function (name, opts) {
-        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+        return raf(path.join(cloneDir, name), opts && typeof opts.length === 'number' && {length: opts.length})
       }
     })
     var buf = []
@@ -424,6 +430,7 @@ tape('replicates file after update via download with raf opts', function (t) {
           console.log([Buffer.concat(buf).toString(), fs.readFileSync(testFile, 'utf8')])
           t.same(Buffer.concat(buf), fs.readFileSync(testFile))
           fs.unlink(testFile, function () {
+            rimraf.sync(cloneDir)
             t.end()
           })
         })
@@ -467,11 +474,11 @@ tape('replicates file with sparse mode and raf opts', function (t) {
   })
 
   function doClone () {
+    var cloneDir = path.join(__dirname, 'tmp')
+    rimraf.sync(cloneDir)
     var clone = driveClone.createArchive(archive.key, {
-      sparse: false,
-      verifyReplicationReads: false,
       file: function (name, opts) {
-        return raf(path.join(__dirname, name), opts && typeof opts.length === 'number' && {length: opts.length})
+        return raf(path.join(cloneDir, name), opts && typeof opts.length === 'number' && {length: opts.length})
       }
     })
     var buf = []
@@ -489,6 +496,7 @@ tape('replicates file with sparse mode and raf opts', function (t) {
             fs.unlink(testFile, function () {
               clone.list(function (_, entries) {
                 console.log(entries)
+                rimraf.sync(cloneDir)
                 t.end()
               })
             })
