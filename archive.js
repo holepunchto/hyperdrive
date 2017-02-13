@@ -30,7 +30,7 @@ function Archive (drive, key, opts) {
   this.open = thunky(open)
   this.id = drive.id
 
-  this._onlyLatest = !!opts.file
+  this._onlyLatest = !!opts.file && !this.owner
   this._sparse = !!this.options.sparse
   this._closed = false
   this._appending = []
