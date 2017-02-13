@@ -569,7 +569,10 @@ Archive.prototype._open = function (cb) {
     if (err) return cb(err)
     if (self._closed) return cb(new Error('Archive is closed'))
 
-    if (!self.owner && self.metadata.secretKey) self.owner = true // TODO: hypercore should tell you this
+    if (!self.owner && self.metadata.secretKey) {
+      self.owner = true // TODO: hypercore should tell you this
+      self._onlyLatest = false
+    }
 
     if (!self.owner || self.metadata.blocks) waitForIndex(null)
     else onindex(null)
