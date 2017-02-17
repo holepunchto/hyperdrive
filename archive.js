@@ -73,6 +73,7 @@ Archive.prototype._selectLatest = function () {
     loop()
 
     function loop () {
+      if (self._closed) return
       self.get(--blk, function (err, entry) {
         if (err) return
         if (!entry.content || entry.type !== 'file') return loop()
@@ -91,6 +92,7 @@ Archive.prototype._selectLatest = function () {
     for (var i = 0; i < 64; i++) loop()
 
     function loop () {
+      if (self._closed) return cb()
       if (downloading > 64 || !names.length) return
       var next = names.shift()
       downloading++
