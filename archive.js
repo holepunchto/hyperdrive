@@ -75,7 +75,7 @@ Archive.prototype._selectLatest = function () {
     function loop () {
       if (self._closed) return
       self.get(--blk, function (err, entry) {
-        if (err) return
+        if (err || self._closed) return
         if (!entry.content || entry.type !== 'file') return loop()
         if (downloaded[entry.name]) return loop()
         downloaded[entry.name] = true
@@ -86,21 +86,23 @@ Archive.prototype._selectLatest = function () {
 
   function downloadAll (latest, cb) {
     var names = Object.keys(latest)
-    if (!names.length) return cb()
+    if (!names.length || self._closed) return cb()
     var downloading = 0
 
     for (var i = 0; i < 64; i++) loop()
 
     function loop () {
-      if (self._closed) return cb()
       if (downloading > 64 || !names.length) return
       var next = names.shift()
       downloading++
-      self.download(latest[next], true, function () {
+      if (self._closed) return process.nextTick(ondownload)
+      self.download(latest[next], true, ondownload)
+
+      function ondownload () {
         downloading--
         if (!downloading && !names.length) return cb()
         loop()
-      })
+      }
     }
   }
 }
