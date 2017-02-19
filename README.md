@@ -147,6 +147,22 @@ archive.append('hello.txt', function () {
 })
 ```
 
+#### `archive.checkpoint(desc, [callback])`
+
+Write a checkpoint to the archive, marking the state for future reference. Desc includes:
+
+```js
+{
+  name: '1.0.0', // can be any string
+  description: 'The first version!' // an optional string describing the checkpoint
+}
+```
+
+If the name has been used before, Hyperdrive will error.
+
+Hyperdrive automatically adds a `.timestamp` value to `desc`, using `Date.now()`.
+You can override this by setting your own `.timestamp` if needed.
+
 #### `archive.finalize([callback])`
 
 Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
@@ -188,6 +204,15 @@ Returns a readable stream of all entries in the archive.
 * `opts.live` - keep the stream open as new updates arrive (default: `true` if no callback given, `false` if callback is given)
 
 You can collect the results of the stream with `cb(err, entries)`.
+
+#### `var rs = archive.checkpoints(opts={}, cb)`
+
+Returns a readable stream of all checkpoints in the archive.
+
+* `opts.offset` - start streaming from this offset (default: 0)
+* `opts.live` - keep the stream open as new updates arrive (default: false)
+
+You can collect the results of the stream with `cb(err, checkpoints)`.
 
 #### `var rs = archive.createFileReadStream(entry, [options])`
 

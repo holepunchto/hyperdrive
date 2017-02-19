@@ -9,6 +9,7 @@ var each = require('stream-each')
 var xtend = require('xtend')
 var pumpify = require('pumpify')
 var collect = require('stream-collector')
+var through = require('through2')
 var storage = require('./storage')
 var cursor = require('./cursor')
 var encoding = require('hyperdrive-encoding')
@@ -36,6 +37,7 @@ function Archive (drive, key, opts) {
   this._appending = []
   this._indexBlock = -1
   this._finalized = false
+  this._isCheckpointingLocked = false
 
   function open (cb) {
     self._open(cb)
@@ -187,6 +189,23 @@ Archive.prototype.list = function (opts, cb) {
   }
 }
 
+Archive.prototype.checkpoints = function (opts, cb) {
+  if (typeof opts === 'function') return this.checkpoints(null, opts)
+  if (!opts) opts = {}
+
+  var offset = opts.offset || 0
+  var live = opts.live === false ? false : (opts.live || !cb)
+
+  return collect(pumpify.obj(this.list({ offset: offset, live: live }), through.obj(filter)), cb)
+
+  function filter (entry, enc, callback) {
+    if (entry && entry.type === 'checkpoint') {
+      this.push(entry)
+    }
+    callback()
+  }
+}
+
 Archive.prototype.get = function (index, opts, cb) {
   if (typeof opts === 'function') return this.get(index, null, opts)
   if (typeof index === 'object' && index.name) return cb(null, index)
@@ -273,6 +292,60 @@ Archive.prototype.countDownloadedBlocks = function (entry) {
 
 Archive.prototype.isEntryDownloaded = function (entry) {
   return this.countDownloadedBlocks(entry) === entry.blocks
+}
+
+Archive.prototype.checkpoint = function (entry, cb) {
+  if (!cb) cb = noop
+  assertFinalized(this)
+
+  var name = isString(entry.name) ? entry.name : undefined
+  var description = isString(entry.description) ? entry.description : undefined
+  var timestamp = typeof entry.timestamp === 'number' ? entry.timestamp : Date.now()
+  var self = this
+
+  if (!name) {
+    throw new Error('Checkpoint requires a .name')
+  }
+
+  this.open(function (err) {
+    if (err) return cb(err)
+
+    // aqcuire the checkpoint lock
+    if (self._isCheckpointingLocked) {
+      return cb(new Error('A checkpoint is currently being written'))
+    }
+    self._isCheckpointingLocked = true
+
+    // read current checkpoints
+    self.checkpoints(function (err, checkpoints) {
+      if (err) {
+        self._isCheckpointingLocked = false
+        return cb(err)
+      }
+
+      // ensure the name has not been used yet
+      for (var i = 0; i < checkpoints.length; i++) {
+        if (checkpoints[i].name === name) {
+          return cb(new Error('A checkpoint with this name has already been written'))
+        }
+      }
+
+      // write the checkpoint entry
+      var message = {
+        type: 'checkpoint',
+        name: name,
+        timestamp: timestamp
+      }
+      if (description) {
+        message.description = description
+      }
+      self._writeEntry(message, function (err) {
+        self._isCheckpointingLocked = false
+        if (err) return cb(err)
+        cb()
+      })
+    })
+  })
 }
 
 Archive.prototype.finalize = function (cb) {
@@ -696,4 +769,8 @@ function assertFinalized (self) {
 
 function isStream (stream) {
   return stream && typeof stream.pipe === 'function'
+}
+
+function isString (str) {
+  return str && typeof str === 'string'
 }
