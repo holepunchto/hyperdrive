@@ -238,9 +238,10 @@ Archive.prototype.get = function (index, opts, cb) {
 Archive.prototype.lookup = function (name, cb) {
   var entries = this.list({live: false})
   var result = null
+  name = normalizeEntryPath(name)
 
   entries.on('data', function (data) {
-    if (data.name !== name) return
+    if (normalizeEntryPath(data.name) !== name) return
     result = data
   })
 
@@ -696,4 +697,12 @@ function assertFinalized (self) {
 
 function isStream (stream) {
   return stream && typeof stream.pipe === 'function'
+}
+
+function normalizeEntryPath (path) {
+  // strip leading slashes
+  if (typeof path === 'string' && path.charAt(0) === '/') {
+    return path.slice(1)
+  }
+  return path
 }

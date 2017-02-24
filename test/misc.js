@@ -280,3 +280,19 @@ tape('create archive with feeds', function (t) {
     stream.pipe(streamClone).pipe(stream)
   })
 })
+
+tape('normalized reads', function (t) {
+  var drive = hyperdrive(memdb())
+  var archive = drive.createArchive()
+
+  archive.createFileWriteStream('hello.txt').end('hello world')
+  archive.finalize(function () {
+    archive.get('hello.txt', function (err, entry) {
+      t.error(err, 'no error')
+      archive.get('/hello.txt', function (err, entry) {
+        t.error(err, 'no error')
+        t.end()
+      })
+    })
+  })
+})
