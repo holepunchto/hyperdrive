@@ -60,6 +60,10 @@ tape('replicates file with sparse mode', function (t) {
     t.error(err, 'no error')
   })
 
+  archive.append('rw.js', function (err) {
+    t.error(err, 'no error')
+  })
+
   archive.finalize(function (err) {
     t.error(err, 'no error')
 
@@ -75,7 +79,88 @@ tape('replicates file with sparse mode', function (t) {
         })
         .on('end', function () {
           t.same(Buffer.concat(buf), fs.readFileSync(__filename))
+          clone.list({live: false}, function (err, entries) {
+            t.error(err, 'no error')
+            entries.forEach(function (entry) {
+              var isDownloaded = clone.isEntryDownloaded(entry)
+              if (entry.name === 'replicates.js' && isDownloaded) {
+                t.pass('entry downloaded')
+              } else if (isDownloaded) {
+                t.fail('entry should not be downloaded')
+              }
+            })
+            t.end()
+          })
+        })
+    })
+
+    var stream = archive.replicate()
+    var streamClone = clone.replicate()
+
+    stream.pipe(streamClone).pipe(stream)
+  })
+})
+
+tape('replicates file with sparse mode and file opt', function (t) {
+  var drive = hyperdrive(memdb())
+  var driveClone = hyperdrive(memdb())
+
+  var archive = drive.createArchive({
+    file: function (name) {
+      return raf(path.join(__dirname, name))
+    }
+  })
+
+  archive.append('replicates.js', function (err) {
+    t.error(err, 'no error')
+  })
+
+  archive.append('rw.js', function (err) {
+    t.error(err, 'no error')
+  })
+
+  archive.finalize(function (err) {
+    t.error(err, 'no error')
+
+    var tmpdir = tmp.dirSync()
+    var clone = driveClone.createArchive(archive.key, {
+      sparse: true,
+      file: function (name) {
+        return raf(path.join(tmpdir.name, name))
+      }
+    })
+    var buf = []
+    var timeout = null
+
+    clone.on('download', function () {
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(function () {
+        clone.list({live: false}, function (err, entries) {
+          t.error(err, 'no error')
+          entries.forEach(function (entry) {
+            var isDownloaded = clone.isEntryDownloaded(entry)
+            if (entry.name === 'replicates.js' && isDownloaded) {
+              t.pass('entry downloaded')
+            } else if (isDownloaded) {
+              t.fail('entry should not be downloaded')
+            }
+            console.log(entry.name, isDownloaded)
+          })
+          t.same(fs.readdirSync(tmpdir.name).length, 1, 'one file downloaded')
           t.end()
+        })
+      }, 200)
+    })
+
+    clone.download(0, function (err) {
+      t.error(err, 'no error')
+
+      clone.createFileReadStream(0)
+        .on('data', function (data) {
+          buf.push(data)
+        })
+        .on('end', function () {
+          t.same(Buffer.concat(buf), fs.readFileSync(__filename))
         })
     })
 

@@ -607,7 +607,7 @@ Archive.prototype._open = function (cb) {
     if (self._closed) return cb(new Error('Archive is closed'))
     if (self.options.file) self.options.storage = storage(self)
     self.options.key = index && index.content
-    if (!self.metadata.live) self._onlyLatest = false
+    if (!self.metadata.live || self.options.sparse) self._onlyLatest = false
     var contentOpts = self._onlyLatest ? {sparse: true} : {}
     if (self.options.contentStorage) self.options.storage = self.options.contentStorage
     if (!self.content) self.content = self.drive.core.createFeed(null, xtend(self.options, contentOpts))
