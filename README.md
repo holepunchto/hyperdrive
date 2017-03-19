@@ -1,271 +1,94 @@
-# hyperdrive
+![https://media.giphy.com/media/5mBE2MiMVFITS/giphy.gif](https://media.giphy.com/media/5mBE2MiMVFITS/giphy.gif)
 
-A file sharing network based on [rabin](https://github.com/maxogden/rabin) file chunking and [append only feeds of data verified by merkle trees](https://github.com/mafintosh/hypercore).
-
-```
-npm install hyperdrive
-```
-
-[![build status](http://img.shields.io/travis/mafintosh/hyperdrive.svg?style=flat)](http://travis-ci.org/mafintosh/hyperdrive)
-
-If you are interested in learning how hyperdrive works on a technical level a specification is available in the [Dat docs repo](https://github.com/datproject/docs/blob/master/docs/hyperdrive_spec.md)
-
-## Usage
-
-First create a new feed and share it
-
-``` js
-var hyperdrive = require('hyperdrive')
-var level = require('level')
-var swarm = require('discovery-swarm')()
-
-var db = level('./hyperdrive.db')
-var drive = hyperdrive(db)
-
-var archive = drive.createArchive()
-var ws = archive.createFileWriteStream('hello.txt') // add hello.txt
-
-ws.write('hello')
-ws.write('world')
-ws.end()
-
-var link = archive.key.toString('hex')
-console.log(link, '<-- this is your hyperdrive link')
-
-// the archive is now ready for sharing.
-// we can use swarm to replicate it to other peers
-swarm.listen()
-swarm.join(new Buffer(link, 'hex'))
-swarm.on('connection', function (connection) {
-  connection.pipe(archive.replicate()).pipe(connection)
-})
-```
-
-Then we can access the content from another process with the following code
-
-``` js
-var swarm = require('discovery-swarm')()
-var hyperdrive = require('hyperdrive')
-var level = require('level')
-
-var db = level('./another-hyperdrive.db')
-var drive = hyperdrive(db)
-
-var link = new Buffer('your-hyperdrive-link-from-the-above-example', 'hex')
-var archive = drive.createArchive(link)
-
-swarm.listen()
-swarm.join(link)
-swarm.on('connection', function (connection) {
-  connection.pipe(archive.replicate()).pipe(connection)
-  archive.get(0, function (err, entry) { // get the first file entry
-    console.log(entry) // prints {name: 'hello.txt', ...}
-    var stream = archive.createFileReadStream(entry)
-    stream.on('data', function (data) {
-      console.log(data) // <-- file data
-    })
-    stream.on('end', function () {
-      console.log('no more data')
-    })
-  })
-})
-```
-
-If you want to write/read files to the file system provide a storage driver as the file option
-
-``` js
-var raf = require('random-access-file') // a storage driver that writes to the file system
-var archive = drive.createArchive({
-  file: function (name) {
-    return raf('my-download-folder/' + name)
-  }
-})
-```
+(WIP)
 
 ## API
 
-#### `var drive = hyperdrive(db)`
+#### `var drive = hyperdrive(storage, [key], [options])`
 
-Create a new hyperdrive instance. db should be a [levelup](https://github.com/level/levelup) instance.
+Create an new hyperdrive. Storage should be a function or a string.
 
-#### `var archive = drive.createArchive([key], [options])`
+If storage is a string content will be stored inside that folder.
 
-Creates an archive instance. If you want to download/upload an existing archive provide the archive key
-as the first argument. Options include
+If storage is a function it is called with a string name for each abstract-random-access instance that is needed
+to storage the drive.
 
-``` js
-{
-  live: false, // set this to share the archive without finalizing it
-  sparse: false, // set this to only download the pieces of the feed you are requesting / prioritizing
-  file: function (name) {
-    // set this to determine how file data is stored.
-    // the storage instance should implement the hypercore storage api
-    // https://github.com/mafintosh/hypercore#storage-api
-    return someStorageInstance
-  }
-}
-```
+#### `var stream = drive.replicate([options])`
 
-If you do not provide the file option all file data is stored in the leveldb.
-
-If the `metadata` and `content` hypercore feeds were already created, they can be passed in directly as options:
-
-```js
-var archive = drive.createArchive(key, {
-  metadata: core.createFeed(key),
-  content: core.createFeed(contentKey)
-})
-```
-
-#### `archive.key`
-
-A buffer that verifies the archive content. In live mode this is a 32 byte public key.
-Otherwise it is a 32 byte hash.
-
-#### `archive.live`
-
-Boolean whether archive is live. `true` by default. Note that its only populated after archive.open(cb) has been fired.
-
-#### `archive.append(entry, callback)`
-
-Append an entry to the archive. Only possible if this is an live archive you originally created
-or an unfinalized archive.
-
-If you set the file option in the archive constructor you can use this method to append an already
-existing file to the archive.
-
-``` js
-var archive = drive.createArchive({
-  file: function (name) {
-    console.log('returning storage for', name)
-    return raf(name)
-  }
-})
-
-archive.append('hello.txt', function () {
-  console.log('hello.txt was read and appended')
-})
-```
-
-#### `archive.finalize([callback])`
-
-Finalize the archive. You need to do this before sharing it if the archive is not live (it is live per default).
-
-You should only call `archive.finalize()` on archives you own.
-
-#### `archive.get(index, [options], callback)`
-
-Reads an entry from the archive. Options include:
+Replicate this drive. Options include
 
 ``` js
 {
-  timeout: 1000 // time out after 1000ms. Default is Infinity
+  live: false // keep replicating
 }
 ```
 
-#### `archive.download(index, callback)`
+#### `drive.version`
 
-Fully downloads a file / entry from the archive and calls the callback afterwards.
+Get the current version of the drive (incrementing number).
 
-#### `archive.close([callback])`
+#### `drive.key`
 
-Closes and releases all resources used by the archive. Call this when you are done using it.
+The public key identifying the drive.
 
-#### `archive.on('download', data)`
+#### `drive.discoveryKey`
 
-Emitted every time a piece of data is downloaded
+A key derived from the public key that can be used to discovery other peers sharing this drive.
 
-#### `archive.on('upload', data)`
+#### `drive.on('ready')`
 
-Emitted every time a piece of data is uploaded
+Emitted when the drive is fully ready and all properties has been populated.
 
-#### `var rs = archive.list(opts={}, cb)`
+#### `drive.on('error', err)`
 
-Returns a readable stream of all entries in the archive.
+Emitted when a critical error during load happened.
 
-* `opts.offset` - start streaming from this offset (default: 0)
-* `opts.limit` - stop streaming at this offset (default: no limit)
-* `opts.live` - keep the stream open as new updates arrive (default: `true` if no callback given, `false` if callback is given)
+#### `var oldDrive = drive.checkout(version)`
 
-You can collect the results of the stream with `cb(err, entries)`.
+Checkout a readonly copy of the drive at an old version.
 
-#### `var rs = archive.createFileReadStream(entry, [options])`
+#### `var stream = drive.history([options])`
 
-Returns a readable stream of the file content of an file in the archive.
+Get a stream of all changes and their versions from this drive.
+
+#### `var stream = drive.createReadStream(name, [options])`
+
+Read a file out as a stream. Similar to fs.createReadStream.
 
 Options include:
 
 ``` js
 {
-  start: startOffset, // defaults to 0
-  end: endOffset // defaults to file.length
+  start: optionalByteOffset, // similar to fs
+  end: optionalInclusiveByteEndOffset, // similar to fs
+  length: optionalByteLength
 }
 ```
 
-#### `var ws = archive.createFileWriteStream(entry)`
+#### `drive.readFile(name, [encoding], callback)`
 
-Returns a writable stream that writes a new file to the archive. Only possible if the archive is live and you own it
-or if the archive is not finalized.
+Read an entire file into memory. Similar to fs.readFile.
 
-#### `var cursor = archive.createByteCursor(entry, [options])`
+#### `var stream = drive.createWriteStream(name)`
 
-Creates a cursor that can seek and traverse parts of the file.
+Write a file as a stream. Similar to fs.createWriteStream.
 
-``` js
-var cursor = archive.createByteCursor('hello.txt')
+#### `drive.writeFile(name, buffer, [callback])`
 
-// seek to byte offset 10000 and read the rest.
-cursor.seek(10000, function (err) {
-  if (err) throw err
-  cursor.next(function loop (err, data) {
-    if (err) throw err
-    if (!data) return console.log('no more data')
-    console.log('cursor.position is ' + cursor.position)
-    console.log('read', data.length, 'bytes')
-    cursor.next(loop)
-  })
-})
-```
+Write a file from a single buffer. Similar to fs.writeFile.
 
-Options include
+#### `drive.unlink(name, [callback])`
 
-``` js
-{
-  start: startOffset, // defaults to 0
-  end: endOffset // defaults to file.length
-}
-```
+Unlinks (deletes) a file. Similar to fs.unlink.
 
-#### `var stream = archive.replicate([options])`
+#### `drive.readdir(name, [callback])`
 
-Pipe this stream together with another peer that is interested in the same archive to replicate the content.
-Options include:
+Lists a directory. Similar to fs.readdir.
 
-``` js
-{
-  upload: true, // upload content to remote peer
-  download: true // downlod content from remote peer
-}
-```
+#### `drive.stat(name, callback)`
 
-#### `archive.unreplicate([stream])`
+Stat an entry. Similar to fs.stat. Note that the returned stat object isn't fully fs compatible yet.
 
-Stop replicating an archive to all streams, or to a specific stream.
+#### `drive.access(name, callback)`
 
-#### `archive.countDownloadedBlocks(entry)`
-
-Count the number of blocks in the entry that have been downloaded.
-You can calculate the file's download progress, as a percentage, with:
-
-```js
-var downloaded = archive.countDownloadedBlocks(entry)
-var progress =  downloaded / entry.blocks
-```
-
-#### `archive.isEntryDownloaded(entry)`
-
-Has all of the entry's blocks been downloaded?
-
-## License
-
-MIT
+Similar to fs.access
