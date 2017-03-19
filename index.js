@@ -167,25 +167,6 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
       })
     })
   }
-
-  // var proxy = duplexify()
-
-  // proxy.setWritable(false)
-  // this._ensureContent(function (err) {
-  //   if (err) return proxy.destroy(err)
-  //   self.tree.get(name, function (err, stat) {
-  //     if (err) return proxy.destroy(err)
-  //     if (proxy.destroyed) return
-
-  //     var start = stat.head.length - stat.blocks
-  //     var end = start + stat.blocks
-  //     var stream = self.content.createReadStream({start: start, end: end})
-
-  //     proxy.setReadable(stream)
-  //   })
-  // })
-
-  return proxy
 }
 
 Hyperdrive.prototype.readFile = function (name, enc, cb) {
