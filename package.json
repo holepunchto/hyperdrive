@@ -5,7 +5,9 @@
   "description": "SLEEP powered hyperdrive",
   "main": "index.js",
   "dependencies": {
+    "append-tree": "^2.0.5",
     "duplexify": "^3.5.0",
+    "from2": "^2.3.0",
     "hypercore": "^5.4.2",
     "inherits": "^2.0.3",
     "protocol-buffers": "^3.2.1",
