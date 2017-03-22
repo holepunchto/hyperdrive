@@ -34,6 +34,7 @@ function Hyperdrive (storage, key, opts) {
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
   if (typeof opts.version === 'number') this.tree = this.tree.checkout(opts.version)
   this.version = this.tree.version
+  this.sparse = !!opts.sparse
 
   this._checkout = opts._checkout
 
@@ -232,6 +233,7 @@ Hyperdrive.prototype.writeFile = function (name, buf, cb) {
 Hyperdrive.prototype._statDirectory = function (name, cb) {
   this.tree.list(name, function (err, list) {
     if (err || !list.length) return cb(new Error(name + ' could not be found'))
+
     cb(null, {
       size: 0,
       blocks: 0,
@@ -282,7 +284,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
   function done (err, index) {
     if (err) return cb(err)
     if (self.content) return self.content.ready(cb)
-    self.content = self._checkout ? self._checkout.content : hypercore(createStorage('content', self.storage), index.content)
+    self.content = self._checkout ? self._checkout.content : hypercore(createStorage('content', self.storage), index.content, {sparse: self.sparse})
     self.content.ready(cb)
   }
 }
@@ -316,7 +318,7 @@ Hyperdrive.prototype._open = function (cb) {
     var wroteIndex = self.metadata.has(0)
     if (wroteIndex) return self._loadIndex(cb)
 
-    if (!self.content) self.content = hypercore(createStorage('content', self.storage))
+    if (!self.content) self.content = hypercore(createStorage('content', self.storage), {sparse: self.sparse})
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
