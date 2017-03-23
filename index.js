@@ -50,8 +50,9 @@ function Hyperdrive (storage, key, opts) {
   this.ready(onready)
 
   function onready (err) {
-    if (err) self.emit('error', err)
-    else self.emit('ready')
+    if (err) return self.emit('error', err)
+    self.emit('ready')
+    if (self.content) self.emit('content')
   }
 
   function update () {
@@ -302,7 +303,11 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     var opts = {sparse: self.sparse, maxRequests: self.maxRequests}
 
     self.content = self._checkout ? self._checkout.content : hypercore(createStorage('content', self.storage), index.content, opts)
-    self.content.ready(cb)
+    self.content.ready(function (err) {
+      if (err) return cb(err)
+      self.emit('content')
+      cb()
+    })
   }
 }
 
