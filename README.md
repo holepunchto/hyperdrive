@@ -87,7 +87,7 @@ Lists a directory. Similar to fs.readdir.
 
 #### `drive.stat(name, callback)`
 
-Stat an entry. Similar to fs.stat. Note that the returned stat object isn't fully fs compatible yet.
+Stat an entry. Similar to fs.stat.
 
 #### `drive.access(name, callback)`
 

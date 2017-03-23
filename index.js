@@ -7,7 +7,11 @@ var inherits = require('inherits')
 var events = require('events')
 var duplexify = require('duplexify')
 var from = require('from2')
-var messages = require('./messages')
+var messages = require('./lib/messages')
+var stat = require('./lib/stat')
+
+var DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
+var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
 
 module.exports = Hyperdrive
 
@@ -171,18 +175,22 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
   }
 }
 
-Hyperdrive.prototype.readFile = function (name, enc, cb) {
-  if (typeof enc === 'function') return this.readFile(name, null, enc)
+Hyperdrive.prototype.readFile = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.readFile(name, null, opts)
+  if (typeof opts === 'string') opts = {encoding: opts}
+  if (!opts) opts = {}
 
   collect(this.createReadStream(name), function (err, bufs) {
     if (err) return cb(err)
     var buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-    cb(null, enc ? buf.toString(enc) : buf)
+    cb(null, opts.encoding ? buf.toString(opts.encoding) : buf)
   })
 }
 
 // TODO: we need to mutex these writes ...
-Hyperdrive.prototype.createWriteStream = function (name) {
+Hyperdrive.prototype.createWriteStream = function (name, opts) {
+  if (!opts) opts = {}
+
   var self = this
   var proxy = duplexify()
 
@@ -202,14 +210,19 @@ Hyperdrive.prototype.createWriteStream = function (name) {
     var stream = self.content.createWriteStream()
     proxy.setWritable(stream)
     proxy.on('prefinish', function () {
-      var stat = {
+      var st = {
+        mode: (opts.mode || DEFAULT_FMODE) | stat.IFREG,
         size: self.content.byteLength - byteLength,
         blocks: self.content.length - length,
+        uid: opts.uid || 0,
+        gid: opts.gid || 0,
+        mtime: getTime(opts.mtime),
+        ctime: getTime(opts.ctime),
         head: self.content
       }
 
       proxy.cork()
-      self.tree.put(name, stat, function (err) {
+      self.tree.put(name, st, function (err) {
         if (err) return proxy.destroy(err)
         proxy.uncork()
       })
@@ -219,12 +232,15 @@ Hyperdrive.prototype.createWriteStream = function (name) {
   return proxy
 }
 
-Hyperdrive.prototype.writeFile = function (name, buf, cb) {
-  if (typeof buf === 'string') buf = new Buffer(buf, 'utf-8')
+Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
+  if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
+  if (typeof opts === 'string') opts = {encoding: opts}
+  if (!opts) opts = {}
+  if (typeof buf === 'string') buf = new Buffer(buf, opts.encoding || 'utf-8')
   if (!cb) cb = noop
 
   var bufs = split(buf) // split the input incase it is a big buffer.
-  var stream = this.createWriteStream(name)
+  var stream = this.createWriteStream(name, opts)
   stream.on('error', cb)
   stream.on('finish', cb)
   for (var i = 0; i < bufs.length; i++) stream.write(bufs[i])
@@ -234,12 +250,9 @@ Hyperdrive.prototype.writeFile = function (name, buf, cb) {
 Hyperdrive.prototype._statDirectory = function (name, cb) {
   this.tree.list(name, function (err, list) {
     if (err || !list.length) return cb(new Error(name + ' could not be found'))
-
-    cb(null, {
-      size: 0,
-      blocks: 0,
-      mode: 0o755
-    })
+    var st = stat()
+    st.mode = stat.IFDIR | DEFAULT_DMODE
+    cb(null, st)
   })
 }
 
@@ -252,9 +265,9 @@ Hyperdrive.prototype.access = function (name, cb) {
 Hyperdrive.prototype.stat = function (name, cb) {
   var self = this
 
-  this.tree.get(name, function (err, stat) {
+  this.tree.get(name, function (err, st) {
     if (err) return self._statDirectory(name, cb)
-    cb(null, stat)
+    cb(null, stat(st))
   })
 }
 
@@ -358,4 +371,10 @@ function split (buf) {
     list.push(buf.slice(i, i + 65536))
   }
   return list
+}
+
+function getTime (date) {
+  if (typeof date === 'number') return date
+  if (!date) return Date.now()
+  return date.getTime()
 }
