@@ -248,6 +248,29 @@ Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
   stream.end()
 }
 
+Hyperdrive.prototype.mkdir = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.mkdir(name, null, opts)
+  if (typeof opts === 'number') opts = {mode: opts}
+  if (!opts) opts = {}
+  if (!cb) cb = noop
+
+  var self = this
+
+  this.ready(function (err) {
+    if (err) return cb(err)
+    if (self._checkout) return cb(new Error('Cannot write to a checkout'))
+
+    self.tree.put(name, {
+      mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
+      uid: opts.uid,
+      gid: opts.gid,
+      mtime: getTime(opts.mtime),
+      ctime: getTime(opts.ctime),
+      head: self.content
+    }, cb)
+  })
+}
+
 Hyperdrive.prototype._statDirectory = function (name, cb) {
   this.tree.list(name, function (err, list) {
     if (err || !list.length) return cb(new Error(name + ' could not be found'))

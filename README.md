@@ -4,18 +4,18 @@
 
 ## API
 
-#### `var drive = hyperdrive(storage, [key], [options])`
+#### `var archive = hyperdrive(storage, [key], [options])`
 
-Create an new hyperdrive. Storage should be a function or a string.
+Create a new hyperdrive. Storage should be a function or a string.
 
 If storage is a string content will be stored inside that folder.
 
 If storage is a function it is called with a string name for each abstract-random-access instance that is needed
-to storage the drive.
+to store the archive.
 
-#### `var stream = drive.replicate([options])`
+#### `var stream = archive.replicate([options])`
 
-Replicate this drive. Options include
+Replicate this archive. Options include
 
 ``` js
 {
@@ -23,35 +23,35 @@ Replicate this drive. Options include
 }
 ```
 
-#### `drive.version`
+#### `archive.version`
 
-Get the current version of the drive (incrementing number).
+Get the current version of the archive (incrementing number).
 
-#### `drive.key`
+#### `archive.key`
 
-The public key identifying the drive.
+The public key identifying the archive.
 
-#### `drive.discoveryKey`
+#### `archive.discoveryKey`
 
-A key derived from the public key that can be used to discovery other peers sharing this drive.
+A key derived from the public key that can be used to discovery other peers sharing this archive.
 
-#### `drive.on('ready')`
+#### `archive.on('ready')`
 
-Emitted when the drive is fully ready and all properties has been populated.
+Emitted when the archive is fully ready and all properties has been populated.
 
-#### `drive.on('error', err)`
+#### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
 
-#### `var oldDrive = drive.checkout(version)`
+#### `var oldDrive = archive.checkout(version)`
 
-Checkout a readonly copy of the drive at an old version.
+Checkout a readonly copy of the archive at an old version.
 
-#### `var stream = drive.history([options])`
+#### `var stream = archive.history([options])`
 
-Get a stream of all changes and their versions from this drive.
+Get a stream of all changes and their versions from this archive.
 
-#### `var stream = drive.createReadStream(name, [options])`
+#### `var stream = archive.createReadStream(name, [options])`
 
 Read a file out as a stream. Similar to fs.createReadStream.
 
@@ -65,30 +65,34 @@ Options include:
 }
 ```
 
-#### `drive.readFile(name, [encoding], callback)`
+#### `archive.readFile(name, [encoding], callback)`
 
 Read an entire file into memory. Similar to fs.readFile.
 
-#### `var stream = drive.createWriteStream(name)`
+#### `var stream = archive.createWriteStream(name, [options])`
 
 Write a file as a stream. Similar to fs.createWriteStream.
 
-#### `drive.writeFile(name, buffer, [callback])`
+#### `archive.writeFile(name, buffer, [options], [callback])`
 
 Write a file from a single buffer. Similar to fs.writeFile.
 
-#### `drive.unlink(name, [callback])`
+#### `archive.unlink(name, [callback])`
 
 Unlinks (deletes) a file. Similar to fs.unlink.
 
-#### `drive.readdir(name, [callback])`
+#### `archive.mkdir(name, [options], [callback]).
+
+Explictly create an directory. Similar to fs.mkdir
+
+#### `archive.readdir(name, [callback])`
 
 Lists a directory. Similar to fs.readdir.
 
-#### `drive.stat(name, callback)`
+#### `archive.stat(name, callback)`
 
 Stat an entry. Similar to fs.stat.
 
-#### `drive.access(name, callback)`
+#### `archive.access(name, callback)`
 
 Similar to fs.access
