@@ -286,7 +286,13 @@ Hyperdrive.prototype.access = function (name, cb) {
   })
 }
 
-Hyperdrive.prototype.stat = function (name, cb) {
+Hyperdrive.prototype.exists = function (name, cb) {
+  this.access(name, function (err) {
+    cb(!err)
+  })
+}
+
+Hyperdrive.prototype.lstat = function (name, cb) {
   var self = this
 
   this.tree.get(name, function (err, st) {
@@ -295,12 +301,24 @@ Hyperdrive.prototype.stat = function (name, cb) {
   })
 }
 
+Hyperdrive.prototype.stat = function (name, cb) {
+  this.lstat(name, cb)
+}
+
 Hyperdrive.prototype.readdir = function (name, cb) {
   this.tree.list(name, cb)
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {
   this.tree.del(name, cb)
+}
+
+Hyperdrive.prototype.rmdir = function (name, cb) {
+  this.readdir(name, function (err, list) {
+    if (err) return cb(err)
+    if (list.length) return cb(new Error('Directory is not empty'))
+    cb(null)
+  })
 }
 
 Hyperdrive.prototype._ensureContent = function (cb) {

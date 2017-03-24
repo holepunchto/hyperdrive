@@ -85,6 +85,10 @@ Unlinks (deletes) a file. Similar to fs.unlink.
 
 Explictly create an directory. Similar to fs.mkdir
 
+#### `archive.rmdir(name, [callback])`
+
+Delete an empty directory. Similar to fs.rmdir.
+
 #### `archive.readdir(name, [callback])`
 
 Lists a directory. Similar to fs.readdir.
@@ -93,6 +97,10 @@ Lists a directory. Similar to fs.readdir.
 
 Stat an entry. Similar to fs.stat.
 
+#### `archive.lstat(name, callback)`
+
+Stat an entry but do not follow symlinks. Similar to fs.lstat.
+
 #### `archive.access(name, callback)`
 
-Similar to fs.access
+Similar to fs.access.
