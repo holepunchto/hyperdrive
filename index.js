@@ -1,4 +1,5 @@
 var hypercore = require('hypercore')
+var mutexify = require('mutexify')
 var raf = require('random-access-file')
 var thunky = require('thunky')
 var tree = require('append-tree')
@@ -42,6 +43,7 @@ function Hyperdrive (storage, key, opts) {
   this.sparse = !!opts.sparse
 
   this._checkout = opts._checkout
+  this._lock = mutexify()
 
   var self = this
 
@@ -203,30 +205,44 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
     if (self._checkout) return proxy.destroy(new Error('Cannot write to a checkout'))
     if (proxy.destroyed) return
 
-    // No one should mutate the content other than us
-    var byteLength = self.content.byteLength
-    var length = self.content.length
+    self._lock(function (release) {
+      if (proxy.destroyed) return release()
 
-    // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-    var stream = self.content.createWriteStream()
-    proxy.setWritable(stream)
-    proxy.on('prefinish', function () {
-      var st = {
-        mode: (opts.mode || DEFAULT_FMODE) | stat.IFREG,
-        size: self.content.byteLength - byteLength,
-        blocks: self.content.length - length,
-        uid: opts.uid || 0,
-        gid: opts.gid || 0,
-        mtime: getTime(opts.mtime),
-        ctime: getTime(opts.ctime),
-        head: self.content
-      }
+      // No one should mutate the content other than us
+      var byteLength = self.content.byteLength
+      var length = self.content.length
 
-      proxy.cork()
-      self.tree.put(name, st, function (err) {
-        if (err) return proxy.destroy(err)
-        proxy.uncork()
+      // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
+      var stream = self.content.createWriteStream()
+
+      proxy.on('close', done)
+      proxy.on('finish', done)
+
+      proxy.setWritable(stream)
+      proxy.on('prefinish', function () {
+        var st = {
+          mode: (opts.mode || DEFAULT_FMODE) | stat.IFREG,
+          size: self.content.byteLength - byteLength,
+          blocks: self.content.length - length,
+          uid: opts.uid || 0,
+          gid: opts.gid || 0,
+          mtime: getTime(opts.mtime),
+          ctime: getTime(opts.ctime),
+          head: self.content
+        }
+
+        proxy.cork()
+        self.tree.put(name, st, function (err) {
+          if (err) return proxy.destroy(err)
+          proxy.uncork()
+        })
       })
+
+      function done () {
+        proxy.removeListener('close', done)
+        proxy.removeListener('finish', done)
+        release()
+      }
     })
   })
 
@@ -260,14 +276,20 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
     if (err) return cb(err)
     if (self._checkout) return cb(new Error('Cannot write to a checkout'))
 
-    self.tree.put(name, {
-      mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
-      uid: opts.uid,
-      gid: opts.gid,
-      mtime: getTime(opts.mtime),
-      ctime: getTime(opts.ctime),
-      head: self.content
-    }, cb)
+    self._lock(function (release) {
+      var st = {
+        mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
+        uid: opts.uid,
+        gid: opts.gid,
+        mtime: getTime(opts.mtime),
+        ctime: getTime(opts.ctime),
+        head: self.content
+      }
+
+      self.tree.put(name, st, function (err) {
+        release(cb, err)
+      })
+    })
   })
 }
 
@@ -314,10 +336,12 @@ Hyperdrive.prototype.unlink = function (name, cb) {
 }
 
 Hyperdrive.prototype.rmdir = function (name, cb) {
+  var self = this
+
   this.readdir(name, function (err, list) {
     if (err) return cb(err)
     if (list.length) return cb(new Error('Directory is not empty'))
-    cb(null)
+    self.tree.del(name, cb)
   })
 }
 
