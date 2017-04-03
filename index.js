@@ -31,8 +31,8 @@ function Hyperdrive (storage, key, opts) {
   this.discoveryKey = null
   this.live = true
 
-  this._storages = defaultStorage(this, storage, opts)
   this._bare = !opts.shallow
+  this._storages = defaultStorage(this, storage, opts)
 
   // TODO: forward errors
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key)
@@ -451,7 +451,7 @@ function defaultStorage (self, storage, opts) {
         return storage(folder + 'metadata/' + name)
       },
       content: function (name) {
-        return storage(folder + 'metadata/' + name)
+        return storage(folder + 'content/' + name)
       }
     }
   }
