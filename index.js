@@ -31,8 +31,11 @@ function Hyperdrive (storage, key, opts) {
   this.discoveryKey = null
   this.live = true
 
+  this._storages = defaultStorage(this, storage, opts)
+  this._bare = !opts.shallow
+
   // TODO: forward errors
-  this.metadata = opts.metadata || hypercore(createStorage('metadata', storage), key)
+  this.metadata = opts.metadata || hypercore(this._storages.metadata, key)
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
 
@@ -214,6 +217,17 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
       var stream = self.content.createWriteStream()
+      var file = null
+
+      if (!self._bare) {
+        file = {
+          start: self.content.byteLength,
+          end: Infinity,
+          storage: raf(self.storage + '/' + name, {readable: true, writable: !opts.indexing})
+        }
+        if (opts.indexing) file.storage.write = ignoreWrite
+        self.content._storage.data.add(file)
+      }
 
       proxy.on('close', done)
       proxy.on('finish', done)
@@ -239,6 +253,7 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
       })
 
       function done () {
+        if (file) file.storage.end = self.content.byteLength
         proxy.removeListener('close', done)
         proxy.removeListener('finish', done)
         release()
@@ -367,7 +382,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
 
     var opts = {sparse: self.sparse, maxRequests: self.maxRequests}
 
-    self.content = self._checkout ? self._checkout.content : hypercore(createStorage('content', self.storage), index.content, opts)
+    self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.ready(function (err) {
       if (err) return cb(err)
       self.emit('content')
@@ -405,7 +420,7 @@ Hyperdrive.prototype._open = function (cb) {
     var wroteIndex = self.metadata.has(0)
     if (wroteIndex) return self._loadIndex(cb)
 
-    if (!self.content) self.content = hypercore(createStorage('content', self.storage), {sparse: self.sparse})
+    if (!self.content) self.content = hypercore(self._storages.content, {sparse: self.sparse})
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
@@ -422,14 +437,33 @@ function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
 }
 
-function createStorage (folder, storage) {
+function defaultStorage (self, storage, opts) {
+  var folder = ''
+
   if (typeof storage === 'string') {
-    folder = storage + '/' + folder
+    folder = storage + '/'
     storage = raf
   }
 
-  return function (name) {
-    return storage(folder + '/' + name)
+  if (self._bare) {
+    return {
+      metadata: function (name) {
+        return storage(folder + 'metadata/' + name)
+      },
+      content: function (name) {
+        return storage(folder + 'metadata/' + name)
+      }
+    }
+  }
+
+  return {
+    metadata: function (name) {
+      return storage(folder + '.hyperdrive/metadata/' + name)
+    },
+    content: function (name) {
+      if (name === 'data' && folder) return require('./lib/storage')(self, folder)
+      return storage(folder + '.hyperdrive/content/' + name)
+    }
   }
 }
 
@@ -447,4 +481,8 @@ function getTime (date) {
   if (typeof date === 'number') return date
   if (!date) return Date.now()
   return date.getTime()
+}
+
+function ignoreWrite (offset, data, cb) {
+  cb(null)
 }
