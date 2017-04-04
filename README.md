@@ -1,6 +1,10 @@
-![https://media.giphy.com/media/5mBE2MiMVFITS/giphy.gif](https://media.giphy.com/media/5mBE2MiMVFITS/giphy.gif)
+Hyperdrive is a secure, real time distributed file system
 
-(WIP)
+This readme describes version 8 is coming out soon, try the preview here
+
+``` js
+npm install mafintosh/hyperdrive
+```
 
 ## API
 
