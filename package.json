@@ -1,8 +1,7 @@
 {
   "name": "hyperdrive",
   "version": "8.0.0",
-  "private": true,
-  "description": "SLEEP powered hyperdrive",
+  "description": "Hyperdrive is a secure, real time distributed file system",
   "main": "index.js",
   "dependencies": {
     "append-tree": "^2.0.5",
@@ -22,6 +21,14 @@
   "scripts": {
     "test": "standard"
   },
-  "author": "",
-  "license": "ISC"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/hyperdrive.git"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/hyperdrive/issues"
+  },
+  "homepage": "https://github.com/mafintosh/hyperdrive"
 }
