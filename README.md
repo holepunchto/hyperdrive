@@ -1,3 +1,5 @@
+# Hyperdrive
+
 Hyperdrive is a secure, real time distributed file system
 
 This readme describes version 8 is coming out soon, try the preview here
@@ -5,6 +7,50 @@ This readme describes version 8 is coming out soon, try the preview here
 ``` js
 npm install mafintosh/hyperdrive
 ```
+
+## Usage
+
+Hyperdrive aims to implement the same API as Node.js' core fs module.
+
+``` js
+var hyperdrive = require('hyperdrive')
+var archive = hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
+
+archive.writeFile('/hello.txt', 'world', function (err) {
+  if (err) throw err
+  archive.readdir('/', function (err, list) {
+    if (err) throw err
+    console.log(list) // prints ['hello.txt']
+    archive.readFile('/hello.txt', 'utf-8', function (err, data) {
+      if (err) throw err
+      console.log(data) // prints 'world'
+    })
+  })
+})
+```
+
+A big difference is that you can replicate the file system to other computers! All you need is a stream.
+
+``` js
+var net = require('net')
+
+// ... on one machine
+
+var server = net.createServer(function (socket) {
+  socket.pipe(archive.replicate()).pipe(socket)
+})
+
+server.listen(10000)
+
+// ... on another
+
+var clonedArchive = hyperdrive('./my-cloned-hyperdrive')
+var socket = net.connect(10000)
+
+socket.pipe(clonedArchive.replicate()).pipe(socket)
+```
+
+It also comes with build in versioning and real time replication. See more below.
 
 ## API
 
