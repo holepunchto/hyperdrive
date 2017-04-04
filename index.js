@@ -149,10 +149,10 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
         if (err) return cb(err)
         if (ended) return
 
-        start = stat.head.length - stat.blocks
-        end = stat.head.length
+        start = stat.offset
+        end = stat.offset + stat.blocks
 
-        var byteOffset = stat.head.byteLength - stat.size
+        var byteOffset = stat.byteOffset
 
         if (opts.start) self.content.seek(byteOffset + opts.start, {start: start, end: end}, onstart)
         else onstart(null, start, 0)
@@ -170,7 +170,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
           start = index
           range = self.content.download({start: start, end: end, linear: true})
 
-          if (length > -1 && byteOffset + length < stat.head.byteLength) {
+          if (length > -1 && length < stat.size) {
             self.content.seek(byteOffset + length, {start: start, end: end}, onend)
           }
 
@@ -193,7 +193,6 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
   })
 }
 
-// TODO: we need to mutex these writes ...
 Hyperdrive.prototype.createWriteStream = function (name, opts) {
   if (!opts) opts = {}
 
@@ -212,8 +211,10 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
       if (proxy.destroyed) return release()
 
       // No one should mutate the content other than us
-      var byteLength = self.content.byteLength
-      var length = self.content.length
+      var byteOffset = self.content.byteLength
+      var offset = self.content.length
+
+      self.emit('append', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
       var stream = self.content.createWriteStream()
@@ -236,13 +237,14 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
       proxy.on('prefinish', function () {
         var st = {
           mode: (opts.mode || DEFAULT_FMODE) | stat.IFREG,
-          size: self.content.byteLength - byteLength,
-          blocks: self.content.length - length,
           uid: opts.uid || 0,
           gid: opts.gid || 0,
+          size: self.content.byteLength - byteOffset,
+          blocks: self.content.length - offset,
+          offset: offset,
+          byteOffset: byteOffset,
           mtime: getTime(opts.mtime),
-          ctime: getTime(opts.ctime),
-          head: self.content
+          ctime: getTime(opts.ctime)
         }
 
         proxy.cork()
@@ -297,8 +299,7 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
         uid: opts.uid,
         gid: opts.gid,
         mtime: getTime(opts.mtime),
-        ctime: getTime(opts.ctime),
-        head: self.content
+        ctime: getTime(opts.ctime)
       }
 
       self.tree.put(name, st, function (err) {
@@ -437,32 +438,33 @@ function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
 }
 
+function wrap (self, storage) {
+  return {
+    metadata: function (name) {
+      return storage.metadata(name, self)
+    },
+    content: function (name) {
+      return storage.content(name, self)
+    }
+  }
+}
+
 function defaultStorage (self, storage, opts) {
   var folder = ''
+
+  if (typeof storage === 'object' && storage) return wrap(self, storage)
 
   if (typeof storage === 'string') {
     folder = storage + '/'
     storage = raf
   }
 
-  if (self._bare) {
-    return {
-      metadata: function (name) {
-        return storage(folder + 'metadata/' + name)
-      },
-      content: function (name) {
-        return storage(folder + 'content/' + name)
-      }
-    }
-  }
-
   return {
     metadata: function (name) {
-      return storage(folder + '.hyperdrive/metadata/' + name)
+      return storage(folder + 'metadata/' + name)
     },
     content: function (name) {
-      if (name === 'data' && folder) return require('./lib/storage')(self, folder)
-      return storage(folder + '.hyperdrive/content/' + name)
+      return storage(folder + 'content/' + name)
     }
   }
 }
