@@ -1,5 +1,3 @@
 node_modules
-*.mp4
+sandbox.js
 sandbox
-layout.txt
-*.db
