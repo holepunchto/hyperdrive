@@ -131,7 +131,7 @@ Write a file from a single buffer. Similar to fs.writeFile.
 
 Unlinks (deletes) a file. Similar to fs.unlink.
 
-#### `archive.mkdir(name, [options], [callback]).
+#### `archive.mkdir(name, [options], [callback])`
 
 Explictly create an directory. Similar to fs.mkdir
 
