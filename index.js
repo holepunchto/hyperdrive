@@ -311,7 +311,7 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
 
 Hyperdrive.prototype._statDirectory = function (name, cb) {
   this.tree.list(name, function (err, list) {
-    if (err || !list.length) return cb(new Error(name + ' could not be found'))
+    if (name !== '/' && (err || !list.length)) return cb(err || new Error(name + ' could not be found'))
     var st = stat()
     st.mode = stat.IFDIR | DEFAULT_DMODE
     cb(null, st)
@@ -319,7 +319,7 @@ Hyperdrive.prototype._statDirectory = function (name, cb) {
 }
 
 Hyperdrive.prototype.access = function (name, cb) {
-  this.tree.list(name, function (err) {
+  this.stat(name, function (err) {
     cb(err)
   })
 }
@@ -344,7 +344,15 @@ Hyperdrive.prototype.stat = function (name, cb) {
 }
 
 Hyperdrive.prototype.readdir = function (name, cb) {
+  if (name === '/') return this._readdirRoot(cb) // TODO: should be an option in append-tree prob
   this.tree.list(name, cb)
+}
+
+Hyperdrive.prototype._readdirRoot = function (cb) {
+  this.tree.list('/', function (_, list) {
+    if (list) return cb(null, list)
+    cb(null, [])
+  })
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {

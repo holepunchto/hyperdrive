@@ -50,3 +50,16 @@ tape('write and unlink', function (t) {
     })
   })
 })
+
+tape('root is always there', function (t) {
+  var archive = create()
+
+  archive.access('/', function (err) {
+    t.error(err, 'no error')
+    archive.readdir('/', function (err, list) {
+      t.error(err, 'no error')
+      t.same(list, [])
+      t.end()
+    })
+  })
+})
