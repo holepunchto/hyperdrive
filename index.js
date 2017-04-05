@@ -4,6 +4,7 @@ var raf = require('random-access-file')
 var thunky = require('thunky')
 var tree = require('append-tree')
 var collect = require('stream-collector')
+var sodium = require('sodium-native')
 var inherits = require('inherits')
 var events = require('events')
 var duplexify = require('duplexify')
@@ -429,7 +430,10 @@ Hyperdrive.prototype._open = function (cb) {
     var wroteIndex = self.metadata.has(0)
     if (wroteIndex) return self._loadIndex(cb)
 
-    if (!self.content) self.content = hypercore(self._storages.content, {sparse: self.sparse})
+    if (!self.content) {
+      var keyPair = contentKeyPair(self.metadata.secretKey)
+      self.content = hypercore(self._storages.content, keyPair.publicKey, {sparse: self.sparse, secretKey: keyPair.secretKey})
+    }
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
@@ -495,4 +499,18 @@ function getTime (date) {
 
 function ignoreWrite (offset, data, cb) {
   cb(null)
+}
+
+function contentKeyPair (secretKey) {
+  var seed = new Buffer(sodium.crypto_sign_SEEDBYTES)
+  var context = new Buffer('hyperdri') // 8 byte context
+  var keyPair = {
+    publicKey: new Buffer(sodium.crypto_sign_PUBLICKEYBYTES),
+    secretKey: new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+  }
+
+  sodium.crypto_kdf_derive_from_key(seed, 0, context, secretKey)
+  sodium.crypto_sign_seed_keypair(keyPair.publicKey, keyPair.secretKey, seed)
+
+  return keyPair
 }
