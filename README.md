@@ -2,10 +2,8 @@
 
 Hyperdrive is a secure, real time distributed file system
 
-This readme describes version 8 is coming out soon, try the preview here
-
 ``` js
-npm install mafintosh/hyperdrive
+npm install hyperdrive
 ```
 
 ## Usage
