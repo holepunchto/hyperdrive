@@ -19,7 +19,8 @@
   "devDependencies": {
     "random-access-memory": "^2.3.0",
     "standard": "^9.0.2",
-    "tape": "^4.6.3"
+    "tape": "^4.6.3",
+    "temporary-directory": "^1.0.2"
   },
   "scripts": {
     "test": "standard && tape test/*.js"
