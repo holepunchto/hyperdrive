@@ -39,6 +39,8 @@ function Hyperdrive (storage, key, opts) {
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key)
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
+  this.writable = false
+  this.readable = true
 
   this.storage = storage // TODO: do something smarter (this is polymorphic)
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
@@ -390,7 +392,8 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     if (err) return cb(err)
     if (self.content) return self.content.ready(cb)
 
-    var opts = {sparse: self.sparse, maxRequests: self.maxRequests}
+    var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
+    var opts = {sparse: self.sparse, maxRequests: self.maxRequests, secretKey: keyPair && keyPair.secretKey}
 
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.ready(function (err) {

@@ -63,3 +63,13 @@ tape('root is always there', function (t) {
     })
   })
 })
+
+tape('owner is writable', function (t) {
+  var archive = create()
+
+  archive.on('ready', function () {
+    t.ok(archive.metadata.writable)
+    t.ok(archive.content.writable)
+    t.end()
+  })
+})
