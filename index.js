@@ -372,6 +372,19 @@ Hyperdrive.prototype.rmdir = function (name, cb) {
   })
 }
 
+Hyperdrive.prototype.close = function (cb) {
+  if (!cb) cb = noop
+
+  var self = this
+  this.ready(function (err) {
+    if (err) return cb(err)
+    self.metadata.close(function (err) {
+      if (!self.content) return cb(err)
+      self.content.close(cb)
+    })
+  })
+}
+
 Hyperdrive.prototype._ensureContent = function (cb) {
   var self = this
 

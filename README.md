@@ -152,3 +152,8 @@ Stat an entry but do not follow symlinks. Similar to fs.lstat.
 #### `archive.access(name, callback)`
 
 Similar to fs.access.
+
+#### `archive.close([callback])`
+
+Closes all open resources used by the archive.
+The archive should no longer be used after calling this.
