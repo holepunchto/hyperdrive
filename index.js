@@ -192,7 +192,7 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
   collect(this.createReadStream(name), function (err, bufs) {
     if (err) return cb(err)
     var buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-    cb(null, opts.encoding ? buf.toString(opts.encoding) : buf)
+    cb(null, opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf)
   })
 }
 
