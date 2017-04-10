@@ -70,6 +70,7 @@ tape('owner is writable', function (t) {
   archive.on('ready', function () {
     t.ok(archive.metadata.writable)
     t.ok(archive.content.writable)
+    t.ok(archive.owner)
     t.end()
   })
 })

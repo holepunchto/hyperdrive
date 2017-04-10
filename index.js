@@ -48,6 +48,10 @@ function Hyperdrive (storage, key, opts) {
   this.version = this.tree.version
   this.sparse = !!opts.sparse
 
+  Object.defineProperty(this, 'owner', {
+    get: function () { return this.metadata.writable }
+  })
+
   this._checkout = opts._checkout
   this._lock = mutexify()
 
