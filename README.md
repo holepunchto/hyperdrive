@@ -83,7 +83,7 @@ The public key identifying the archive.
 
 A key derived from the public key that can be used to discovery other peers sharing this archive.
 
-#### `archive.owner`
+#### `archive.writable`
 
 A boolean indicating whether the archive is writable.
 

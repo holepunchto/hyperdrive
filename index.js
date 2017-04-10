@@ -48,7 +48,7 @@ function Hyperdrive (storage, key, opts) {
   this.version = this.tree.version
   this.sparse = !!opts.sparse
 
-  Object.defineProperty(this, 'owner', {
+  Object.defineProperty(this, 'writable', {
     get: function () { return this.metadata.writable }
   })
 
