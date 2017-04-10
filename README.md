@@ -143,7 +143,34 @@ Lists a directory. Similar to fs.readdir.
 
 #### `archive.stat(name, callback)`
 
-Stat an entry. Similar to fs.stat.
+Stat an entry. Similar to fs.stat. Sample output:
+
+```
+Stat {
+  dev: 0,
+  nlink: 1,
+  rdev: 0,
+  blksize: 0,
+  ino: 0,
+  mode: 16877,
+  uid: 0,
+  gid: 0,
+  size: 0,
+  offset: 0,
+  blocks: 0,
+  atime: 2017-04-10T18:59:00.147Z,
+  mtime: 2017-04-10T18:59:00.147Z,
+  ctime: 2017-04-10T18:59:00.147Z,
+  linkname: undefined }
+```
+
+The output object includes methods similar to fs.stat:
+
+```js
+var stat = archive.stat('/hello.txt')
+stat.isDirectory()
+stat.isFile()
+```
 
 #### `archive.lstat(name, callback)`
 
