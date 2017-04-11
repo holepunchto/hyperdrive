@@ -20,15 +20,20 @@ tape('dir storage with resume', function (t) {
     archive.ready(function () {
       t.ok(archive.metadata.writable, 'archive metadata is writable')
       t.ok(archive.content.writable, 'archive content is writable')
+      t.same(archive.version, 0, 'archive has version 0')
+      archive.close(function (err) {
+        t.ifError(err)
 
-      var archive2 = hyperdrive(dir)
-      archive2.ready(function () {
-        t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
-        t.ok(archive2.content.writable, 'archive2 content is writable')
+        var archive2 = hyperdrive(dir)
+        archive2.ready(function () {
+          t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
+          t.ok(archive2.content.writable, 'archive2 content is writable')
+          t.same(archive2.version, 0, 'archive has version 0')
 
-        cleanup(function (err) {
-          t.ifError(err)
-          t.end()
+          cleanup(function (err) {
+            t.ifError(err)
+            t.end()
+          })
         })
       })
     })
