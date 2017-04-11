@@ -39,8 +39,10 @@ function Hyperdrive (storage, key, opts) {
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key)
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
-  this.writable = false
   this.readable = true
+  Object.defineProperty(this, 'writable', {
+    get: function () { return this.metadata.writable }
+  })
 
   this.storage = storage // TODO: do something smarter (this is polymorphic)
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})

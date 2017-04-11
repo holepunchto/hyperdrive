@@ -83,6 +83,10 @@ The public key identifying the archive.
 
 A key derived from the public key that can be used to discovery other peers sharing this archive.
 
+#### `archive.writable`
+
+A boolean indicating whether the archive is writable.
+
 #### `archive.on('ready')`
 
 Emitted when the archive is fully ready and all properties has been populated.
