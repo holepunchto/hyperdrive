@@ -42,7 +42,7 @@ server.listen(10000)
 
 // ... on another
 
-var clonedArchive = hyperdrive('./my-cloned-hyperdrive')
+var clonedArchive = hyperdrive('./my-cloned-hyperdrive', origKey)
 var socket = net.connect(10000)
 
 socket.pipe(clonedArchive.replicate()).pipe(socket)
