@@ -424,8 +424,7 @@ Hyperdrive.prototype._open = function (cb) {
     if (err) return cb(err)
     self.metadata.ready(function (err) {
       if (err) return cb(err)
-
-      self.version = tree.version
+      self.version = self.tree.version
       if (self.content) return cb(null)
 
       self.key = self.metadata.key
@@ -444,7 +443,10 @@ Hyperdrive.prototype._open = function (cb) {
 
   function onwritable () {
     var wroteIndex = self.metadata.has(0)
-    if (wroteIndex) return self._loadIndex(cb)
+    if (wroteIndex) {
+      if (self.version === -1) self.version = 0 // TODO: perhaps fix in append-tree?
+      return self._loadIndex(cb)
+    }
 
     if (!self.content) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
