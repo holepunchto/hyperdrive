@@ -411,7 +411,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     if (self.content) return self.content.ready(cb)
 
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
-    var opts = {sparse: self.sparse, maxRequests: self.maxRequests, secretKey: keyPair && keyPair.secretKey}
+    var opts = {sparse: self.sparse, maxRequests: self.maxRequests, secretKey: keyPair && keyPair.secretKey, storeSecretKey: false}
 
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.ready(function (err) {
@@ -455,7 +455,7 @@ Hyperdrive.prototype._open = function (cb) {
 
     if (!self.content) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
-      self.content = hypercore(self._storages.content, keyPair.publicKey, {sparse: self.sparse, secretKey: keyPair.secretKey})
+      self.content = hypercore(self._storages.content, keyPair.publicKey, {sparse: self.sparse, secretKey: keyPair.secretKey, storeSecretKey: false})
     }
 
     self.content.ready(function () {
