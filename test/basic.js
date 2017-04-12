@@ -1,4 +1,5 @@
 var tape = require('tape')
+var signatures = require('sodium-signatures')
 var create = require('./helpers/create')
 
 tape('write and read', function (t) {
@@ -72,5 +73,26 @@ tape('owner is writable', function (t) {
     t.ok(archive.metadata.writable)
     t.ok(archive.content.writable)
     t.end()
+  })
+})
+
+tape('provide keypair', function (t) {
+  var keyPair = signatures.keyPair()
+  var archive = create(keyPair.publicKey, {secretKey: keyPair.secretKey})
+
+  archive.on('ready', function () {
+    t.ok(archive.writable)
+    t.ok(archive.metadata.writable)
+    t.ok(archive.content.writable)
+    t.ok(keyPair.publicKey.equals(archive.key))
+
+    archive.writeFile('/hello.txt', 'world', function (err) {
+      t.error(err, 'no error')
+      archive.readFile('/hello.txt', function (err, buf) {
+        t.error(err, 'no error')
+        t.same(buf, new Buffer('world'))
+        t.end()
+      })
+    })
   })
 })
