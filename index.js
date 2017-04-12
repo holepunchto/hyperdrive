@@ -36,7 +36,7 @@ function Hyperdrive (storage, key, opts) {
   this._storages = defaultStorage(this, storage, opts)
 
   // TODO: forward errors
-  this.metadata = opts.metadata || hypercore(this._storages.metadata, key)
+  this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {secretKey: opts.secretKey})
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
   this.readable = true
