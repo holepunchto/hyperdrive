@@ -40,9 +40,6 @@ function Hyperdrive (storage, key, opts) {
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
   this.readable = true
-  Object.defineProperty(this, 'writable', {
-    get: function () { return this.metadata.writable }
-  })
 
   this.storage = storage // TODO: do something smarter (this is polymorphic)
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
@@ -75,6 +72,12 @@ function Hyperdrive (storage, key, opts) {
 }
 
 inherits(Hyperdrive, events.EventEmitter)
+
+Object.defineProperty(Hyperdrive.prototype, 'writable', {
+  get: function () {
+    return this.metadata.writable
+  }
+})
 
 Hyperdrive.prototype.replicate = function (opts) {
   if (!opts) opts = {}
