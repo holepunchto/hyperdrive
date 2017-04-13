@@ -32,7 +32,6 @@ function Hyperdrive (storage, key, opts) {
   this.discoveryKey = null
   this.live = true
 
-  this._bare = !opts.shallow
   this._storages = defaultStorage(this, storage, opts)
 
   // TODO: forward errors
@@ -226,17 +225,6 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
       var stream = self.content.createWriteStream()
-      var file = null
-
-      if (!self._bare) {
-        file = {
-          start: self.content.byteLength,
-          end: Infinity,
-          storage: raf(self.storage + '/' + name, {readable: true, writable: !opts.indexing})
-        }
-        if (opts.indexing) file.storage.write = ignoreWrite
-        self.content._storage.data.add(file)
-      }
 
       proxy.on('close', done)
       proxy.on('finish', done)
@@ -263,7 +251,6 @@ Hyperdrive.prototype.createWriteStream = function (name, opts) {
       })
 
       function done () {
-        if (file) file.storage.end = self.content.byteLength
         proxy.removeListener('close', done)
         proxy.removeListener('finish', done)
         release()
@@ -518,10 +505,6 @@ function getTime (date) {
   if (typeof date === 'number') return date
   if (!date) return Date.now()
   return date.getTime()
-}
-
-function ignoreWrite (offset, data, cb) {
-  cb(null)
 }
 
 function contentKeyPair (secretKey) {
