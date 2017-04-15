@@ -91,6 +91,10 @@ A boolean indicating whether the archive is writable.
 
 Emitted when the archive is fully ready and all properties has been populated.
 
+#### `archive.ready(cb)`
+
+Call back once the archive is ready, potentially with an error object.
+
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
