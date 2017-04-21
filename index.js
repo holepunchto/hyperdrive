@@ -352,7 +352,18 @@ Hyperdrive.prototype._readdirRoot = function (cb) {
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {
-  this.tree.del(name, cb)
+  if (!cb) cb = noop
+
+  var self = this
+
+  this._ensureContent(function (err) {
+    if (err) return cb(err)
+    self._lock(function (release) {
+      self.tree.del(name, function (err) {
+        release(cb, err)
+      })
+    })
+  })
 }
 
 Hyperdrive.prototype.rmdir = function (name, cb) {
