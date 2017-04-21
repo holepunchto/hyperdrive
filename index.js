@@ -352,8 +352,22 @@ Hyperdrive.prototype._readdirRoot = function (cb) {
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {
+  this._del(name, cb || noop)
+}
+
+Hyperdrive.prototype.rmdir = function (name, cb) {
   if (!cb) cb = noop
 
+  var self = this
+
+  this.readdir(name, function (err, list) {
+    if (err) return cb(err)
+    if (list.length) return cb(new Error('Directory is not empty'))
+    self._del(name, cb)
+  })
+}
+
+Hyperdrive.prototype._del = function (name, cb) {
   var self = this
 
   this._ensureContent(function (err) {
@@ -363,16 +377,6 @@ Hyperdrive.prototype.unlink = function (name, cb) {
         release(cb, err)
       })
     })
-  })
-}
-
-Hyperdrive.prototype.rmdir = function (name, cb) {
-  var self = this
-
-  this.readdir(name, function (err, list) {
-    if (err) return cb(err)
-    if (list.length) return cb(new Error('Directory is not empty'))
-    self.tree.del(name, cb)
   })
 }
 
