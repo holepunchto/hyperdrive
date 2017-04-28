@@ -14,7 +14,9 @@
     "random-access-file": "^1.5.0",
     "sodium-native": "^1.8.0",
     "stream-collector": "^1.0.1",
-    "thunky": "^1.0.2"
+    "stream-each": "^1.2.0",
+    "thunky": "^1.0.2",
+    "uint64be": "^2.0.1"
   },
   "devDependencies": {
     "random-access-memory": "^2.3.0",
