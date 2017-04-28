@@ -340,13 +340,12 @@ Hyperdrive.prototype.stat = function (name, cb) {
 }
 
 Hyperdrive.prototype.readdir = function (name, opts, cb) {
-  if (!cb && typeof opts === 'function') return this.readdir(name, {}, opts)
+  if (typeof opts === 'function') return this.readdir(name, null, opts)
   if (name === '/') return this._readdirRoot(opts, cb) // TODO: should be an option in append-tree prob
   this.tree.list(name, opts, cb)
 }
 
 Hyperdrive.prototype._readdirRoot = function (opts, cb) {
-  if (!cb && typeof opts === 'function') return this._readdirRoot({}, opts)
   this.tree.list('/', opts, function (_, list) {
     if (list) return cb(null, list)
     cb(null, [])
