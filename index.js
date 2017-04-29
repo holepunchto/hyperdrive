@@ -106,7 +106,6 @@ Hyperdrive.prototype._trackLatest = function (cb) {
 
     self._latestStorage.read(0, 8, function (_, data) {
       self._latestVersion = data ? uint64be.decode(data) : 0
-      console.log('_latestVersion', self._latestVersion)
       loop()
     })
   })
@@ -122,7 +121,6 @@ Hyperdrive.prototype._trackLatest = function (cb) {
   }
 
   function fetch () {
-    console.log('fetch', self._latestSynced)
     self._fetchVersion(self._latestSynced, function (err, fullySynced) {
       if (err) return cb(err)
 
@@ -161,8 +159,6 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
   var waitingData = null
   var waitingCallback = null
-
-  console.log('should fetch latest', version, 'prev', prev)
 
   this.metadata.update(function () {
     if (self.content) { // quick hack. we should support an api for this in hypercore
