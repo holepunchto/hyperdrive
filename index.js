@@ -681,11 +681,11 @@ function isObject (val) {
 
 function wrap (self, storage) {
   return {
-    metadata: function (name) {
-      return storage.metadata(name, self)
+    metadata: function (name, opts) {
+      return storage.metadata(name, opts, self)
     },
-    content: function (name) {
-      return storage.content(name, self)
+    content: function (name, opts) {
+      return storage.content(name, opts, self)
     }
   }
 }
