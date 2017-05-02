@@ -33,11 +33,11 @@ function Hyperdrive (storage, key, opts) {
   this.key = null
   this.discoveryKey = null
   this.live = true
+  this.latest = !!opts.latest
 
   this._storages = defaultStorage(this, storage, opts)
 
   // TODO: forward errors
-  this.latest = !!opts.latest
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {secretKey: opts.secretKey})
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -121,6 +121,7 @@ Hyperdrive.prototype._trackLatest = function (cb) {
   }
 
   function fetch () {
+    self.emit('syncing')
     self._fetchVersion(self._latestSynced, function (err, fullySynced) {
       if (err) return cb(err)
 
