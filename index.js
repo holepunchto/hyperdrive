@@ -116,11 +116,15 @@ Hyperdrive.prototype._trackLatest = function (cb) {
     if (stableVersion()) return fetch()
 
     // TODO: lock downloading while doing this
-
     self._clearDangling(self._latestVersion, self.version, onclear)
   }
 
   function fetch () {
+    if (self.sparse) {
+      if (stableVersion()) return self.metadata.update(loop)
+      return loop(null)
+    }
+
     self.emit('syncing')
     self._fetchVersion(self._latestSynced, function (err, fullySynced) {
       if (err) return cb(err)
