@@ -11,6 +11,7 @@ var duplexify = require('duplexify')
 var from = require('from2')
 var each = require('stream-each')
 var uint64be = require('uint64be')
+var unixify = require('unixify')
 var messages = require('./lib/messages')
 var stat = require('./lib/stat')
 
@@ -291,6 +292,8 @@ Hyperdrive.prototype.history = function (opts) {
 Hyperdrive.prototype.createReadStream = function (name, opts) {
   if (!opts) opts = {}
 
+  name = unixify(name)
+
   var self = this
   var first = true
   var start = 0
@@ -373,6 +376,8 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
   if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
 
+  name = unixify(name)
+
   collect(this.createReadStream(name), function (err, bufs) {
     if (err) return cb(err)
     var buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
@@ -382,6 +387,8 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
 
 Hyperdrive.prototype.createWriteStream = function (name, opts) {
   if (!opts) opts = {}
+
+  name = unixify(name)
 
   var self = this
   var proxy = duplexify()
@@ -461,6 +468,8 @@ Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
   if (typeof buf === 'string') buf = new Buffer(buf, opts.encoding || 'utf-8')
   if (!cb) cb = noop
 
+  name = unixify(name)
+
   var bufs = split(buf) // split the input incase it is a big buffer.
   var stream = this.createWriteStream(name, opts)
   stream.on('error', cb)
@@ -474,6 +483,8 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
   if (typeof opts === 'number') opts = {mode: opts}
   if (!opts) opts = {}
   if (!cb) cb = noop
+
+  name = unixify(name)
 
   var self = this
 
@@ -509,6 +520,7 @@ Hyperdrive.prototype._statDirectory = function (name, cb) {
 }
 
 Hyperdrive.prototype.access = function (name, cb) {
+  name = unixify(name)
   this.stat(name, function (err) {
     cb(err)
   })
@@ -522,7 +534,7 @@ Hyperdrive.prototype.exists = function (name, cb) {
 
 Hyperdrive.prototype.lstat = function (name, cb) {
   var self = this
-
+  name = unixify(name)
   this.tree.get(name, function (err, st) {
     if (err) return self._statDirectory(name, cb)
     cb(null, stat(st))
@@ -534,6 +546,7 @@ Hyperdrive.prototype.stat = function (name, cb) {
 }
 
 Hyperdrive.prototype.readdir = function (name, opts, cb) {
+  name = unixify(name)
   if (typeof opts === 'function') return this.readdir(name, null, opts)
   if (name === '/') return this._readdirRoot(opts, cb) // TODO: should be an option in append-tree prob
   this.tree.list(name, opts, cb)
@@ -547,11 +560,13 @@ Hyperdrive.prototype._readdirRoot = function (opts, cb) {
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {
+  name = unixify(name)
   this._del(name, cb || noop)
 }
 
 Hyperdrive.prototype.rmdir = function (name, cb) {
   if (!cb) cb = noop
+  name = unixify(name)
 
   var self = this
 
@@ -709,9 +724,11 @@ function defaultStorage (self, storage, opts) {
 
   return {
     metadata: function (name) {
+      name = unixify(name)
       return storage(folder + 'metadata/' + name)
     },
     content: function (name) {
+      name = unixify(name)
       return storage(folder + 'content/' + name)
     }
   }
