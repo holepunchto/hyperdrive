@@ -166,11 +166,6 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   var waitingCallback = null
 
   this.metadata.update(function () {
-    if (self.content) { // quick hack. we should support an api for this in hypercore
-      for (var i = self.content._selections.length - 1; i >= 0; i--) {
-        self.content.undownload(self.content._selections[i])
-      }
-    }
     updated = true
     if (stream) stream.destroy()
     kick()
@@ -254,6 +249,7 @@ Hyperdrive.prototype._clearDangling = function (a, b, cb) {
 
   function ondata (data, next) {
     var st = data.value
+    self.content.cancel(st.offset, st.offset + st.blocks)
     self.content.clear(st.offset, st.offset + st.blocks, {byteOffset: st.byteOffset, byteLength: st.size}, next)
   }
 }
