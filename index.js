@@ -484,8 +484,8 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
         gid: opts.gid,
         mtime: getTime(opts.mtime),
         ctime: getTime(opts.ctime),
-        blocks: 0,
-        offset: self.content.length
+        offset: self.content.length,
+        byteOffset: self.content.byteLength
       }
 
       self.tree.put(name, st, function (err) {
