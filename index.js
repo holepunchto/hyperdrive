@@ -37,7 +37,6 @@ function Hyperdrive (storage, key, opts) {
 
   this._storages = defaultStorage(this, storage, opts)
 
-  // TODO: forward errors
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {secretKey: opts.secretKey})
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -58,6 +57,7 @@ function Hyperdrive (storage, key, opts) {
   var self = this
 
   this.metadata.on('append', update)
+  this.metadata.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
 
