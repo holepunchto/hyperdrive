@@ -42,7 +42,7 @@ function Hyperdrive (storage, key, opts) {
   this.maxRequests = opts.maxRequests || 16
   this.readable = true
 
-  this.storage = storage // TODO: do something smarter (this is polymorphic)
+  this.storage = storage
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
   if (typeof opts.version === 'number') this.tree = this.tree.checkout(opts.version)
   this.sparse = !!opts.sparse
@@ -667,7 +667,7 @@ Hyperdrive.prototype._open = function (cb) {
         sparse: self.sparse || self.latest,
         secretKey: keyPair.secretKey,
         storeSecretKey: false,
-        indexing: self.indexing
+        indexing: self.metadata.writable && self.indexing
       })
     }
 
