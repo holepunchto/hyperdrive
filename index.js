@@ -622,7 +622,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
       maxRequests: self.maxRequests,
       secretKey: keyPair && keyPair.secretKey,
       storeSecretKey: false,
-      indexing: self.indexing
+      indexing: self.metadata.writable && self.indexing
     }
 
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
