@@ -60,6 +60,8 @@ function Hyperdrive (storage, key, opts) {
 
   this.metadata.on('append', update)
   this.metadata.on('error', onerror)
+  if (this.content) this.content.on('error', onerror)
+  if (this._checkout) this._checkout.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
 
@@ -720,6 +722,9 @@ Hyperdrive.prototype._open = function (cb) {
         secretKey: keyPair.secretKey,
         storeSecretKey: false,
         indexing: self.metadata.writable && self.indexing
+      })
+      self.content.on('error', function (err) {
+        self.emit('error', err)
       })
     }
 
