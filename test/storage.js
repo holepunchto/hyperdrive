@@ -70,3 +70,29 @@ tape('dir storage without permissions emits error', function (t) {
     t.ok(err, 'got error')
   })
 })
+
+tape('write and read (sparse)', function (t) {
+  t.plan(3)
+
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var archive = hyperdrive(dir)
+    archive.on('ready', function () {
+      var clone = create(archive.key, {sparse: true})
+      clone.on('ready', function () {
+        archive.writeFile('/hello.txt', 'world', function (err) {
+          t.error(err, 'no error')
+          var stream = clone.replicate()
+          stream.pipe(archive.replicate()).pipe(stream)
+          var readStream = clone.createReadStream('/hello.txt')
+          readStream.on('error', function (err) {
+            t.error(err, 'no error')
+          })
+          readStream.on('data', function (data) {
+            t.same(data.toString(), 'world')
+          })
+        })
+      })
+    })
+  })
+})
