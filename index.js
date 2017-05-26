@@ -87,12 +87,14 @@ function Hyperdrive (storage, key, opts) {
 inherits(Hyperdrive, events.EventEmitter)
 
 Object.defineProperty(Hyperdrive.prototype, 'version', {
+  enumerable: true,
   get: function () {
     return this._checkout ? this.tree.version : (this.metadata.length ? this.metadata.length - 1 : 0)
   }
 })
 
 Object.defineProperty(Hyperdrive.prototype, 'writable', {
+  enumerable: true,
   get: function () {
     return this.metadata.writable
   }
