@@ -63,7 +63,7 @@ to store the archive.
 
 Options include:
 
-```
+``` js
 {
   sparse: true // only download data when it is read first time
 }
