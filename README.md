@@ -61,6 +61,14 @@ If storage is a string content will be stored inside that folder.
 If storage is a function it is called with a string name for each abstract-random-access instance that is needed
 to store the archive.
 
+Options include:
+
+```
+{
+  sparse: true // only download data when it is read first time
+}
+```
+
 #### `var stream = archive.replicate([options])`
 
 Replicate this archive. Options include
@@ -149,7 +157,7 @@ Options include:
 
 ``` js
 {
-    cached: true|false, // default: false  
+    cached: true|false, // default: false
 }
 ```
 
