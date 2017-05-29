@@ -141,9 +141,19 @@ Explictly create an directory. Similar to fs.mkdir
 
 Delete an empty directory. Similar to fs.rmdir.
 
-#### `archive.readdir(name, [callback])`
+#### `archive.readdir(name, [options], [callback])`
 
 Lists a directory. Similar to fs.readdir.
+
+Options include:
+
+``` js
+{
+    cached: true|false, // default: false  
+}
+```
+
+If `cached` is set to `true`, this function returns results from the local version of the archive’s append-tree. Default behavior is to fetch the latest remote version of the archive before returning list of directories.
 
 #### `archive.stat(name, callback)`
 

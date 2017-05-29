@@ -4,7 +4,7 @@ var raf = require('random-access-file')
 var thunky = require('thunky')
 var tree = require('append-tree')
 var collect = require('stream-collector')
-var sodium = require('sodium-native')
+var sodium = require('sodium-universal')
 var inherits = require('inherits')
 var events = require('events')
 var duplexify = require('duplexify')
@@ -38,13 +38,12 @@ function Hyperdrive (storage, key, opts) {
 
   this._storages = defaultStorage(this, storage, opts)
 
-  // TODO: forward errors
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {secretKey: opts.secretKey})
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
   this.readable = true
 
-  this.storage = storage // TODO: do something smarter (this is polymorphic)
+  this.storage = storage
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
   if (typeof opts.version === 'number') this.tree = this.tree.checkout(opts.version)
   this.sparse = !!opts.sparse
@@ -59,6 +58,7 @@ function Hyperdrive (storage, key, opts) {
   var self = this
 
   this.metadata.on('append', update)
+  this.metadata.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
 
@@ -88,12 +88,14 @@ function Hyperdrive (storage, key, opts) {
 inherits(Hyperdrive, events.EventEmitter)
 
 Object.defineProperty(Hyperdrive.prototype, 'version', {
+  enumerable: true,
   get: function () {
     return this._checkout ? this.tree.version : (this.metadata.length ? this.metadata.length - 1 : 0)
   }
 })
 
 Object.defineProperty(Hyperdrive.prototype, 'writable', {
+  enumerable: true,
   get: function () {
     return this.metadata.writable
   }
@@ -637,7 +639,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
       maxRequests: self.maxRequests,
       secretKey: keyPair && keyPair.secretKey,
       storeSecretKey: false,
-      indexing: self.indexing
+      indexing: self.metadata.writable && self.indexing
     }
 
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
@@ -682,7 +684,7 @@ Hyperdrive.prototype._open = function (cb) {
         sparse: self.sparse || self.latest,
         secretKey: keyPair.secretKey,
         storeSecretKey: false,
-        indexing: self.indexing
+        indexing: self.metadata.writable && self.indexing
       })
     }
 

@@ -62,3 +62,11 @@ tape('dir storage for non-writable archive', function (t) {
     })
   })
 })
+
+tape('dir storage without permissions emits error', function (t) {
+  t.plan(1)
+  var archive = hyperdrive('/')
+  archive.on('error', function (err) {
+    t.ok(err, 'got error')
+  })
+})
