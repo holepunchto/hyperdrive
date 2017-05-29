@@ -4,7 +4,7 @@
   "description": "Hyperdrive is a secure, real time distributed file system",
   "main": "index.js",
   "dependencies": {
-    "append-tree": "^2.0.5",
+    "append-tree": "^2.3.5",
     "duplexify": "^3.5.0",
     "from2": "^2.3.0",
     "hypercore": "^6.3.0",
