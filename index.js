@@ -13,6 +13,7 @@ var each = require('stream-each')
 var uint64be = require('uint64be')
 var messages = require('./lib/messages')
 var stat = require('./lib/stat')
+var cursor = require('./lib/cursor')
 
 var DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
 var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
@@ -283,6 +284,10 @@ Hyperdrive.prototype.checkout = function (version) {
 
 Hyperdrive.prototype.history = function (opts) {
   return this.tree.history(opts)
+}
+
+Hyperdrive.prototype.createCursor = function (name) {
+  return cursor(this, name)
 }
 
 // TODO: move to ./lib
