@@ -12,6 +12,7 @@ var from = require('from2')
 var each = require('stream-each')
 var uint64be = require('uint64be')
 var unixify = require('unixify')
+var path = require('path')
 var messages = require('./lib/messages')
 var stat = require('./lib/stat')
 
@@ -532,7 +533,9 @@ Hyperdrive.prototype.exists = function (name, cb) {
 
 Hyperdrive.prototype.lstat = function (name, cb) {
   var self = this
+
   name = unixify(name)
+
   this.tree.get(name, function (err, st) {
     if (err) return self._statDirectory(name, cb)
     cb(null, stat(st))
@@ -544,8 +547,10 @@ Hyperdrive.prototype.stat = function (name, cb) {
 }
 
 Hyperdrive.prototype.readdir = function (name, opts, cb) {
-  name = unixify(name)
   if (typeof opts === 'function') return this.readdir(name, null, opts)
+
+  name = unixify(name)
+
   if (name === '/') return this._readdirRoot(opts, cb) // TODO: should be an option in append-tree prob
   this.tree.list(name, opts, cb)
 }
@@ -564,6 +569,7 @@ Hyperdrive.prototype.unlink = function (name, cb) {
 
 Hyperdrive.prototype.rmdir = function (name, cb) {
   if (!cb) cb = noop
+
   name = unixify(name)
 
   var self = this
@@ -716,18 +722,16 @@ function defaultStorage (self, storage, opts) {
   if (typeof storage === 'object' && storage) return wrap(self, storage)
 
   if (typeof storage === 'string') {
-    folder = storage + '/'
+    folder = storage
     storage = raf
   }
 
   return {
     metadata: function (name) {
-      name = unixify(name)
-      return storage(folder + 'metadata/' + name)
+      return storage(path.join(folder, 'metadata', name))
     },
     content: function (name) {
-      name = unixify(name)
-      return storage(folder + 'content/' + name)
+      return storage(path.join(folder, 'content', name))
     }
   }
 }
