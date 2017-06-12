@@ -269,7 +269,12 @@ Hyperdrive.prototype.replicate = function (opts) {
   this._ensureContent(function (err) {
     if (err) return stream.destroy(err)
     if (stream.destroyed) return
-    self.content.replicate({live: opts.live, stream: stream})
+    self.content.replicate({
+      live: opts.live,
+      download: opts.download,
+      upload: opts.upload,
+      stream: stream
+    })
   })
 
   return stream

@@ -75,7 +75,9 @@ Replicate this archive. Options include
 
 ``` js
 {
-  live: false // keep replicating
+  live: false, // keep replicating
+  download: true, // download data from peers?
+  upload: true // upload data to peers?
 }
 ```
 
