@@ -144,9 +144,9 @@ Hyperdrive.prototype._trackLatest = function (cb) {
     })
   }
 
-  function onclear (err) {
+  function onclear (err, version) {
     if (err) return cb(err)
-    self._latestVersion = self.version
+    self._latestVersion = version
     self._latestStorage.write(0, uint64be.encode(self._latestVersion), loop)
   }
 
@@ -246,9 +246,14 @@ Hyperdrive.prototype._clearDangling = function (a, b, cb) {
 
   this._ensureContent(oncontent)
 
+  function done (err) {
+    if (err) return cb(err)
+    cb(null, b)
+  }
+
   function oncontent (err) {
     if (err) return cb(err)
-    each(stream, ondata, cb)
+    each(stream, ondata, done)
   }
 
   function ondata (data, next) {
