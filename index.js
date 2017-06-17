@@ -9,7 +9,6 @@ var inherits = require('inherits')
 var events = require('events')
 var duplexify = require('duplexify')
 var from = require('from2')
-var remove = require('unordered-array-remove')
 var each = require('stream-each')
 var uint64be = require('uint64be')
 var unixify = require('unixify')
@@ -164,7 +163,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   var done = false
   var error = null
   var stream = null
-  var queued = []
+  var queued = 0
   var maxQueued = 64
 
   var waitingData = null
@@ -172,11 +171,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
   this.metadata.update(function () {
     updated = true
-    if (self.content && queued) {
-      for (var i = 0; i < queued.length; i++) {
-        self.content.cancel(queued[i].start, queued[i].end)
-      }
-    }
+    queued = 0
     if (stream) stream.destroy()
     kick()
   })
@@ -191,9 +186,9 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   })
 
   function ondata (data, next) {
-    if (updated || !queued || error) return next(new Error('Out of date'))
+    if (updated || error) return next(new Error('Out of date'))
 
-    if (queued.length >= maxQueued) {
+    if (queued >= maxQueued) {
       waitingData = data
       waitingCallback = next
       return
@@ -204,10 +199,10 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
     if (start === end) return next()
 
-    var range = {start: start, end: end}
-    queued.push(range)
-    self.content.download(range, function (err) {
-      remove(queued, queued.indexOf(range))
+    queued++
+    self.content.download({start: start, end: end}, function (err) {
+      if (updated) return kick()
+      queued--
 
       if (waitingCallback) {
         data = waitingData
@@ -229,8 +224,9 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   }
 
   function kick () {
-    if (!done || !queued || queued.length) return
-    queued = null
+    if (!done || queued) return
+    queued = -1 // so we don't enter this twice
+
     if (updated) return cb(null, false)
     if (error) return cb(error)
 

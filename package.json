@@ -17,8 +17,7 @@
     "stream-each": "^1.2.0",
     "thunky": "^1.0.2",
     "uint64be": "^2.0.1",
-    "unixify": "^1.0.0",
-    "unordered-array-remove": "^1.0.2"
+    "unixify": "^1.0.0"
   },
   "devDependencies": {
     "random-access-memory": "^2.3.0",
