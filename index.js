@@ -306,6 +306,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
   name = unixify(name)
 
   var self = this
+  var downloaded = false
   var first = true
   var start = 0
   var end = 0
@@ -330,7 +331,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
     if (first) return open(size, cb)
     if (start === end || length === 0) return cb(null, null)
 
-    self.content.get(start++, function (err, data) {
+    self.content.get(start++, {wait: !downloaded}, function (err, data) {
       if (err) return cb(err)
       if (offset) data = data.slice(offset)
       offset = 0
@@ -346,9 +347,13 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
     first = false
     self._ensureContent(function (err) {
       if (err) return cb(err)
-      self.tree.get(name, function (err, stat) {
+
+      // TODO: fix (non critical) race condition if name is deleted remotely while looking up the metadata
+      self.tree.get(name, ontree)
+
+      function ontree (err, stat) {
         if (err) return cb(err)
-        if (ended) return
+        if (ended || stream.destroyed) return
 
         start = stat.offset
         end = stat.offset + stat.blocks
@@ -360,16 +365,19 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
 
         function onend (err, index) {
           if (err || !range) return
+          if (ended || stream.destroyed) return
+
           self.content.undownload(range)
-          range = self.content.download({start: start, end: index, linear: true})
+          range = self.content.download({start: start, end: index, linear: true}, ondownload)
         }
 
         function onstart (err, index, off) {
           if (err) return cb(err)
+          if (ended || stream.destroyed) return
 
           offset = off
           start = index
-          range = self.content.download({start: start, end: end, linear: true})
+          range = self.content.download({start: start, end: end, linear: true}, ondownload)
 
           if (length > -1 && length < stat.size) {
             self.content.seek(byteOffset + length, {start: start, end: end}, onend)
@@ -377,7 +385,12 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
 
           read(size, cb)
         }
-      })
+
+        function ondownload (err) {
+          if (err) stream.destroy(err)
+          else downloaded = true
+        }
+      }
     })
   }
 }
