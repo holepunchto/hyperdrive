@@ -172,7 +172,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
   this.metadata.update(function () {
     updated = true
-    if (self.content) {
+    if (self.content && queued) {
       for (var i = 0; i < queued.length; i++) {
         self.content.cancel(queued[i].start, queued[i].end)
       }
