@@ -9,6 +9,7 @@ var inherits = require('inherits')
 var events = require('events')
 var duplexify = require('duplexify')
 var from = require('from2')
+var remove = require('unordered-array-remove')
 var each = require('stream-each')
 var uint64be = require('uint64be')
 var unixify = require('unixify')
@@ -163,7 +164,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   var done = false
   var error = null
   var stream = null
-  var queued = 0
+  var queued = []
   var maxQueued = 64
 
   var waitingData = null
@@ -171,6 +172,11 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
   this.metadata.update(function () {
     updated = true
+    if (self.content) {
+      for (var i = 0; i < queued.length; i++) {
+        self.content.cancel(queued[i].start, queued[i].end)
+      }
+    }
     if (stream) stream.destroy()
     kick()
   })
@@ -185,9 +191,9 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   })
 
   function ondata (data, next) {
-    if (updated) return next(new Error('Out of date'))
+    if (updated || !queued || error) return next(new Error('Out of date'))
 
-    if (queued >= maxQueued) {
+    if (queued.length >= maxQueued) {
       waitingData = data
       waitingCallback = next
       return
@@ -197,10 +203,11 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
     var end = start + data.value.blocks
 
     if (start === end) return next()
-    queued++
 
-    self.content.download({start: start, end: end}, function (err) {
-      queued--
+    var range = {start: start, end: end}
+    queued.push(range)
+    self.content.download(range, function (err) {
+      remove(queued, queued.indexOf(range))
 
       if (waitingCallback) {
         data = waitingData
@@ -213,7 +220,6 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
       if (err) {
         stream.destroy(err)
         error = err
-        return
       }
 
       kick()
@@ -223,8 +229,8 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   }
 
   function kick () {
-    if (!done || queued) return
-    queued = -1 // hack to not call this again
+    if (!done || !queued || queued.length) return
+    queued = null
     if (updated) return cb(null, false)
     if (error) return cb(error)
 
