@@ -348,7 +348,8 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
     self._ensureContent(function (err) {
       if (err) return cb(err)
 
-      // TODO: fix (non critical) race condition if name is deleted remotely while looking up the metadata
+      // if running latest === true and a delete happens while getting the tree data, the tree.get
+      // should finish before the delete so there shouldn't be an rc. we should test this though.
       self.tree.get(name, ontree)
 
       function ontree (err, stat) {
