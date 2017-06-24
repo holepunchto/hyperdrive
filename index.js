@@ -322,7 +322,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
   return stream
 
   function cleanup () {
-    if (range) self.content.undownload(range)
+    if (range) self.content.undownload(range, noop)
     range = null
     ended = true
   }
