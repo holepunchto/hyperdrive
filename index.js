@@ -388,6 +388,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
         }
 
         function ondownload (err) {
+          if (ended) return
           if (err) stream.destroy(err)
           else downloaded = true
         }
