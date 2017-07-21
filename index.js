@@ -360,6 +360,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
         end = stat.offset + stat.blocks
 
         var byteOffset = stat.byteOffset
+        var missing = 1
 
         if (opts.start) self.content.seek(byteOffset + opts.start, {start: start, end: end}, onstart)
         else onstart(null, start, 0)
@@ -368,6 +369,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
           if (err || !range) return
           if (ended || stream.destroyed) return
 
+          missing++
           self.content.undownload(range)
           range = self.content.download({start: start, end: index, linear: true}, ondownload)
         }
@@ -388,8 +390,8 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
         }
 
         function ondownload (err) {
-          if (ended) return
-          if (err) stream.destroy(err)
+          if (--missing) return
+          if (err && !ended && !downloaded) stream.destroy(err)
           else downloaded = true
         }
       }
