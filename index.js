@@ -693,10 +693,10 @@ Hyperdrive.prototype._open = function (cb) {
     if (err) return cb(err)
     self.metadata.ready(function (err) {
       if (err) return cb(err)
-      if (self.content) return cb(null)
-
       self.key = self.metadata.key
       self.discoveryKey = self.metadata.discoveryKey
+
+      if (self.content) return cb(null)
 
       if (!self.metadata.writable || self._checkout) onnotwriteable()
       else onwritable()
