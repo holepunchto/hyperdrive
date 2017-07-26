@@ -70,3 +70,20 @@ tape('dir storage without permissions emits error', function (t) {
     t.ok(err, 'got error')
   })
 })
+
+tape('construct archive from feeds', function (t) {
+  var source = create()
+  source.writeFile('/hello.txt', 'world', function (err) {
+    t.error(err, 'no error')
+
+    var archive = create({metadata: source.metadata, content: source.content})
+    archive.ready(function () {
+      t.same(archive.key && archive.key.toString('hex'), source.key.toString('hex'), 'key matches')
+      archive.readFile('/hello.txt', 'utf8', function (err, data) {
+        t.error(err, 'no error')
+        t.same(data, 'world')
+        t.end()
+      })
+    })
+  })
+})
