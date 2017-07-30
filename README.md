@@ -58,7 +58,7 @@ Create a new hyperdrive. Storage should be a function or a string.
 
 If storage is a string content will be stored inside that folder.
 
-If storage is a function it is called with a string name for each abstract-random-access instance that is needed
+If storage is a function it is called with a string name for each [abstract-random-access](https://github.com/juliangruber/abstract-random-access) instance that is needed
 to store the archive.
 
 Options include:
