@@ -1,6 +1,7 @@
 var tape = require('tape')
 var tmp = require('temporary-directory')
 var create = require('./helpers/create')
+var hypercore = require('hypercore')
 var hyperdrive = require('..')
 
 tape('ram storage', function (t) {
@@ -94,5 +95,55 @@ tape('write and read (sparse)', function (t) {
         })
       })
     })
+  })
+})
+
+tape('default content errors are forwarded', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var archive = hyperdrive(dir)
+    archive.on('error', function (err) {
+      t.ok(err, 'got error')
+      cleanup(function (err) {
+        t.ifError(err)
+        t.end()
+      })
+    })
+    archive.ready(function () {
+      t.ifError(err)
+      archive.content.emit('error', Error())
+    })
+  })
+})
+
+tape('custom content errors are forwarded', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var content = hypercore(dir)
+    var archive = hyperdrive(dir, { content: content })
+    archive.on('error', function (err) {
+      t.ok(err, 'got error')
+      cleanup(function (err) {
+        t.ifError(err)
+        t.end()
+      })
+    })
+    content.emit('error', Error())
+  })
+})
+
+tape('checkout errors are forwarded', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var clone = hyperdrive(dir)
+    var archive = hyperdrive(dir, { _checkout: clone })
+    archive.on('error', function (err) {
+      t.ok(err, 'got error')
+      cleanup(function (err) {
+        t.ifError(err)
+        t.end()
+      })
+    })
+    clone.emit('error', Error())
   })
 })
