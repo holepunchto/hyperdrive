@@ -669,14 +669,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     if (self.content) return self.content.ready(cb)
 
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
-    var opts = {
-      sparse: self.sparse || self.latest,
-      maxRequests: self.maxRequests,
-      secretKey: keyPair && keyPair.secretKey,
-      storeSecretKey: false,
-      indexing: self.metadata.writable && self.indexing
-    }
-
+    var opts = contentOptions(self, keyPair && keyPair.secretKey)
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.ready(function (err) {
       if (err) return cb(err)
@@ -715,19 +708,24 @@ Hyperdrive.prototype._open = function (cb) {
 
     if (!self.content) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
-      self.content = hypercore(self._storages.content, keyPair.publicKey, {
-        sparse: self.sparse || self.latest,
-        maxRequests: self.maxRequests,
-        secretKey: keyPair.secretKey,
-        storeSecretKey: false,
-        indexing: self.metadata.writable && self.indexing
-      })
+      var opts = contentOptions(self, keyPair.secretKey)
+      self.content = hypercore(self._storages.content, keyPair.publicKey, opts)
     }
 
     self.content.ready(function () {
       if (self.metadata.has(0)) return cb(new Error('Index already written'))
       self.metadata.append(messages.Index.encode({type: 'hyperdrive', content: self.content.key}), cb)
     })
+  }
+}
+
+function contentOptions (self, secretKey) {
+  return {
+    sparse: self.sparse || self.latest,
+    maxRequests: self.maxRequests,
+    secretKey: secretKey,
+    storeSecretKey: false,
+    indexing: self.metadata.writable && self.indexing
   }
 }
 
