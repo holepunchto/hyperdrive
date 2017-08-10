@@ -717,6 +717,7 @@ Hyperdrive.prototype._open = function (cb) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
       self.content = hypercore(self._storages.content, keyPair.publicKey, {
         sparse: self.sparse || self.latest,
+        maxRequests: self.maxRequests,
         secretKey: keyPair.secretKey,
         storeSecretKey: false,
         indexing: self.metadata.writable && self.indexing
