@@ -670,7 +670,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
 
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
     var opts = {
-      sparse: self.latest || self.sparse,
+      sparse: self.sparse || self.latest,
       maxRequests: self.maxRequests,
       secretKey: keyPair && keyPair.secretKey,
       storeSecretKey: false,
