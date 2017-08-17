@@ -20,6 +20,7 @@
     "unixify": "^1.0.0"
   },
   "devDependencies": {
+    "dat-storage": "^1.0.3",
     "random-access-memory": "^2.3.0",
     "sodium-signatures": "^2.0.0",
     "standard": "^9.0.2",
