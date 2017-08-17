@@ -37,6 +37,26 @@ tape('write and read (2 parallel)', function (t) {
   })
 })
 
+tape('write and read (sparse)', function (t) {
+  t.plan(2)
+
+  var archive = create()
+  archive.on('ready', function () {
+    var clone = create(archive.key, {sparse: true})
+
+    archive.writeFile('/hello.txt', 'world', function (err) {
+      t.error(err, 'no error')
+      var stream = clone.replicate()
+      stream.pipe(archive.replicate()).pipe(stream)
+
+      var readStream = clone.createReadStream('/hello.txt')
+      readStream.on('data', function (data) {
+        t.same(data.toString(), 'world')
+      })
+    })
+  })
+})
+
 tape('write and unlink', function (t) {
   var archive = create()
 
