@@ -80,7 +80,6 @@ function Hyperdrive (storage, key, opts) {
   }
 
   function update () {
-    self.version = self.tree.version
     self.emit('update')
   }
 
