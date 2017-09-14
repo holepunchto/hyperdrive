@@ -65,9 +65,12 @@ Options include:
 
 ``` js
 {
-  sparse: true // only download data when it is read first time
+  sparse: true, // only download data on content feed when it is specifically requested
+  sparseMetadata: true // only download data on metadata feed when requested
 }
 ```
+
+Note that a cloned hyperdrive archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
 
 #### `var stream = archive.replicate([options])`
 

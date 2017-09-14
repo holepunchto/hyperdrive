@@ -41,7 +41,7 @@ function Hyperdrive (storage, key, opts) {
 
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {
     secretKey: opts.secretKey,
-    sparse: opts.sparse
+    sparse: opts.sparseMetadata
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -51,6 +51,7 @@ function Hyperdrive (storage, key, opts) {
   this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
   if (typeof opts.version === 'number') this.tree = this.tree.checkout(opts.version)
   this.sparse = !!opts.sparse
+  this.sparseMetadata = !!opts.sparseMetadata
   this.indexing = !!opts.indexing
 
   this._latestSynced = 0
