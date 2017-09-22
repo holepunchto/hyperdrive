@@ -222,7 +222,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
       kick()
     })
 
-    next()
+    process.nextTick(next)
   }
 
   function kick () {
