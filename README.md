@@ -193,7 +193,7 @@ Stat {
 
 The output object includes methods similar to fs.stat:
 
-```js
+``` js
 var stat = archive.stat('/hello.txt')
 stat.isDirectory()
 stat.isFile()
@@ -206,6 +206,20 @@ Stat an entry but do not follow symlinks. Similar to fs.lstat.
 #### `archive.access(name, callback)`
 
 Similar to fs.access.
+
+#### `archive.open(name, flags, [mode], callback)`
+
+Open a file and get a file descriptor back. Similar to fs.open.
+
+Note that currently only read mode is supported in this API.
+
+#### `archive.read(fd, buf, offset, len, position, callback)`
+
+Read from a file descriptor into a buffer. Similar to fs.read.
+
+#### `archive.close(fd, [callback])`
+
+Close a file. Similar to fs.close.
 
 #### `archive.close([callback])`
 
