@@ -55,6 +55,8 @@ function Hyperdrive (storage, key, opts) {
   this._checkout = opts._checkout
   this._lock = mutexify()
 
+  this._openFiles = []
+
   var self = this
 
   this.metadata.on('append', update)
@@ -288,6 +290,47 @@ Hyperdrive.prototype.history = function (opts) {
 
 Hyperdrive.prototype.createCursor = function (name) {
   return cursor(this, name)
+}
+
+// open -> fd
+Hyperdrive.prototype.open = function (name, flags, mode, cb) {
+  if (typeof mode === 'function') return this.open(name, flags, 0, mode)
+
+  // TODO: use flags, only readable cursors are supported atm
+  var cursor = this.createCursor(name)
+  var self = this
+
+  cursor.open(function (err) {
+    if (err) return cb(err)
+
+    var fd = self._openFiles.indexOf(null)
+    if (fd === -1) fd = self._openFiles.push(null) - 1
+
+    self._openFiles[fd] = cursor
+    cb(null, fd + 20) // offset all fds with 20, unsure what the actual good offset is
+  })
+}
+
+Hyperdrive.prototype.read = function (fd, buf, offset, len, pos, cb) {
+  var cursor = this._openFiles[fd - 20]
+  if (!cursor) return cb(new Error('Bad file descriptor'))
+
+  if (pos !== null) cursor.seek(pos)
+
+  cursor.next(function (err, next) {
+    if (err) return cb(err)
+
+    if (!next) return cb(null, 0, buf)
+
+    // if we read too much
+    if (next.length > len) {
+      next = next.slice(0, len)
+      cursor.seek(pos + len)
+    }
+
+    next.copy(buf, offset)
+    cb(null, next.length, buf)
+  })
 }
 
 // TODO: move to ./lib
@@ -590,7 +633,16 @@ Hyperdrive.prototype._del = function (name, cb) {
   })
 }
 
-Hyperdrive.prototype.close = function (cb) {
+Hyperdrive.prototype._closeFile = function (fd, cb) {
+  var cursor = this._openFiles[fd - 20]
+  if (!cursor) return cb(new Error('Bad file descriptor'))
+  this._openFiles[fd - 20] = null
+  cursor.close(cb)
+}
+
+Hyperdrive.prototype.close = function (fd, cb) {
+  if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
+  else cb = fd
   if (!cb) cb = noop
 
   var self = this
