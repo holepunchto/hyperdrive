@@ -301,6 +301,49 @@ Hyperdrive.prototype.checkout = function (version) {
   })
 }
 
+Hyperdrive.prototype.download = function (cb) {
+  var downloadCount = 1
+  var self = this
+
+  download('/')
+
+  function download (entry) {
+    self.stat(entry, function (err, stat) {
+      if (err) {
+        self.emit('error', err)
+        return cb(err)
+      }
+      if (stat.isDirectory()) return downloadDir(entry, stat)
+      if (stat.isFile()) return downloadFile(entry, stat)
+    })
+  }
+
+  function downloadDir (dirname, stat) {
+    self.readdir(dirname, function (err, entries) {
+      if (err) {
+        self.emit('error', err)
+        return cb(err)
+      }
+      downloadCount -= 1
+      downloadCount += entries.length
+      entries.forEach(function (entry) {
+        download(path.join(dirname, entry))
+      })
+      if (downloadCount <= 0) cb()
+    })
+  }
+
+  function downloadFile (entry, stat) {
+    var start = stat.offset
+    var end = stat.offset + stat.blocks
+    if (start === 0 && end === 0) return
+    self.content.download({start, end}, function () {
+      downloadCount -= 1
+      if (downloadCount <= 0) cb()
+    })
+  }
+}
+
 Hyperdrive.prototype.history = function (opts) {
   return this.tree.history(opts)
 }

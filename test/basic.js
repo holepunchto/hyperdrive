@@ -116,3 +116,43 @@ tape('provide keypair', function (t) {
     })
   })
 })
+
+tape.only('download a version', function (t) {
+  var src = create()
+  src.on('ready', function () {
+    t.ok(src.writable)
+    t.ok(src.metadata.writable)
+    t.ok(src.content.writable)
+    src.writeFile('/first.txt', 'number 1', function (err) {
+      t.error(err, 'no error')
+      src.writeFile('/second.txt', 'number 2', function (err) {
+        t.error(err, 'no error')
+        src.writeFile('/third.txt', 'number 3', function (err) {
+          t.error(err, 'no error')
+          t.same(src.version, 3)
+          testDownloadVersion()
+        })
+      })
+    })
+  })
+
+  function testDownloadVersion () {
+    var clone = create(src.key, { sparse: true })
+    clone.on('content', function () {
+      t.same(clone.version, 3)
+      clone.checkout(2).download(function (err) {
+        t.error(err)
+        clone.readFile('/second.txt', { cached: true }, function (err, content) {
+          t.error(err, 'block not downloaded')
+          t.same(content && content.toString(), 'number 2', 'content does not match')
+          clone.readFile('/third.txt', { cached: true }, function (err, content) {
+            t.same(err && err.message, 'Block not downloaded')
+            t.end()
+          })
+        })
+      })
+    })
+    var stream = clone.replicate()
+    stream.pipe(src.replicate()).pipe(stream)
+  }
+})
