@@ -366,6 +366,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
   var range = null
   var ended = false
   var stream = from(read)
+  var cached = opts && !!opts.cached
 
   stream.on('close', cleanup)
   stream.on('end', cleanup)
@@ -382,7 +383,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
     if (first) return open(size, cb)
     if (start === end || length === 0) return cb(null, null)
 
-    self.content.get(start++, {wait: !downloaded}, function (err, data) {
+    self.content.get(start++, {wait: !downloaded && !cached}, function (err, data) {
       if (err) return cb(err)
       if (offset) data = data.slice(offset)
       offset = 0
@@ -457,7 +458,7 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
 
   name = unixify(name)
 
-  collect(this.createReadStream(name), function (err, bufs) {
+  collect(this.createReadStream(name, opts), function (err, bufs) {
     if (err) return cb(err)
     var buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
     cb(null, opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf)
