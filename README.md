@@ -150,6 +150,7 @@ If `cached` is set to `true`, this function returns results only if they have al
 #### `var stream = archive.createWriteStream(name, [options])`
 
 Write a file as a stream. Similar to fs.createWriteStream.
+If `options.cached` is set to `true`, this function returns results only if they have already been downloaded.
 
 #### `archive.writeFile(name, buffer, [options], [callback])`
 
