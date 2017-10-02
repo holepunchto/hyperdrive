@@ -305,16 +305,18 @@ Hyperdrive.prototype.history = function (opts) {
   return this.tree.history(opts)
 }
 
-Hyperdrive.prototype.createCursor = function (name) {
-  return cursor(this, name)
+Hyperdrive.prototype.createCursor = function (name, opts) {
+  return cursor(this, name, opts)
 }
 
 // open -> fd
-Hyperdrive.prototype.open = function (name, flags, mode, cb) {
+Hyperdrive.prototype.open = function (name, flags, mode, opts, cb) {
+  if (typeof mode === 'object' && mode) return this.open(name, flags, 0, mode, opts)
   if (typeof mode === 'function') return this.open(name, flags, 0, mode)
+  if (typeof opts === 'function') return this.open(name, flags, mode, null, opts)
 
   // TODO: use flags, only readable cursors are supported atm
-  var cursor = this.createCursor(name)
+  var cursor = this.createCursor(name, opts)
   var self = this
 
   cursor.open(function (err) {
