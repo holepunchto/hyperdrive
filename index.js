@@ -42,7 +42,8 @@ function Hyperdrive (storage, key, opts) {
 
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {
     secretKey: opts.secretKey,
-    sparse: opts.sparseMetadata
+    sparse: opts.sparseMetadata,
+    createIfMissing: opts.createIfMissing
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -62,6 +63,7 @@ function Hyperdrive (storage, key, opts) {
   this._lock = mutexify()
 
   this._openFiles = []
+  this._emittedContent = false
 
   var self = this
 
@@ -73,7 +75,7 @@ function Hyperdrive (storage, key, opts) {
   function onready (err) {
     if (err) return onerror(err)
     self.emit('ready')
-    if (self.content) self.emit('content')
+    self._oncontent()
     if (self.latest && !self.metadata.writable) {
       self._trackLatest(onerror)
     }
@@ -107,6 +109,12 @@ Object.defineProperty(Hyperdrive.prototype, 'writable', {
     return this.metadata.writable
   }
 })
+
+Hyperdrive.prototype._oncontent = function () {
+  if (!this.content || this._emittedContent) return
+  this._emittedContent = true
+  this.emit('content')
+}
 
 Hyperdrive.prototype._trackLatest = function (cb) {
   var self = this
@@ -735,7 +743,7 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
     self.content.ready(function (err) {
       if (err) return cb(err)
-      self.emit('content')
+      self._oncontent()
       cb()
     })
   }
