@@ -347,7 +347,7 @@ Hyperdrive.prototype.read = function (fd, buf, offset, len, pos, cb) {
       cursor.seek(pos + len)
     }
 
-    next.copy(buf, offset)
+    next.copy(buf, offset, 0, len)
     cb(null, next.length, buf)
   })
 }
