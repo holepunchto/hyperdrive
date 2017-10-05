@@ -301,11 +301,13 @@ Hyperdrive.prototype.checkout = function (version) {
   })
 }
 
-Hyperdrive.prototype.download = function (cb) {
+Hyperdrive.prototype.download = function (path, cb) {
+  if (typeof path === 'function') return this.download('/', path)
+
   var downloadCount = 1
   var self = this
 
-  download('/')
+  download(path)
 
   function download (entry) {
     self.stat(entry, function (err, stat) {
