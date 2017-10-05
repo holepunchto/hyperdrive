@@ -1,5 +1,8 @@
+var fs = require('fs')
+var path = require('path')
 var tape = require('tape')
 var tmp = require('temporary-directory')
+var datStore = require('dat-storage')
 var create = require('./helpers/create')
 var hyperdrive = require('..')
 
@@ -94,5 +97,67 @@ tape('write and read (sparse)', function (t) {
         })
       })
     })
+  })
+})
+
+tape('change indexing of content (t -> f)', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var archive = hyperdrive(datStore(dir), {indexing: true, latest: true})
+    archive.ready(function () {
+      archive.writeFile('yay.txt', 'yay', 'utf8', function (err) {
+        t.error(err, 'no error')
+        fs.readFile(path.join(dir, 'yay.txt'), 'utf8', function (err, data) {
+          t.skip(err, 'errors reading from fs') // TODO: should hyperdrive be creating the file on indexing: false
+          t.notOk(data, 'no data in file')
+          switchIndexing()
+        })
+      })
+    })
+
+    function switchIndexing () {
+      archive.content.defaults({indexing: false})
+      archive.writeFile('yay2.txt', 'yay', 'utf8', function (err) {
+        t.error(err, 'no error')
+        fs.readFile(path.join(dir, 'yay2.txt'), 'utf8', function (err, data) {
+          t.error(err, 'no error')
+          t.same(data, 'yay', 'writes content to fs')
+          cleanup(function () {
+            t.end()
+          })
+        })
+      })
+    }
+  })
+})
+
+tape('change indexing of content (f -> t)', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var archive = hyperdrive(datStore(dir), {indexing: false, latest: true})
+    archive.ready(function () {
+      archive.writeFile('yay.txt', 'yay', 'utf8', function (err) {
+        t.error(err, 'no error')
+        fs.readFile(path.join(dir, 'yay.txt'), 'utf8', function (err, data) {
+          t.error(err, 'no error')
+          t.same(data, 'yay', 'writes content to fs')
+          switchIndexing()
+        })
+      })
+    })
+
+    function switchIndexing () {
+      archive.content.defaults({indexing: true})
+      archive.writeFile('yay2.txt', 'yay', 'utf8', function (err) {
+        t.error(err, 'no error')
+        fs.readFile(path.join(dir, 'yay2.txt'), 'utf8', function (err, data) {
+          t.skip(err, 'errors reading from fs') // TODO: should hyperdrive be creating the file on indexing: false
+          t.notOk(data, 'no data in file')
+          cleanup(function () {
+            t.end()
+          })
+        })
+      })
+    }
   })
 })
