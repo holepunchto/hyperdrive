@@ -130,13 +130,27 @@ Options include:
 }
 ```
 
-#### `archive.readFile(name, [encoding], callback)`
+#### `archive.readFile(name, [options], callback)`
 
 Read an entire file into memory. Similar to fs.readFile.
+
+Options can either be an object or a string
+
+Options include:
+```js
+{
+  encoding: string
+  cached: true|false // default: false,
+}
+```
+or a string can be passed as options to simply set the encoding - similar to fs.
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
 
 #### `var stream = archive.createWriteStream(name, [options])`
 
 Write a file as a stream. Similar to fs.createWriteStream.
+If `options.cached` is set to `true`, this function returns results only if they have already been downloaded.
 
 #### `archive.writeFile(name, buffer, [options], [callback])`
 
