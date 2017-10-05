@@ -6,6 +6,8 @@ Hyperdrive is a secure, real time distributed file system
 npm install hyperdrive
 ```
 
+[![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
+
 ## Usage
 
 Hyperdrive aims to implement the same API as Node.js' core fs module.
