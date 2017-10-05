@@ -117,7 +117,7 @@ tape('provide keypair', function (t) {
   })
 })
 
-tape.only('download a version', function (t) {
+tape('download a version', function (t) {
   var src = create()
   src.on('ready', function () {
     t.ok(src.writable)
