@@ -96,3 +96,39 @@ tape('write and read (sparse)', function (t) {
     })
   })
 })
+
+tape('sparse read/write two files', function (t) {
+  var archive = create()
+  archive.on('ready', function () {
+    var clone = create(archive.key, {sparse: true})
+    archive.writeFile('/hello.txt', 'world', function (err) {
+      t.error(err, 'no error')
+      archive.writeFile('/hello2.txt', 'world', function (err) {
+        t.error(err, 'no error')
+        var stream = clone.replicate()
+        stream.pipe(archive.replicate()).pipe(stream)
+        clone.metadata.update(start)
+      })
+    })
+
+    function start () {
+      clone.stat('/hello.txt', function (err, stat) {
+        t.error(err, 'no error')
+        t.ok(stat, 'has stat')
+        clone.readFile('/hello.txt', function (err, data) {
+          t.error(err, 'no error')
+          t.same(data.toString(), 'world', 'data ok')
+          clone.stat('/hello2.txt', function (err, stat) {
+            t.error(err, 'no error')
+            t.ok(stat, 'has stat')
+            clone.readFile('/hello2.txt', function (err, data) {
+              t.error(err, 'no error')
+              t.same(data.toString(), 'world', 'data ok')
+              t.end()
+            })
+          })
+        })
+      })
+    }
+  })
+})
