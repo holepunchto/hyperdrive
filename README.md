@@ -112,6 +112,16 @@ Emitted when a critical error during load happened.
 
 Checkout a readonly copy of the archive at an old version.
 
+#### `archive.download([path], [callback])`
+
+Download all files in path of current version.
+If no path is specified this will download all files.
+
+You can use this with `.checkout(version)` to download a specific version of the archive.
+```js
+  archive.checkout(version).download()
+```
+
 #### `var stream = archive.history([options])`
 
 Get a stream of all changes and their versions from this archive.

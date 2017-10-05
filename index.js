@@ -307,12 +307,13 @@ Hyperdrive.prototype.download = function (path, cb) {
   var downloadCount = 1
   var self = this
 
-  download(path)
+  download(path || '/')
 
   function download (entry) {
     self.stat(entry, function (err, stat) {
       if (err) {
-        return cb(err)
+        if (cb) cb(err)
+        return
       }
       if (stat.isDirectory()) return downloadDir(entry, stat)
       if (stat.isFile()) return downloadFile(entry, stat)
@@ -322,14 +323,15 @@ Hyperdrive.prototype.download = function (path, cb) {
   function downloadDir (dirname, stat) {
     self.readdir(dirname, function (err, entries) {
       if (err) {
-        return cb(err)
+        if (cb) cb(err)
+        return
       }
       downloadCount -= 1
       downloadCount += entries.length
       entries.forEach(function (entry) {
         download(path.join(dirname, entry))
       })
-      if (downloadCount <= 0) cb()
+      if (downloadCount <= 0 && cb) cb()
     })
   }
 
@@ -339,7 +341,7 @@ Hyperdrive.prototype.download = function (path, cb) {
     if (start === 0 && end === 0) return
     self.content.download({start, end}, function () {
       downloadCount -= 1
-      if (downloadCount <= 0) cb()
+      if (downloadCount <= 0 && cb) cb()
     })
   }
 }
