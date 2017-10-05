@@ -310,7 +310,6 @@ Hyperdrive.prototype.download = function (cb) {
   function download (entry) {
     self.stat(entry, function (err, stat) {
       if (err) {
-        self.emit('error', err)
         return cb(err)
       }
       if (stat.isDirectory()) return downloadDir(entry, stat)
@@ -321,7 +320,6 @@ Hyperdrive.prototype.download = function (cb) {
   function downloadDir (dirname, stat) {
     self.readdir(dirname, function (err, entries) {
       if (err) {
-        self.emit('error', err)
         return cb(err)
       }
       downloadCount -= 1
