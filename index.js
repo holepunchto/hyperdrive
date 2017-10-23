@@ -200,7 +200,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
   })
 
   function ondata (data, next) {
-    if (updated || error) return next(new Error('Out of date'))
+    if (updated || error) return callAndKick(next, new Error('Out of date'))
 
     if (queued >= maxQueued) {
       waitingData = data
@@ -211,12 +211,12 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
     var start = data.value.offset
     var end = start + data.value.blocks
 
-    if (start === end) return next()
+    if (start === end) return callAndKick(next, null)
 
     queued++
     self.content.download({start: start, end: end}, function (err) {
-      if (updated) return kick()
-      queued--
+      if (updated && !waitingCallback) return kick()
+      if (!updated) queued--
 
       if (waitingCallback) {
         data = waitingData
@@ -235,6 +235,11 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
     })
 
     process.nextTick(next)
+  }
+
+  function callAndKick (next, err) {
+    next(err)
+    kick()
   }
 
   function kick () {
