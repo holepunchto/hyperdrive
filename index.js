@@ -314,6 +314,12 @@ Hyperdrive.prototype.checkout = function (version) {
   })
 }
 
+Hyperdrive.prototype.createDiffStream = function (version, opts) {
+  if (!version) version = 0
+  if (typeof version === 'number') version = this.checkout(version)
+  return this.tree.diff(version.tree, opts)
+}
+
 Hyperdrive.prototype.download = function (dir, cb) {
   if (typeof dir === 'function') return this.download('/', dir)
 

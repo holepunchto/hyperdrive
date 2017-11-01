@@ -160,6 +160,20 @@ or a string can be passed as options to simply set the encoding - similar to fs.
 
 If `cached` is set to `true`, this function returns results only if they have already been downloaded.
 
+#### `var stream = archive.createDiffStream(version, [options])`
+
+Diff this archive this another version. `version` can both be a version number of a checkout instance of the archive. The `data` objects looks like this
+
+``` js
+{
+  type: 'put' | 'del',
+  name: '/some/path/name.txt',
+  value: {
+    // the stat object
+  }
+}
+```
+
 #### `var stream = archive.createWriteStream(name, [options])`
 
 Write a file as a stream. Similar to fs.createWriteStream.
