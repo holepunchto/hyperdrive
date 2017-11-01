@@ -120,8 +120,9 @@ Download all files in path of current version.
 If no path is specified this will download all files.
 
 You can use this with `.checkout(version)` to download a specific version of the archive.
-```js
-  archive.checkout(version).download()
+
+``` js
+archive.checkout(version).download()
 ```
 
 #### `var stream = archive.history([options])`
