@@ -159,7 +159,7 @@ tape('download a version', function (t) {
 
 tape('write and read, no cache', function (t) {
   var archive = create({
-    metaStorageCacheSize: 0,
+    metadataStorageCacheSize: 0,
     contentStorageCacheSize: 0,
     treeCacheSize: 0
   })
