@@ -156,3 +156,20 @@ tape('download a version', function (t) {
     stream.pipe(src.replicate()).pipe(stream)
   }
 })
+
+tape('write and read, no cache', function (t) {
+  var archive = create({
+    metaStorageCacheSize: 0,
+    contentStorageCacheSize: 0,
+    treeCacheSize: 0
+  })
+
+  archive.writeFile('/hello.txt', 'world', function (err) {
+    t.error(err, 'no error')
+    archive.readFile('/hello.txt', function (err, buf) {
+      t.error(err, 'no error')
+      t.same(buf, new Buffer('world'))
+      t.end()
+    })
+  })
+})
