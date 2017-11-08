@@ -71,6 +71,7 @@ function Hyperdrive (storage, key, opts) {
   this.metadata.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
+  this.once('content', oncontent)
 
   function onready (err) {
     if (err) return onerror(err)
@@ -79,6 +80,10 @@ function Hyperdrive (storage, key, opts) {
     if (self.latest && !self.metadata.writable) {
       self._trackLatest(onerror)
     }
+  }
+
+  function oncontent () {
+    self.content.on('error', onerror)
   }
 
   function onerror (err) {
