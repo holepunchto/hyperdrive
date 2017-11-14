@@ -43,18 +43,25 @@ function Hyperdrive (storage, key, opts) {
   this.metadata = opts.metadata || hypercore(this._storages.metadata, key, {
     secretKey: opts.secretKey,
     sparse: opts.sparseMetadata,
-    createIfMissing: opts.createIfMissing
+    createIfMissing: opts.createIfMissing,
+    storageCacheSize: opts.metadataStorageCacheSize
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
   this.readable = true
 
   this.storage = storage
-  this.tree = tree(this.metadata, {offset: 1, valueEncoding: messages.Stat})
+  this.tree = tree(this.metadata, {
+    offset: 1,
+    valueEncoding: messages.Stat,
+    cache: opts.treeCacheSize !== 0,
+    cacheSize: opts.treeCacheSize
+  })
   if (typeof opts.version === 'number') this.tree = this.tree.checkout(opts.version)
   this.sparse = !!opts.sparse
   this.sparseMetadata = !!opts.sparseMetadata
   this.indexing = !!opts.indexing
+  this.contentStorageCacheSize = opts.contentStorageCacheSize
 
   this._latestSynced = 0
   this._latestVersion = 0
@@ -857,7 +864,8 @@ function contentOptions (self, secretKey) {
     maxRequests: self.maxRequests,
     secretKey: secretKey,
     storeSecretKey: false,
-    indexing: self.metadata.writable && self.indexing
+    indexing: self.metadata.writable && self.indexing,
+    storageCacheSize: self.contentStorageCacheSize
   }
 }
 

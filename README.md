@@ -69,6 +69,9 @@ Options include:
 {
   sparse: true, // only download data on content feed when it is specifically requested
   sparseMetadata: true // only download data on metadata feed when requested
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
+  treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
 }
 ```
 
