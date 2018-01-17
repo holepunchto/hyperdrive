@@ -10,7 +10,7 @@
     "hypercore": "^6.10.4",
     "inherits": "^2.0.3",
     "mutexify": "^1.1.0",
-    "protocol-buffers": "^3.2.1",
+    "protocol-buffers-encodings": "^1.1.0",
     "random-access-file": "^1.5.0",
     "sodium-universal": "^2.0.0",
     "stream-collector": "^1.0.1",
@@ -20,13 +20,15 @@
     "unixify": "^1.0.0"
   },
   "devDependencies": {
+    "protocol-buffers": "^4.0.2",
     "random-access-memory": "^2.3.0",
     "standard": "^9.0.2",
     "tape": "^4.6.3",
     "temporary-directory": "^1.0.2"
   },
   "scripts": {
-    "test": "standard && tape test/*.js"
+    "test": "standard && tape test/*.js",
+    "protobuf": "protocol-buffers schema.proto -o lib/messages.js"
   },
   "repository": {
     "type": "git",
