@@ -78,7 +78,6 @@ function Hyperdrive (storage, key, opts) {
   this.metadata.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
-  this.once('content', oncontent)
 
   function onready (err) {
     if (err) return onerror(err)
@@ -87,10 +86,6 @@ function Hyperdrive (storage, key, opts) {
     if (self.latest && !self.metadata.writable) {
       self._trackLatest(onerror)
     }
-  }
-
-  function oncontent () {
-    self.content.on('error', onerror)
   }
 
   function onerror (err) {
@@ -810,6 +805,9 @@ Hyperdrive.prototype._loadIndex = function (cb) {
     var keyPair = self.metadata.writable && contentKeyPair(self.metadata.secretKey)
     var opts = contentOptions(self, keyPair && keyPair.secretKey)
     self.content = self._checkout ? self._checkout.content : hypercore(self._storages.content, index.content, opts)
+    self.content.on('error', function (err) {
+      self.emit('error', err)
+    })
     self.content.ready(function (err) {
       if (err) return cb(err)
       self._oncontent()
@@ -849,6 +847,9 @@ Hyperdrive.prototype._open = function (cb) {
       var keyPair = contentKeyPair(self.metadata.secretKey)
       var opts = contentOptions(self, keyPair.secretKey)
       self.content = hypercore(self._storages.content, keyPair.publicKey, opts)
+      self.content.on('error', function (err) {
+        self.emit('error', err)
+      })
     }
 
     self.content.ready(function () {
