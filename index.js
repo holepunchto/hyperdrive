@@ -2,6 +2,8 @@ const hyperdb = require('hyperdb')
 const bulk = require('bulk-write-stream')
 const from = require('from2')
 const messages = require('./lib/messages')
+const stat = require('./lib/stat')
+const errors = require('./lib/errors')
 
 const DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
 const DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
@@ -22,16 +24,44 @@ Hyperdrive.prototype.replicate = function (opts) {
   return this._db.replicate(opts)
 }
 
-Hyperdrive.prototype.stat = function (path, cb) {
+Hyperdrive.prototype.lstat = function (path, cb) {
   this._db.get(path, function (err, node) {
     if (err) return cb(err)
-    if (!node) return cb(new Error('Not found'))
-    cb(null, node.value)
+    if (!node) return cb(new errors.ENOENT('stat', path))
+    cb(null, stat(node.value))
+  })
+}
+
+Hyperdrive.prototype.stat = Hyperdrive.prototype.lstat
+
+Hyperdrive.prototype.mkdir = function (path, opts, cb) {
+  if (typeof opts === 'function') return this.mkdir(path, null, opts)
+  if (typeof opts === 'number') opts = {mode: opts}
+  if (!opts) opts = {}
+  if (!cb) cb = noop
+  
+  const db = this._db
+
+  db.ready(function (err) {
+    if (err) return cb(err)
+
+    const st = {
+      mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
+      uid: opts.uid,
+      gid: opts.gid,
+      mtime: getTime(opts.mtime),
+      ctime: getTime(opts.ctime),
+      offset: db.localContent.length,
+      byteOffset: db.localContent.byteLength
+    }
+
+    db.put(path, st, cb)
   })
 }
 
 Hyperdrive.prototype.createReadStream = function (path) {
   const db = this._db
+
   var content = null
   var st = null
   var offset = 0
@@ -42,10 +72,10 @@ Hyperdrive.prototype.createReadStream = function (path) {
   function open (size, cb) {
     db.get(path, function (err, node) {
       if (err) return cb(err)
-      if (!node) return cb(new Error('Not found'))
+      if (!node) return cb(new errors.ENOENT('stat', path))
 
       content = db.contentFeeds[node.feed]
-      if (!content) return cb(new Error('No content feed attached'))
+      if (!content) return cb(new errors.EPROTO('open_content', path))
 
       st = node.value
       offset = st.offset
@@ -130,13 +160,15 @@ function directoryName (node, offset) {
   return key.slice(offset, idx > -1 ? idx : key.length)
 }
 
-Hyperdrive.prototype.writeFile = function (path, buf, cb) {
+Hyperdrive.prototype.writeFile = function (path, buf, opts, cb) {
+  if (typeof opts === 'function') return this.writeFile(path, buf, null, opts)
   if (typeof buf === 'string') buf = Buffer.from(buf)
+  if (!opts) opts = {}
   if (!cb) cb = noop
 
   // TODO: add fast path if buf.length < 64kb
 
-  const ws = this.createWriteStream(path)
+  const ws = this.createWriteStream(path, opts)
 
   for (var i = 0; i < buf.length; i += 65536) {
     ws.write(buf.slice(i, i + 65536))
@@ -147,14 +179,20 @@ Hyperdrive.prototype.writeFile = function (path, buf, cb) {
   ws.end()
 }
 
-Hyperdrive.prototype.createWriteStream = function (path) {
+Hyperdrive.prototype.createWriteStream = function (path, opts) {
+  if (!opts) opts = {}
+
   const db = this._db
-  const stat = {
+  const st = {
     size: 0,
     blocks: 0,
     offset: 0,
     byteOffset: 0,
-    mode: DEFAULT_FMODE
+    mode: (opts.mode || DEFAULT_FMODE) | stat.IFREG,
+    uid: opts.uid,
+    gid: opts.gid,
+    mtime: getTime(opts.mtime),
+    ctime: getTime(opts.ctime)
   }
 
   var opened = false
@@ -164,13 +202,10 @@ Hyperdrive.prototype.createWriteStream = function (path) {
   function open (batch, cb) {
     db.ready(function (err) {
       if (err) return cb(err)
-      db.localContent.ready(function (err) {
-        if (err) return cb(err)
-        opened = true
-        stat.offset = db.localContent.length
-        stat.byteOffset = db.localContent.byteLength
-        write(batch, cb)
-      })
+      opened = true
+      st.offset = db.localContent.length
+      st.byteOffset = db.localContent.byteLength
+      write(batch, cb)
     })
   }
 
@@ -180,10 +215,14 @@ Hyperdrive.prototype.createWriteStream = function (path) {
   }
 
   function flush (cb) {
-    stat.size = db.localContent.byteLength - stat.byteOffset
-    stat.blocks = db.localContent.length - stat.offset
-    db.put(path, stat, cb)
+    st.size = db.localContent.byteLength - st.byteOffset
+    st.blocks = db.localContent.length - st.offset
+    db.put(path, st, cb)
   }
+}
+
+Hyperdrive.prototype.ready = function (cb) {
+  this.db.ready(cb)
 }
 
 // TODO: pick the one with the highest mtime
@@ -192,3 +231,9 @@ function reduce (a, b) {
 }
 
 function noop () {}
+
+function getTime (date) {
+  if (typeof date === 'number') return date
+  if (!date) return Date.now()
+  return date.getTime()
+}
