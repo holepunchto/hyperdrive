@@ -1,6 +1,10 @@
-var hyperdb = require('hyperdb')
-var bulk = require('bulk-write-stream')
-var from = require('from2')
+const hyperdb = require('hyperdb')
+const bulk = require('bulk-write-stream')
+const from = require('from2')
+const messages = require('./lib/messages')
+
+const DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
+const DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
 
 module.exports = Hyperdrive
 
@@ -8,7 +12,7 @@ function Hyperdrive (storage, key, opts) {
   if (!(this instanceof Hyperdrive)) return new Hyperdrive(storage, key, opts)
 
   this._db = hyperdb(storage, key, {
-    valueEncoding: 'json',
+    valueEncoding: messages.Stat,
     contentFeed: true,
     reduce // TODO: make configurable
   })
@@ -27,7 +31,7 @@ Hyperdrive.prototype.stat = function (path, cb) {
 }
 
 Hyperdrive.prototype.createReadStream = function (path) {
-  var db = this._db
+  const db = this._db
   var content = null
   var st = null
   var offset = 0
@@ -59,8 +63,8 @@ Hyperdrive.prototype.createReadStream = function (path) {
 }
 
 Hyperdrive.prototype.readFile = function (path, cb) {
-  var bufs = []
-  var rs = this.createReadStream(path)
+  const bufs = []
+  const rs = this.createReadStream(path)
 
   rs.on('data', ondata)
   rs.once('error', cb)
@@ -79,10 +83,9 @@ Hyperdrive.prototype.createDirectoryStream = function (path, opts) {
   if (typeof path === 'object' && path) return this.createDirectoryStream(null, path)
   if (!path) path = ''
 
-  var offset = directoryNameOffset(path)
-  var recursive = !!(opts && opts.recursive)
-  console.log(opts, recursive)
-  var ite = this._db.iterator(path, {recursive, gt: true})
+  const offset = directoryNameOffset(path)
+  const recursive = !!(opts && opts.recursive)
+  const ite = this._db.iterator(path, {recursive, gt: true})
   
   return from.obj(read)
 
@@ -97,7 +100,7 @@ Hyperdrive.prototype.createDirectoryStream = function (path, opts) {
 }
 
 Hyperdrive.prototype.readdir = function (path, cb) {
-  var offset = directoryNameOffset(path)
+  const offset = directoryNameOffset(path)
 
   this._db.list(path, {gt: true, recursive: false}, onlist)
 
@@ -122,8 +125,8 @@ function directoryNameOffset (path) {
 }
 
 function directoryName (node, offset) {
-  var key = node.key
-  var idx = key.indexOf('/', offset)
+  const key = node.key
+  const idx = key.indexOf('/', offset)
   return key.slice(offset, idx > -1 ? idx : key.length)
 }
 
@@ -133,7 +136,7 @@ Hyperdrive.prototype.writeFile = function (path, buf, cb) {
 
   // TODO: add fast path if buf.length < 64kb
 
-  var ws = this.createWriteStream(path)
+  const ws = this.createWriteStream(path)
 
   for (var i = 0; i < buf.length; i += 65536) {
     ws.write(buf.slice(i, i + 65536))
@@ -145,15 +148,16 @@ Hyperdrive.prototype.writeFile = function (path, buf, cb) {
 }
 
 Hyperdrive.prototype.createWriteStream = function (path) {
-  var db = this._db
-  var opened = false
-
-  var stat = {
+  const db = this._db
+  const stat = {
     size: 0,
     blocks: 0,
     offset: 0,
-    byteOffset: 0
+    byteOffset: 0,
+    mode: DEFAULT_FMODE
   }
+
+  var opened = false
 
   return bulk(write, flush)
 
