@@ -1,32 +1,122 @@
 const hyperdb = require('hyperdb')
 const bulk = require('bulk-write-stream')
 const from = require('from2')
+const inherits = require('inherits')
+const events = require('events')
+const mutexify = require('mutexify')
+const isOptions = require('is-options')
 const messages = require('./lib/messages')
 const stat = require('./lib/stat')
 const errors = require('./lib/errors')
 
 const DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
 const DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
+const DEFAULT_ROOT = stat({mode: stat.IFDIR | DEFAULT_DMODE})
 
 module.exports = Hyperdrive
 
 function Hyperdrive (storage, key, opts) {
   if (!(this instanceof Hyperdrive)) return new Hyperdrive(storage, key, opts)
 
-  this._db = hyperdb(storage, key, {
+  if (isOptions(key)) {
+    opts = key
+    key = null
+  }
+  
+  if (!opts) opts = {}
+
+  events.EventEmitter.call(this)
+
+  const self = this
+  const db = opts.checkout || hyperdb(storage, key, {
     valueEncoding: messages.Stat,
     contentFeed: true,
+    sparse: this.sparse,
     reduce // TODO: make configurable
+  })
+
+  this.key = db.key
+  this.discoveryKey = db.discoveryKey
+  this.local = null
+  this.localContent = null
+  this.sparse = db.sparse
+  this.feeds = db.feeds
+  this.contentFeeds = db.contentFeeds
+  this.db = db
+
+  this._lock = mutexify()
+
+  this.ready(onready)
+
+  function onready () {
+    self.key = db.key
+    self.discoveryKey = db.discoveryKey
+    self.local = db.local
+    self.localContent = db.localContent
+    self.emit('ready')
+  }
+}
+
+inherits(Hyperdrive, events.EventEmitter)
+
+Hyperdrive.prototype.download = function (path, cb) {
+  if (typeof path === 'function') return this.download(null, path)
+  if (!cb) cb = noop
+
+  const db = this.db
+  const ite = db.iterator(path)
+
+  ite.next(loop)
+
+  // TODO: parallelize a bit!
+  function loop (err, node) {
+    if (err) return cb(err)
+    if (!node) return cb(null)
+    if (!node.value || node.value.blocks === 0) return ite.next(loop)
+
+    const feed = db.contentFeeds[node.feed]
+    const start = node.value.offset
+    const end = start + node.value.blocks
+
+    if (feed.has(start, end)) return ondownload(null)
+    feed.download({start, end}, ondownload)
+  }
+
+  function ondownload (err) {
+    if (err) return cb(err)
+    ite.next(loop)
+  }
+}
+
+Hyperdrive.prototype.snapshot = function () {
+  return new Hyperdrive(null, null, {
+    checkout: this.db.checkout(snapshot)
   })
 }
 
+Hyperdrive.prototype.checkout = function (version) {
+  return new Hyperdrive(null, null, {
+    checkout: this.db.checkout(version)
+  })
+}
+
+Hyperdrive.prototype.authenticate = function (key, cb) {
+  this.db.authenticate(key, cb)
+}
+
+Hyperdrive.prototype.version = function (cb) {
+  this.db.version(cb)
+}
+
 Hyperdrive.prototype.replicate = function (opts) {
-  return this._db.replicate(opts)
+  return this.db.replicate(opts)
 }
 
 Hyperdrive.prototype.lstat = function (path, cb) {
-  this._db.get(path, function (err, node) {
+  if (path === '/') path = ''
+  this.db.get(path, function (err, node) {
     if (err) return cb(err)
+    if (!node && !path) return cb(null, DEFAULT_ROOT)
     if (!node) return cb(new errors.ENOENT('stat', path))
     cb(null, stat(node.value))
   })
@@ -39,8 +129,8 @@ Hyperdrive.prototype.mkdir = function (path, opts, cb) {
   if (typeof opts === 'number') opts = {mode: opts}
   if (!opts) opts = {}
   if (!cb) cb = noop
-  
-  const db = this._db
+
+  const db = this.db
 
   db.ready(function (err) {
     if (err) return cb(err)
@@ -60,7 +150,7 @@ Hyperdrive.prototype.mkdir = function (path, opts, cb) {
 }
 
 Hyperdrive.prototype.createReadStream = function (path) {
-  const db = this._db
+  const db = this.db
 
   var content = null
   var st = null
@@ -92,7 +182,9 @@ Hyperdrive.prototype.createReadStream = function (path) {
   }
 }
 
-Hyperdrive.prototype.readFile = function (path, cb) {
+Hyperdrive.prototype.readFile = function (path, opts, cb) {
+  if (typeof opts === 'function') return this.readFile(path, null, opts)
+
   const bufs = []
   const rs = this.createReadStream(path)
 
@@ -115,8 +207,8 @@ Hyperdrive.prototype.createDirectoryStream = function (path, opts) {
 
   const offset = directoryNameOffset(path)
   const recursive = !!(opts && opts.recursive)
-  const ite = this._db.iterator(path, {recursive, gt: true})
-  
+  const ite = this.db.iterator(path, {recursive, gt: true})
+
   return from.obj(read)
 
   function read (size, cb) {
@@ -132,7 +224,7 @@ Hyperdrive.prototype.createDirectoryStream = function (path, opts) {
 Hyperdrive.prototype.readdir = function (path, cb) {
   const offset = directoryNameOffset(path)
 
-  this._db.list(path, {gt: true, recursive: false}, onlist)
+  this.db.list(path, {gt: true, recursive: false}, onlist)
 
   function onlist (err, nodes) {
     if (err) return cb(err)
@@ -182,7 +274,8 @@ Hyperdrive.prototype.writeFile = function (path, buf, opts, cb) {
 Hyperdrive.prototype.createWriteStream = function (path, opts) {
   if (!opts) opts = {}
 
-  const db = this._db
+  const self = this
+  const db = this.db
   const st = {
     size: 0,
     blocks: 0,
@@ -196,16 +289,22 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
   }
 
   var opened = false
+  var release = null
 
   return bulk(write, flush)
+    .once('close', unlock)
+    .once('finish', unlock)
 
   function open (batch, cb) {
     db.ready(function (err) {
       if (err) return cb(err)
-      opened = true
-      st.offset = db.localContent.length
-      st.byteOffset = db.localContent.byteLength
-      write(batch, cb)
+      self._lock(function (r) {
+        release = r
+        opened = true
+        st.offset = db.localContent.length
+        st.byteOffset = db.localContent.byteLength
+        write(batch, cb)
+      })
     })
   }
 
@@ -219,15 +318,40 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
     st.blocks = db.localContent.length - st.offset
     db.put(path, st, cb)
   }
+
+  function unlock () {
+    if (!release) return
+    const r = release
+    release = null
+    r()
+  }
+}
+
+Hyperdrive.prototype.unlink = function (path, cb) {
+  if (!cb) cb = noop
+  this.db.del(path, cb)
+}
+
+Hyperdrive.prototype.access = function (name, cb) {
+  this.stat(name, function (err) {
+    cb(err)
+  })
+}
+
+Hyperdrive.prototype.exists = function (name, cb) {
+  this.access(name, function (err) {
+    cb(!err)
+  })
 }
 
 Hyperdrive.prototype.ready = function (cb) {
   this.db.ready(cb)
 }
 
-// TODO: pick the one with the highest mtime
 function reduce (a, b) {
-  return a
+  if (!a.value) return b
+  if (!b.value) return a
+  return a.value.mtime < b.value.mtime
 }
 
 function noop () {}
