@@ -131,12 +131,12 @@ Hyperdrive.prototype.lstat = function (path, cb) {
     }
 
     if (node.key !== path) { // is prefix, ie implicit dir
-      const implicit = stat(node.value, node)
+      const implicit = stat(node.value, node, true)
       implicit.mode = DEFAULT_DMODE | stat.IFDIR
       return cb(null, implicit)
     }
 
-    cb(null, stat(node.value, node))
+    cb(null, stat(node.value, node, false))
   })
 }
 
@@ -166,6 +166,28 @@ Hyperdrive.prototype.mkdir = function (path, opts, cb) {
     }
 
     db.put(path, st, cb)
+  })
+}
+
+Hyperdrive.prototype.rmdir = function (path, cb) {
+  if (!cb) cb = noop
+
+  path = normalizePath(path)
+
+  const db = this.db
+
+  this.stat(function (err, st) {
+    if (err) return cb(err)
+    if (!st) return cb(new errors.ENOENT('stat', path))
+    if (!st.isDirectory()) return cb(new errors.ENOTDIR('rmdir', path))
+
+    db.iterator(path).next(function (err, node) {
+      if (err) return cb(err)
+      if (node) return cb(new errors.ENOTEMPTY('rmdir', path))
+      if (st.implicit) return cb(null)
+
+      db.del(path, cb)
+    })
   })
 }
 
@@ -206,9 +228,11 @@ Hyperdrive.prototype.createReadStream = function (path) {
 
 Hyperdrive.prototype.readFile = function (path, opts, cb) {
   if (typeof opts === 'function') return this.readFile(path, null, opts)
+  if (typeof opts === 'string') opts = {encoding: opts}
 
   path = normalizePath(path)
 
+  const enc = opts && opts.encoding
   const bufs = []
   const rs = this.createReadStream(path)
 
@@ -221,7 +245,8 @@ Hyperdrive.prototype.readFile = function (path, opts, cb) {
   }
 
   function onend () {
-    cb(null, bufs.length === 1 ? bufs[0] : Buffer.concat(bufs))
+    const buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
+    cb(null, enc && enc !== 'binary' ? buf.toString(enc) : buf)
   }
 }
 
@@ -281,9 +306,11 @@ function directoryName (node, offset) {
 
 Hyperdrive.prototype.writeFile = function (path, buf, opts, cb) {
   if (typeof opts === 'function') return this.writeFile(path, buf, null, opts)
-  if (typeof buf === 'string') buf = Buffer.from(buf)
+  if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
   if (!cb) cb = noop
+
+  if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding)
 
   // TODO: add fast path if buf.length < 64kb
 
@@ -402,5 +429,5 @@ function normalizePath (p) {
 }
 
 function statRoot (source) {
-  return stat({mode: stat.IFDIR | DEFAULT_DMODE}, source)
+  return stat({mode: stat.IFDIR | DEFAULT_DMODE}, source, true)
 }
