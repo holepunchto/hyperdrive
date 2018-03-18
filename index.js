@@ -191,21 +191,41 @@ Hyperdrive.prototype.rmdir = function (path, cb) {
   })
 }
 
-Hyperdrive.prototype.createReadStream = function (path) {
+Hyperdrive.prototype.createReadStream = function (path, opts) {
+  if (!opts) opts = {}
+
   path = normalizePath(path)
 
   const db = this.db
+  const slicing = opts.start || typeof opts.end === 'number'
 
   var content = null
   var st = null
   var offset = 0
   var end = 0
+  var rel = 0
+  var bytesMissing = 0
+  var missing = 1
+  var range = null
+  var ended = false
+  var downloaded = false
 
-  return from(read)
+  const stream = from(slicing ? readSlice : read)
+    .on('end', cleanup)
+    .on('close', cleanup)
+
+  return stream
+
+  function cleanup () {
+    if (range && content) content.undownload(range, noop)
+    range = null
+    ended = true
+  }
 
   function open (size, cb) {
     db.get(path, function (err, node) {
       if (err) return cb(err)
+      if (ended || stream.destroyed) return cb(null)
       if (!node) return cb(new errors.ENOENT('stat', path))
 
       content = db.contentFeeds[node.feed]
@@ -215,8 +235,67 @@ Hyperdrive.prototype.createReadStream = function (path) {
       offset = st.offset
       end = offset + st.blocks
 
-      read(size, cb)
+      if (!slicing || !st.size) {
+        range = content.download({start: offset, end, linear: true})
+        return read(size, cb)
+      }
+
+      const bytesStart = opts.start || 0
+      const bytesEnd = Math.max(bytesStart, typeof opts.end === 'number' ? opts.end : st.size - 1)
+      bytesMissing = bytesEnd - bytesStart + 1
+
+      if (bytesStart) content.seek(st.byteOffset + bytesStart, {start: offset, end}, onstart)
+      else onstart(null, bytesStart, 0)
+
+      function onend (err, end) {
+        if (err || !range) return
+        if (ended || stream.destroyed) return
+
+        missing++
+        content.undownload(range)
+        range = content.download({start: offset, end, linear: true}, ondownload)
+      }
+
+      function onstart (err, index, relativeOffset) {
+        if (err) return cb(err)
+        if (ended || stream.destroyed) return
+
+        rel = relativeOffset
+        offset = index
+        range = content.download({start: offset, end, linear: true}, ondownload)
+        if (bytesEnd < st.size) content.seek(st.byteOffset + bytesEnd, {start: offset, end}, onend)
+
+        readSlice(size, cb)
+      }
+
+      function ondownload (err) {
+        if (--missing) return
+        if (err && !ended && !downloaded) stream.destroy(err)
+        else downloaded = true
+      }
     })
+  }
+
+  function readSlice (size, cb) {
+    if (!content) return open(size, cb)
+    if (!bytesMissing) return cb(null, null)
+    content.get(offset++, onget)
+
+    function onget (err, data) {
+      if (err) return cb(err)
+
+      if (rel) {
+        data = data.slice(rel)
+        rel = 0
+      }
+
+      if (bytesMissing) {
+        if (bytesMissing < data.length) data = data.slice(0, bytesMissing)
+        bytesMissing -= data.length
+      }
+
+      cb(null, data)
+    }
   }
 
   function read (size, cb) {
