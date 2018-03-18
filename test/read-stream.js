@@ -1,7 +1,7 @@
 const tape = require('tape')
 const create = require('./helpers/create')
 
-const DATA = Buffer.alloc(800 * 1000).fill('012345678') 
+const DATA = Buffer.alloc(800 * 1000).fill('012345678')
 
 tape('basic read stream', function (t) {
   oneFile(function (archive) {
