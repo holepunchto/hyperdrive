@@ -16,6 +16,8 @@ var path = require('path')
 var messages = require('./lib/messages')
 var stat = require('./lib/stat')
 var cursor = require('./lib/cursor')
+var bufferFrom = require('buffer-from')
+var bufferAlloc = require('buffer-alloc')
 
 var DEFAULT_FMODE = (4 | 2 | 0) << 6 | ((4 | 0 | 0) << 3) | (4 | 0 | 0) // rw-r--r--
 var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-xr-x
@@ -618,7 +620,7 @@ Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
   if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
   if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
-  if (typeof buf === 'string') buf = new Buffer(buf, opts.encoding || 'utf-8')
+  if (typeof buf === 'string') buf = bufferFrom(buf, opts.encoding || 'utf-8')
   if (!cb) cb = noop
 
   name = unixify(name)
@@ -922,11 +924,11 @@ function getTime (date) {
 }
 
 function contentKeyPair (secretKey) {
-  var seed = new Buffer(sodium.crypto_sign_SEEDBYTES)
-  var context = new Buffer('hyperdri') // 8 byte context
+  var seed = bufferAlloc(sodium.crypto_sign_SEEDBYTES)
+  var context = bufferFrom('hyperdri') // 8 byte context
   var keyPair = {
-    publicKey: new Buffer(sodium.crypto_sign_PUBLICKEYBYTES),
-    secretKey: new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+    publicKey: bufferAlloc(sodium.crypto_sign_PUBLICKEYBYTES),
+    secretKey: bufferAlloc(sodium.crypto_sign_SECRETKEYBYTES)
   }
 
   sodium.crypto_kdf_derive_from_key(seed, 1, context, secretKey)

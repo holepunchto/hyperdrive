@@ -5,6 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "append-tree": "^2.3.5",
+    "buffer-alloc": "^1.1.0",
+    "buffer-from": "^1.0.0",
     "duplexify": "^3.5.0",
     "from2": "^2.3.0",
     "hypercore": "^6.10.4",

@@ -1,6 +1,8 @@
 var tape = require('tape')
 var sodium = require('sodium-universal')
 var create = require('./helpers/create')
+var bufferFrom = require('buffer-from')
+var bufferAlloc = require('buffer-alloc')
 
 tape('write and read', function (t) {
   var archive = create()
@@ -9,7 +11,7 @@ tape('write and read', function (t) {
     t.error(err, 'no error')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, bufferFrom('world'))
       t.end()
     })
   })
@@ -24,7 +26,7 @@ tape('write and read (2 parallel)', function (t) {
     t.error(err, 'no error')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, bufferFrom('world'))
     })
   })
 
@@ -32,7 +34,7 @@ tape('write and read (2 parallel)', function (t) {
     t.error(err, 'no error')
     archive.readFile('/world.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('hello'))
+      t.same(buf, bufferFrom('hello'))
     })
   })
 })
@@ -97,8 +99,8 @@ tape('owner is writable', function (t) {
 })
 
 tape('provide keypair', function (t) {
-  var publicKey = new Buffer(sodium.crypto_sign_PUBLICKEYBYTES)
-  var secretKey = new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+  var publicKey = bufferAlloc(sodium.crypto_sign_PUBLICKEYBYTES)
+  var secretKey = bufferAlloc(sodium.crypto_sign_SECRETKEYBYTES)
 
   sodium.crypto_sign_keypair(publicKey, secretKey)
 
@@ -114,7 +116,7 @@ tape('provide keypair', function (t) {
       t.error(err, 'no error')
       archive.readFile('/hello.txt', function (err, buf) {
         t.error(err, 'no error')
-        t.same(buf, new Buffer('world'))
+        t.same(buf, bufferFrom('world'))
         t.end()
       })
     })
@@ -172,7 +174,7 @@ tape('write and read, no cache', function (t) {
     t.error(err, 'no error')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, bufferFrom('world'))
       t.end()
     })
   })
