@@ -56,12 +56,21 @@ It also comes with build in versioning and real time replication. See more below
 
 #### `var archive = hyperdrive(storage, [key], [options])`
 
-Create a new hyperdrive. Storage should be a function or a string.
+Create a new hyperdrive.
 
-If storage is a string content will be stored inside that folder.
+The `storage` parameter defines how the contents of the archive will be stored. It can be one of the following, depending on how much control you require over how the archive is stored.
 
-If storage is a function it is called with a string name for each abstract-random-access instance that is needed
-to store the archive.
+- If you pass in a string, the archive content will be stored in a folder at the given path.
+- You can also pass in a function. This function will be called with the name of each of the required files for the archive, and needs to return a [`random-access-storage`](https://github.com/random-access-storage/) instance.
+- If you require complete control, you can also pass in an object containing a `metadata` and a `content` field. Both of these need to be functions, and are called with the following arguments:
+
+  - `name`: the name of the file to be stored
+  - `opts`
+    - `key`: the [feed key](https://github.com/mafintosh/hypercore#feedkey) of the underlying Hypercore instance
+    - `discoveryKey`: the [discovery key](https://github.com/mafintosh/hypercore#feeddiscoverykey) of the underlying Hypercore instance
+  - `archive`: the current Hyperdrive instance
+
+  The functions need to return a a [`random-access-storage`](https://github.com/random-access-storage/) instance.
 
 Options include:
 
