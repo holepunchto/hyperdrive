@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "protocol-buffers": "^4.0.2",
+    "pump": "^3.0.0",
     "random-access-memory": "^2.3.0",
     "standard": "^9.0.2",
     "tape": "^4.6.3",

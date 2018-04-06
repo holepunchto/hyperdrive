@@ -1,6 +1,7 @@
 var tape = require('tape')
 var sodium = require('sodium-universal')
 var create = require('./helpers/create')
+var pump = require('pump')
 
 tape('write and read', function (t) {
   var archive = create()
@@ -151,6 +152,38 @@ tape.skip('download a version', function (t) {
     })
     var stream = clone.replicate()
     stream.pipe(src.replicate()).pipe(stream)
+  }
+})
+
+tape.skip('replicate a version', function (t) {
+  var src = create()
+  src.on('ready', function () {
+    src.writeFile('/first.txt', 'number 1', function (err) {
+      t.error(err, 'no error')
+      src.writeFile('/second.txt', 'number 2', function (err) {
+        t.error(err, 'no error')
+        src.writeFile('/third.txt', 'number 3', function (err) {
+          t.error(err, 'no error')
+          testReplicateVersion()
+        })
+      })
+    })
+  })
+
+  function testReplicateVersion () {
+    var clone = create(src.key).checkout(2)
+    var stream = clone.replicate({ live: false })
+    pump(stream, src.replicate({ live: false }), stream, function (err) {
+      t.error(err)
+      clone.readFile('/second.txt', { cached: true }, function (err, content) {
+        t.error(err, 'block not downloaded')
+        t.same(content && content.toString(), 'number 2', 'content does not match')
+        clone.readFile('/third.txt', { cached: true }, function (err, content) {
+          t.same(err && err.message, 'Block not downloaded')
+          t.end()
+        })
+      })
+    })
   }
 })
 
