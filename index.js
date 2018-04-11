@@ -32,6 +32,7 @@ function Hyperdrive (storage, key, opts) {
   const db = opts.checkout || hyperdb(storage, key, {
     valueEncoding: messages.Stat,
     contentFeed: true,
+    secretKey: opts.secretKey,
     sparse: opts.sparse,
     reduce // TODO: make configurable
   })
