@@ -16,6 +16,12 @@ const DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwx
 
 module.exports = Hyperdrive
 
+function contentStorage (storage, dir, name, opts) {
+  if (name.endsWith('/data')) return require('./lib/storage')(dir, opts)
+  return require('random-access-file')(name, {directory: storage})
+  // () => require('./lib/storage')(storage)
+}
+
 function Hyperdrive (storage, key, opts) {
   if (!(this instanceof Hyperdrive)) return new Hyperdrive(storage, key, opts)
 
@@ -25,16 +31,19 @@ function Hyperdrive (storage, key, opts) {
   }
 
   if (!opts) opts = {}
+  if (opts.files) opts.latest = true
 
   events.EventEmitter.call(this)
 
   const self = this
   const db = opts.checkout || hyperdb(storage, key, {
     valueEncoding: messages.Stat,
-    contentFeed: true,
+    contentFeed: opts.files ? contentStorage.bind(this, storage, opts.files) : true,
     secretKey: opts.secretKey,
     sparse: opts.sparse,
-    reduce // TODO: make configurable
+    sparseContent: opts.sparse || opts.latest || opts.sparseContent,
+    reduce, // TODO: make configurable
+    onwrite: opts.latest && onwrite
   })
 
   this.key = db.key
@@ -50,12 +59,46 @@ function Hyperdrive (storage, key, opts) {
 
   this.ready(onready)
 
+  function onwrite (entry, peer, cb) {
+    if (!peer) return cb(null) // we handle this case in onappend
+
+    const data = self.localContentData
+    if (!data.onunlink || !entry.key) return cb(null)
+
+    // TODO: race condition here where the db can be updated while we do the
+    // isLatest check. If that happens we need to recheck against new heads,
+    // perhaps pausing replication inbetween
+
+    isLatest(entry, function onlatest (err, latest) {
+      if (err || !latest) return cb(err)
+      data.onunlink(entry.key, function (err) {
+        if (err) return cb(err)
+        if (entry.value) downloadEntry(self.db, entry, noop)
+        cb(null) // TODO: if to many downloads are in progress (say +64, wait for downloadEntry)
+      })
+    })
+  }
+
+  function isLatest (entry, cb) {
+    self.db.get(entry.key, function (err, latest) {
+      if (err) return cb(err)
+      if (latest && (latest.seq !== entry.seq || latest.feed !== entry.feed)) return cb(null, false)
+      // this is the latest entry ... delete the current file as it is gonna get updated
+      cb(null, true)
+    })
+  }
+
   function onready () {
     self.key = db.key
     self.discoveryKey = db.discoveryKey
     self.local = db.local
     self.localContent = db.localContent
+    // TODO: support feed.storage.data in hypercore
+    self.localContentData = db.localContent._storage.data
     self.emit('ready')
+
+    // TODO: if latest and not sparse start an iterator (and restart on append)
+    // to trigger file downloads faster in the above onwrite hook
   }
 }
 
@@ -75,19 +118,14 @@ Hyperdrive.prototype.download = function (path, cb) {
   const ite = db.iterator(path)
 
   ite.next(loop)
+  return ite
 
   // TODO: parallelize a bit!
   function loop (err, node) {
     if (err) return cb(err)
     if (!node) return cb(null)
     if (!node.value || node.value.blocks === 0) return ite.next(loop)
-
-    const feed = db.contentFeeds[node.feed]
-    const start = node.value.offset
-    const end = start + node.value.blocks
-
-    if (feed.has(start, end)) return ondownload(null)
-    feed.download({start, end}, ondownload)
+    downloadEntry(db, node, ondownload)
   }
 
   function ondownload (err) {
@@ -437,8 +475,13 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
       self._lock(function (r) {
         release = r
         opened = true
+
         st.offset = db.localContent.length
         st.byteOffset = db.localContent.byteLength
+
+        const data = self.localContentData
+        if (data.onappend) data.onappend(path, st)
+
         if (batch) write(batch, cb)
         else flush(cb)
       })
@@ -468,9 +511,20 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
 Hyperdrive.prototype.unlink = function (path, cb) {
   if (!cb) cb = noop
 
+  const self = this
   path = normalizePath(path)
 
-  this.db.del(path, cb)
+  this.ready(function (err) {
+    if (err) return cb(err)
+    const data = self.localContentData
+    if (!data.onunlink) return del(null)
+    data.onunlink(path, del)
+  })
+
+  function del (err) {
+    if (err) return cb(err)
+    self.db.del(path, cb)
+  }
 }
 
 Hyperdrive.prototype.access = function (path, cb) {
@@ -509,5 +563,36 @@ function normalizePath (p) {
 }
 
 function statRoot (source) {
-  return stat({mode: stat.IFDIR | DEFAULT_DMODE}, source, true)
+  const opts = {
+    mode: stat.IFDIR | DEFAULT_DMODE,
+    uid: 0,
+    gid: 0,
+    size: 0,
+    offset: 0,
+    byteOffset: 0,
+    blocks: 0,
+    atime: 0,
+    mtime: 0,
+    ctime: 0
+  }
+
+  return stat(opts, source, true)
+}
+
+function downloadEntryWhenReady (feed, db, node, cb) {
+  feed.ready(function (err) {
+    if (err) return cb(err)
+    downloadEntry(db, node, cb)
+  })
+}
+
+function downloadEntry (db, node, cb) {
+  const feed = db.contentFeeds[node.feed]
+  if (!feed.bitfield) return downloadEntryWhenReady(feed, db, node, cb)
+
+  const start = node.value.offset
+  const end = start + node.value.blocks
+  console.log('downloading', node.key)
+  if (start === end || feed.has(start, end)) return cb(null)
+  feed.download({start, end}, cb)
 }
