@@ -15,6 +15,7 @@
     "mutexify": "^1.1.0",
     "protocol-buffers-encodings": "^1.1.0",
     "random-access-file": "^2.0.1",
+    "random-access-storage": "^1.1.1",
     "sodium-universal": "^2.0.0",
     "stream-collector": "^1.0.1",
     "stream-each": "^1.2.0",
