@@ -146,8 +146,8 @@ Hyperdrive.prototype.checkout = function (version) {
   })
 }
 
-Hyperdrive.prototype.authenticate = function (key, cb) {
-  this.db.authenticate(key, cb)
+Hyperdrive.prototype.authorize = function (key, cb) {
+  this.db.authorize(key, cb)
 }
 
 Hyperdrive.prototype.version = function (cb) {
