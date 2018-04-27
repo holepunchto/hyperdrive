@@ -18,6 +18,7 @@ module.exports = Hyperdrive
 
 function contentStorage (storage, dir, name, opts) {
   if (name.endsWith('/data')) return require('./lib/storage')(dir, opts)
+  if (typeof storage !== 'string') return storage(name)
   return require('random-access-file')(name, {directory: storage})
   // () => require('./lib/storage')(storage)
 }
