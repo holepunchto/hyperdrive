@@ -165,7 +165,7 @@ Options include:
 ```js
 {
   encoding: string
-  cached: true|false // default: false,
+  cached: true|false // default: false
 }
 ```
 or a string can be passed as options to simply set the encoding - similar to fs.
@@ -221,7 +221,7 @@ Options include:
 
 If `cached` is set to `true`, this function returns results from the local version of the archive’s append-tree. Default behavior is to fetch the latest remote version of the archive before returning list of directories.
 
-#### `archive.stat(name, callback)`
+#### `archive.stat(name, [options], callback)`
 
 Stat an entry. Similar to fs.stat. Sample output:
 
@@ -252,13 +252,49 @@ stat.isDirectory()
 stat.isFile()
 ```
 
-#### `archive.lstat(name, callback)`
+Options include:
+```js
+{
+  cached: true|false // default: false,
+  wait: true|false // default: true
+}
+```
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
+
+If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
+
+#### `archive.lstat(name, [options], callback)`
 
 Stat an entry but do not follow symlinks. Similar to fs.lstat.
 
-#### `archive.access(name, callback)`
+Options include:
+```js
+{
+  cached: true|false // default: false,
+  wait: true|false // default: true
+}
+```
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
+
+If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
+
+#### `archive.access(name, [options], callback)`
 
 Similar to fs.access.
+
+Options include:
+```js
+{
+  cached: true|false // default: false,
+  wait: true|false // default: true
+}
+```
+
+If `cached` is set to `true`, this function returns results only if they have already been downloaded.
+
+If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
 #### `archive.open(name, flags, [mode], callback)`
 

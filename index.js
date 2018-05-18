@@ -663,8 +663,8 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
   })
 }
 
-Hyperdrive.prototype._statDirectory = function (name, cb) {
-  this.tree.list(name, function (err, list) {
+Hyperdrive.prototype._statDirectory = function (name, opts, cb) {
+  this.tree.list(name, opts, function (err, list) {
     if (name !== '/' && (err || !list.length)) return cb(err || new Error(name + ' could not be found'))
     var st = stat()
     st.mode = stat.IFDIR | DEFAULT_DMODE
@@ -672,32 +672,40 @@ Hyperdrive.prototype._statDirectory = function (name, cb) {
   })
 }
 
-Hyperdrive.prototype.access = function (name, cb) {
+Hyperdrive.prototype.access = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.access(name, null, opts)
+  if (!opts) opts = {}
   name = unixify(name)
-  this.stat(name, function (err) {
+  this.stat(name, opts, function (err) {
     cb(err)
   })
 }
 
-Hyperdrive.prototype.exists = function (name, cb) {
-  this.access(name, function (err) {
+Hyperdrive.prototype.exists = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.exists(name, null, opts)
+  if (!opts) opts = {}
+  this.access(name, opts, function (err) {
     cb(!err)
   })
 }
 
-Hyperdrive.prototype.lstat = function (name, cb) {
+Hyperdrive.prototype.lstat = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.lstat(name, null, opts)
+  if (!opts) opts = {}
   var self = this
 
   name = unixify(name)
 
-  this.tree.get(name, function (err, st) {
-    if (err) return self._statDirectory(name, cb)
+  this.tree.get(name, opts, function (err, st) {
+    if (err) return self._statDirectory(name, opts, cb)
     cb(null, stat(st))
   })
 }
 
-Hyperdrive.prototype.stat = function (name, cb) {
-  this.lstat(name, cb)
+Hyperdrive.prototype.stat = function (name, opts, cb) {
+  if (typeof opts === 'function') return this.stat(name, null, opts)
+  if (!opts) opts = {}
+  this.lstat(name, opts, cb)
 }
 
 Hyperdrive.prototype.readdir = function (name, opts, cb) {
