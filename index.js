@@ -215,7 +215,7 @@ Hyperdrive.prototype.rmdir = function (path, cb) {
 
   const db = this.db
 
-  this.stat(function (err, st) {
+  this.stat(path, function (err, st) {
     if (err) return cb(err)
     if (!st) return cb(new errors.ENOENT('stat', path))
     if (!st.isDirectory()) return cb(new errors.ENOTDIR('rmdir', path))
