@@ -17,6 +17,7 @@
     "random-access-file": "^2.0.1",
     "random-access-storage": "^1.1.1",
     "sodium-universal": "^2.0.0",
+    "sorted-array-functions": "^1.2.0",
     "stream-collector": "^1.0.1",
     "stream-each": "^1.2.0",
     "thunky": "^1.0.2",
