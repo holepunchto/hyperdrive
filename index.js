@@ -68,12 +68,11 @@ function Hyperdrive (storage, key, opts) {
     // TODO: race condition here where the db can be updated while we do the
     // isLatest check. If that happens we need to recheck against new heads,
     // perhaps pausing replication inbetween
-
     isLatest(entry, function onlatest (err, latest) {
       if (err || !latest) return cb(err)
       data.onunlink(entry.key, function (err) {
         if (err) return cb(err)
-        if (entry.value) downloadEntry(self.db, entry, noop)
+        if (!entry.deleted && !self.sparse) downloadEntry(self.db, entry, noop)
         cb(null) // TODO: if to many downloads are in progress (say +64, wait for downloadEntry)
       })
     })
@@ -190,43 +189,67 @@ Hyperdrive.prototype.mkdir = function (path, opts, cb) {
   path = normalizePath(path)
 
   const db = this.db
+  const self = this
 
   db.ready(function (err) {
     if (err) return cb(err)
 
-    const st = {
-      mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
-      uid: opts.uid,
-      gid: opts.gid,
-      mtime: getTime(opts.mtime),
-      ctime: getTime(opts.ctime),
-      offset: db.localContent.length,
-      byteOffset: db.localContent.byteLength
-    }
+    self._lock(function (release) {
+      const st = {
+        mode: (opts.mode || DEFAULT_DMODE) | stat.IFDIR,
+        uid: opts.uid,
+        gid: opts.gid,
+        mtime: getTime(opts.mtime),
+        ctime: getTime(opts.ctime),
+        offset: db.localContent.length,
+        byteOffset: db.localContent.byteLength
+      }
 
-    db.put(path, st, cb)
+      db.put(path, st, done)
+
+      function done (err) {
+        release(cb, err)
+      }
+    })
   })
 }
 
-Hyperdrive.prototype.rmdir = function (path, cb) {
+Hyperdrive.prototype.rmdir = function (path, opts, cb) {
+  if (typeof opts === 'function') return this.rmdri(path, null, opts)
+  if (!opts) opts = {}
   if (!cb) cb = noop
 
   path = normalizePath(path)
 
   const db = this.db
+  const self = this
 
-  this.stat(path, function (err, st) {
-    if (err) return cb(err)
-    if (!st) return cb(new errors.ENOENT('stat', path))
-    if (!st.isDirectory()) return cb(new errors.ENOTDIR('rmdir', path))
+  this._lock(function (release) {
+    self.stat(path, function (err, st) {
+      if (err) return done(err)
+      if (!st) return done(new errors.ENOENT('stat', path))
+      if (!st.isDirectory()) return done(new errors.ENOTDIR('rmdir', path))
 
-    db.iterator(path).next(function (err, node) {
-      if (err) return cb(err)
-      if (node) return cb(new errors.ENOTEMPTY('rmdir', path))
-      if (st.implicit) return cb(null)
+      db.iterator(path).next(function (err, node) {
+        if (err) return done(err)
+        if (node) return done(new errors.ENOTEMPTY('rmdir', path))
+        if (st.implicit) return done(null)
 
-      db.del(path, cb)
+        const del = {
+          mode: 0,
+          mtime: getTime(opts.mtime),
+          ctime: getTime(opts.ctime),
+          offset: db.localContent.length,
+          byteOffset: db.localContent.byteLength
+        }
+
+        db.put(path, del, {delete: true}, done)
+      })
     })
+
+    function done (err) {
+      release(cb, err)
+    }
   })
 }
 
@@ -480,11 +503,15 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
         st.byteOffset = db.localContent.byteLength
 
         const data = self.localContentData
-        if (data.onappend) data.onappend(path, st)
+        if (data.onappend) data.onappend(path, st, done)
+        else done(null)
+      })
 
+      function done (err) {
+        if (err) return cb(err)
         if (batch) write(batch, cb)
         else flush(cb)
-      })
+      }
     })
   }
 
@@ -508,23 +535,44 @@ Hyperdrive.prototype.createWriteStream = function (path, opts) {
   }
 }
 
-Hyperdrive.prototype.unlink = function (path, cb) {
+Hyperdrive.prototype.unlink = function (path, opts, cb) {
+  if (typeof opts === 'function') return this.unlink(path, null, opts)
+  if (!opts) opts = {}
   if (!cb) cb = noop
 
   const self = this
+  const db = this.db
+
   path = normalizePath(path)
 
   this.ready(function (err) {
     if (err) return cb(err)
-    const data = self.localContentData
-    if (!data.onunlink) return del(null)
-    data.onunlink(path, del)
-  })
 
-  function del (err) {
-    if (err) return cb(err)
-    self.db.del(path, cb)
-  }
+    self._lock(function (release) {
+      const data = self.localContentData
+
+      if (!data.onunlink) return onunlink(null)
+      data.onunlink(path, onunlink)
+
+      function onunlink (err) {
+        if (err) return done(err)
+
+        const del = {
+          mode: 0,
+          mtime: getTime(opts.mtime),
+          ctime: getTime(opts.ctime),
+          offset: db.localContent.length,
+          byteOffset: db.localContent.byteLength
+        }
+
+        db.put(path, del, {delete: true}, done)
+      }
+
+      function done (err) {
+        release(cb, err)
+      }
+    })
+  })
 }
 
 Hyperdrive.prototype.access = function (path, cb) {
@@ -545,8 +593,6 @@ Hyperdrive.prototype.ready = function (cb) {
 }
 
 function reduce (a, b) {
-  if (!a.value) return b
-  if (!b.value) return a
   return a.value.mtime > b.value.mtime ? a : b
 }
 
@@ -592,7 +638,7 @@ function downloadEntry (db, node, cb) {
 
   const start = node.value.offset
   const end = start + node.value.blocks
-  console.log('downloading', node.key)
+  console.log('downloading', node.key, node)
   if (start === end || feed.has(start, end)) return cb(null)
   feed.download({start, end}, cb)
 }
