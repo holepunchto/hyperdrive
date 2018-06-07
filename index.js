@@ -639,7 +639,6 @@ function downloadEntry (db, node, cb) {
 
   const start = node.value.offset
   const end = start + node.value.blocks
-  console.log('downloading', node.key, node)
   if (start === end || feed.has(start, end)) return cb(null)
   feed.download({start, end}, cb)
 }
