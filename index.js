@@ -313,12 +313,12 @@ Hyperdrive.prototype.replicate = function (opts) {
   return stream
 }
 
-Hyperdrive.prototype.checkout = function (version) {
-  return Hyperdrive(null, null, {
-    _checkout: this._checkout || this,
-    metadata: this.metadata,
-    version: version
-  })
+Hyperdrive.prototype.checkout = function (version, opts) {
+  if (!opts) opts = {}
+  opts._checkout = this._checkout || this
+  opts.metadata = this.metadata
+  opts.version = version
+  return Hyperdrive(null, null, opts)
 }
 
 Hyperdrive.prototype.createDiffStream = function (version, opts) {
