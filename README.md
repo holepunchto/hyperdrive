@@ -122,9 +122,17 @@ Emitted when the archive is fully ready and all properties has been populated.
 
 Emitted when a critical error during load happened.
 
-#### `var oldDrive = archive.checkout(version)`
+#### `var oldDrive = archive.checkout(version, [opts])`
 
-Checkout a readonly copy of the archive at an old version.
+Checkout a readonly copy of the archive at an old version. Options are used to configure the `oldDrive`:
+
+```js
+{
+  metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
+  contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
+  treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
+}
+```
 
 #### `archive.download([path], [callback])`
 
