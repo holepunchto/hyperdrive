@@ -496,7 +496,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
 
           missing++
           self.content.undownload(range)
-          range = self.content.download({start: start, end: index, linear: true}, ondownload)
+          range = self.content.download({start: start, end: index + 1, linear: true}, ondownload)
         }
 
         function onstart (err, index, off) {
@@ -508,7 +508,7 @@ Hyperdrive.prototype.createReadStream = function (name, opts) {
           range = self.content.download({start: start, end: end, linear: true}, ondownload)
 
           if (length > -1 && length < stat.size) {
-            self.content.seek(byteOffset + length, {start: start, end: end}, onend)
+            self.content.seek(byteOffset + length + (opts.start ? opts.start : 0), {start: start, end: end}, onend)
           }
 
           read(size, cb)
