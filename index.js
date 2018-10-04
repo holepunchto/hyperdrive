@@ -784,8 +784,17 @@ Hyperdrive.prototype.close = function (fd, cb) {
   this.ready(function (err) {
     if (err) return cb(err)
     self.metadata.close(function (err) {
-      if (!self.content) return cb(err)
-      self.content.close(cb)
+      if (err) return cb(err)
+      if (!self.content) {
+        if (!self._latestStorage) return cb()
+        self._latestStorage.close(cb)
+      } else {
+        self.content.close(function (err) {
+          if(err) return cb(err)
+          if (!self._latestStorage) return cb()
+          self._latestStorage.close(cb)
+        })
+      }
     })
   })
 }
