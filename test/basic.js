@@ -177,3 +177,17 @@ tape('write and read, no cache', function (t) {
     })
   })
 })
+
+tape('closing a read-only, latest clone', function (t) {
+  // This is just a sample key of a dead dat
+  var clone = create('1d5e5a628d237787afcbfec7041a16f67ba6895e7aa31500013e94ddc638328d', {
+    latest: true
+  })
+  clone.on('error', function (err) {
+    t.fail(err)
+  })
+  clone.close(function (err) {
+    t.error(err)
+    t.end()
+  })
+})
