@@ -71,6 +71,7 @@ function Hyperdrive (storage, key, opts) {
 
   this._openFiles = []
   this._emittedContent = false
+  this._closed = false
 
   var self = this
 
