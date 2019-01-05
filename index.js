@@ -71,6 +71,7 @@ function Hyperdrive (storage, key, opts) {
 
   this._openFiles = []
   this._emittedContent = false
+  this._closed = false
 
   var self = this
 
@@ -84,7 +85,10 @@ function Hyperdrive (storage, key, opts) {
     self.emit('ready')
     self._oncontent()
     if (self.latest && !self.metadata.writable) {
-      self._trackLatest(onerror)
+      self._trackLatest(function (err) {
+        if (self._closed) return
+        onerror(err)
+      })
     }
   }
 
@@ -783,6 +787,7 @@ Hyperdrive.prototype.close = function (fd, cb) {
   var self = this
   this.ready(function (err) {
     if (err) return cb(err)
+    self._closed = true
     self.metadata.close(function (err) {
       if (!self.content) return cb(err)
       self.content.close(cb)
