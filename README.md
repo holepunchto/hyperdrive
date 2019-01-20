@@ -182,7 +182,7 @@ If `cached` is set to `true`, this function returns results only if they have al
 
 #### `var stream = archive.createDiffStream(version, [options])`
 
-Diff this archive this another version. `version` can both be a version number of a checkout instance of the archive. The `data` objects looks like this
+Diff this archive with another version. `version` can both be a version number of a checkout instance of the archive. The `data` objects looks like this
 
 ``` js
 {
