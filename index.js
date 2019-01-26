@@ -17,7 +17,7 @@ const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const messages = require('./lib/messages')
 
-module.exports = class Hyperdrive extends EventEmitter {
+class Hyperdrive extends EventEmitter {
   constructor (storage, key, opts) {
     super()
 
@@ -34,17 +34,18 @@ module.exports = class Hyperdrive extends EventEmitter {
 
     this._storages = defaultStorage(this, storage, opts)
 
-    this.metadataFeed = hypercore(this._storages.metadata, key, {
+    this.metadataFeed = opts.metatadataFeed || hypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
       sparse: opts.sparseMetadata,
       createIfMissing: opts.createIfMissing,
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
     })
-    this.trie = opts.metadata
-    this.content = opts.content || null
+    this.trie = opts.trie
+    this.contentFeed = opts.contentFeed || null
     this.storage = storage
 
+    this._checkout = opts._checkout
     this._lock = mutexify()
 
     this.ready = thunky(this._ready.bind(this))
@@ -64,7 +65,14 @@ module.exports = class Hyperdrive extends EventEmitter {
       }
       */
     }
+  }
 
+  get version () {
+    return this._checkout ? this.trie.version : (this.metadataFeed.length ? this.metadataFeed.length - 1 : 0)
+  }
+
+  get writable () {
+    return this.metadataFeed.writable && this.contentFeed.writable
   }
 
   _ready (cb) {
@@ -90,16 +98,16 @@ module.exports = class Hyperdrive extends EventEmitter {
     function initialize () {
       var keyPair = contentKeyPair(self.metadataFeed.secretKey)
       var opts = contentOptions(self, keyPair.secretKey)
-      self.content = hypercore(self._storages.content, keyPair.publicKey, opts)
-      self.content.on('error', function (err) {
+      self.contentFeed = hypercore(self._storages.content, keyPair.publicKey, opts)
+      self.contentFeed.on('error', function (err) {
         self.emit('error', err)
       })
-      self.content.ready(function (err) {
+      self.contentFeed.ready(function (err) {
         if (err) return cb(err)
 
-        self.trie = hypertrie(null, {
+        self.trie = self.trie || hypertrie(null, {
           feed: self.metadataFeed,
-          metadata: self.content.key,
+          metadata: self.contentFeed.key,
           valueEncoding: messages.Stat
         })
 
@@ -117,11 +125,11 @@ module.exports = class Hyperdrive extends EventEmitter {
       self.trie.ready(function (err) {
         if (err) return cb(err)
 
-        self.trie.metadata(function (err, contentKey) {
+        self.trie.getMetadata(function (err, contentKey) {
           if (err) return cb(err)
 
-          self.content = hypercore(self._storages.content, contentKey, contentOptions(self, null))
-          self.content.ready(done)
+          self.contentFeed = hypercore(self._storages.content, contentKey, contentOptions(self, null))
+          self.contentFeed.ready(done)
         })
       })
     }
@@ -134,9 +142,7 @@ module.exports = class Hyperdrive extends EventEmitter {
 
         self.metadataFeed.on('update', update)
         self.metadataFeed.on('error', onerror)
-        self.content.on('error', onerror)
-
-        self.writable = self.metadataFeed.writable && self.content.writable
+        self.contentFeed.on('error', onerror)
 
         self.emit('content')
 
@@ -175,7 +181,7 @@ module.exports = class Hyperdrive extends EventEmitter {
         var byteLength = (opts.start) ? st.size - opts.start : st.size
 
         stream.start({
-          feed: this.content,
+          feed: this.contentFeed,
           blockOffset: st.offset,
           blockLength: st.blocks,
           byteOffset,
@@ -183,7 +189,6 @@ module.exports = class Hyperdrive extends EventEmitter {
         })
       })
     })
-
 
     return stream
   }
@@ -207,7 +212,7 @@ module.exports = class Hyperdrive extends EventEmitter {
         this.trie.get(name, (err, st) => {
           if (err) return proxy.destroy(err)
           if (!st) return append(null)
-          this.content.clear(st.offset, st.offset + st.blocks, append)
+          this.contentFeed.clear(st.offset, st.offset + st.blocks, append)
         })
       })
     })
@@ -219,13 +224,13 @@ module.exports = class Hyperdrive extends EventEmitter {
       if (proxy.destroyed) return release()
 
       // No one should mutate the content other than us
-      var byteOffset = self.content.byteLength
-      var offset = self.content.length
+      var byteOffset = self.contentFeed.byteLength
+      var offset = self.contentFeed.length
 
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      var stream = self.content.createWriteStream()
+      var stream = self.contentFeed.createWriteStream()
 
       proxy.on('close', done)
       proxy.on('finish', done)
@@ -234,8 +239,8 @@ module.exports = class Hyperdrive extends EventEmitter {
       proxy.on('prefinish', function () {
         var st = Stat.file({
           ...opts,
-          size: self.content.byteLength - byteOffset,
-          blocks: self.content.length - offset,
+          size: self.contentFeed.byteLength - byteOffset,
+          blocks: self.contentFeed.length - offset,
           offset: offset,
           byteOffset: byteOffset,
         })
@@ -286,7 +291,155 @@ module.exports = class Hyperdrive extends EventEmitter {
     for (var i = 0; i < bufs.length; i++) stream.write(bufs[i])
     stream.end()
   }
+
+  mkdir (name, opts, cb) {
+    if (typeof opts === 'function') return this.mkdir(name, null, opts)
+    if (typeof opts === 'number') opts = {mode: opts}
+    if (!opts) opts = {}
+    if (!cb) cb = noop
+
+    name = unixify(name)
+
+    this._lock(release => {
+      var st = Stat.directory({
+        ...opts,
+        offset: this.contentFeed.length,
+        byteOffset: this.contentFeed.byteLength
+      })
+      this.trie.put(name, st, err => {
+        release(cb, err)
+      })
+    })
+  }
+
+  _statDirectory (name, opts, cb) {
+    var ite = this.trie.iterator(name)
+    ite.next((err, st) => {
+      if (err) return cb(err)
+      if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
+      let st = Stat.directory()
+      return cb(null, st)
+    })
+  }
+
+  lstat (name, opts, cb) {
+    if (typeof opts === 'function') return this.lstat(name, null, opts)
+    if (!opts) opts = {}
+    name = unixify(name)
+
+    this.trie.get(name, opts, (err, st) => {
+      if (err) return this._statDirectory(name, opts, cb)
+      cb(null, new Stat(st))
+    })
+  }
+
+  stat (name, opts, cb) {
+    if (typeof opts === 'function') return this.stat(name, null, opts)
+    if (!opts) opts = {}
+
+    this.lstat(name, opts, cb)
+  }
+
+  access (name, opts, cb) {
+    if (typeof opts === 'function') return this.access(name, null, opts)
+    if (!opts) opts = {}
+    name = unixify(name)
+
+    this.stat(name, opts, err => {
+      cb(err)
+    })
+  }
+
+  exists (name, opts, cb) {
+    if (typeof opts === 'function') return this.exists(name, null, opts)
+    if (!opts) opts = {}
+
+    this.access(name, opts, err => {
+      cb(!err)
+    })
+  }
+
+  readdir (name, opts, cb) {
+    if (typeof opts === 'function') return this.readdir(name, null, opts)
+    name = unixify(name)
+
+    return this.trie.list(name, opts, cb)
+  }
+
+  _del (name, cb) {
+    var _release = null
+
+    this.ready(err => {
+      if (err) return cb(err)
+      this._lock(release => {
+        _release = release
+        this.trie.get(name, (err, st) => {
+          if (err) return done(err)
+          self.contentFeed.clear(st.offset, st.offset + st.blocks, del)
+        })
+      })
+    })
+
+    function del (err) {
+      if (err) return done(err)
+      self.trie.del(name, done)
+    }
+
+    function done (err) {
+      _release(cb, err)
+    }
+  }
+
+  unlink (name, cb) {
+    name = unixify(name)
+
+    this._del(name, cb || noop)
+  }
+
+  rmdir (name, cb) {
+    if (!cb) cb = noop
+    name = unixify(name)
+
+    this.readdir(name, function (err, list) {
+      if (err) return cb(err)
+      if (list.length) return cb(new errors.DirectoryNotEmpty(name))
+      self._del(name, cb)
+    })
+  }
+
+  replicate (opts) {
+    if (!opts) opts = {}
+    opts.expectedFeeds = 2
+
+    var stream = this.metadataFeed.replicate(opts)
+
+    this.ready(err => {
+      if (err) return stream.destroy(err)
+      if (stream.destroyed) return
+      this.contentFeed.replicate({
+        live: opts.live,
+        download: opts.download,
+        upload: opts.upload,
+        stream: stream
+      })
+    })
+
+    return stream
+  }
+
+  checkout (version, opts) {
+    var versionedTrie = this.trie.checkout(version) 
+    opts = {
+      ...opts,
+      metadataFeed: this.metadataFeed,
+      contentFeed: this.contentFeed,
+      trie: versionedTrie,
+    }
+    return new Hyperdrive(null, null, opts)
+  }
 }
+
+module.exports = Hyperdrive
 
 function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
@@ -356,3 +509,5 @@ function split (buf) {
   }
   return list
 }
+
+function noop () {}
