@@ -46,15 +46,19 @@ class Hyperdrive extends EventEmitter {
     this.storage = storage
 
     this._checkout = opts._checkout
+    this._contentOpts = null
     this._lock = mutexify()
 
     this.ready = thunky(this._ready.bind(this))
-    this.ready(onready)
+    this.contentReady = thunky(this._contentReady.bind(this))
+
+    this.ready(onReady)
+    this.contentReady(onContentReady)
 
     var self = this
 
-    function onready (err) {
-      if (err) return onerror(err)
+    function onReady (err) {
+      if (err) return self.emit('error', err)
       self.emit('ready')
       /*
       if (self.latest && !self.metadata.writable) {
@@ -64,6 +68,11 @@ class Hyperdrive extends EventEmitter {
         })
       }
       */
+    }
+
+    function onContentReady (err) {
+      if (err) return self.emit('error', err)
+      self.emit('content')
     }
   }
 
@@ -78,34 +87,45 @@ class Hyperdrive extends EventEmitter {
   _ready (cb) {
     var self = this
 
-    self.metadataFeed.ready(function (err) {
+    this.metadataFeed.on('error', onerror)
+    this.metadataFeed.on('append', update)
+
+    this.metadataFeed.ready(err => {
       if (err) return cb(err)
 
+      var keyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
+      this._contentOpts = contentOptions(this, keyPair.secretKey)
+
       /**
+       * If a trie is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
        * If the metadata feed is writable:
        *    If the metadata feed has length 0, then the trie should be initialized with the content feed key as metadata.
        *    Else, initialize the trie without metadata and load the content feed key from the header.
        * If the metadata feed is readable:
        *    Initialize the trie without metadata and load the content feed key from the header.
        */
-      if (self.metadataFeed.writable && !self.metadataFeed.length) {
-        initialize()
+      if (this.trie) {
+        if (!this.contentFeed || !this.metadataFeed) return cb(new Error('Must provide a trie and both content/metadata feeds'))
+        return done(null)
+      } else if (this.metadataFeed.writable && !this.metadataFeed.length) {
+        initialize(keyPair)
       } else {
-        restore()
+        restore(keyPair)
       }
     })
 
-    function initialize () {
-      var keyPair = contentKeyPair(self.metadataFeed.secretKey)
-      var opts = contentOptions(self, keyPair.secretKey)
-      self.contentFeed = hypercore(self._storages.content, keyPair.publicKey, opts)
+    /**
+     * The first time the hyperdrive is created, we initialize both the trie (metadata feed) and the content feed here.
+     */
+    function initialize (keyPair) {
+      self.contentFeed = hypercore(self._storages.content, keyPair.publicKey, self._contentOpts)
       self.contentFeed.on('error', function (err) {
         self.emit('error', err)
       })
       self.contentFeed.ready(function (err) {
         if (err) return cb(err)
 
-        self.trie = self.trie || hypertrie(null, {
+        self.trie = hypertrie(null, {
           feed: self.metadataFeed,
           metadata: self.contentFeed.key,
           valueEncoding: messages.Stat
@@ -118,35 +138,31 @@ class Hyperdrive extends EventEmitter {
       })
     }
 
-    function restore () {
+    /**
+     * If the hyperdrive has already been created, wait for the trie (metadata feed) to load.
+     * If the metadata feed is writable, we can immediately load the content feed from its private key.
+     * (Otherwise, we need to read the feed's metadata block first)
+     */
+    function restore (keyPair) {
       self.trie = hypertrie(null, {
-        feed: self.metadataFeed
+        feed: self.metadataFeed,
+        valueEncoding: messages.Stat
       })
-      self.trie.ready(function (err) {
-        if (err) return cb(err)
-
-        self.trie.getMetadata(function (err, contentKey) {
-          if (err) return cb(err)
-
-          self.contentFeed = hypercore(self._storages.content, contentKey, contentOptions(self, null))
-          self.contentFeed.ready(done)
+      if (self.metadataFeed.writable) {
+        self.trie.ready(err => {
+          if (err) return done(err)
+          self._ensureContent(done)
         })
-      })
+      } else {
+        self.trie.ready(done)
+      }
     }
 
     function done (err) {
-        if (err) return cb(err)
-
-        self.key = self.metadataFeed.key
-        self.discoveryKey = self.metadataFeed.discoveryKey
-
-        self.metadataFeed.on('update', update)
-        self.metadataFeed.on('error', onerror)
-        self.contentFeed.on('error', onerror)
-
-        self.emit('content')
-
-        return cb(null)
+      if (err) return cb(err)
+      self.key = self.metadataFeed.key
+      self.discoveryKey = self.metadataFeed.discoveryKey
+      return cb(null)
     }
 
     function onerror (err) {
@@ -156,6 +172,27 @@ class Hyperdrive extends EventEmitter {
     function update () {
       self.emit('update')
     }
+  }
+
+  _ensureContent (cb) {
+    this.trie.getMetadata((err, contentKey) => {
+      if (err) return cb(err)
+
+      this.contentFeed = hypercore(this._storages.content, contentKey, this._contentOpts)
+      this.contentFeed.ready(err => {
+        if (err) return cb(err)
+
+        this.contentFeed.on('error', err => this.emit('error', err))
+        return cb(null)
+      })
+    })
+  }
+
+  _contentReady (cb) {
+    this.ready(err => {
+      if (err) return cb(err)
+      this._ensureContent(cb)
+    })
   }
 
   createReadStream (name, opts) {
@@ -168,7 +205,7 @@ class Hyperdrive extends EventEmitter {
       highWaterMark: opts.highWaterMark || 64 * 1024 
     })
 
-    this.ready(err => {
+    this.contentReady(err => {
       if (err) return stream.destroy(err)
 
       this.trie.get(name, (err, st) => {
@@ -205,7 +242,7 @@ class Hyperdrive extends EventEmitter {
 
     // TODO: support piping through a "split" stream like rabin
 
-    this.ready(err => {
+    this.contentReady(err => {
       if (err) return proxy.destroy(err)
       this._lock(_release => {
         release = _release
@@ -300,14 +337,18 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    this._lock(release => {
-      var st = Stat.directory({
-        ...opts,
-        offset: this.contentFeed.length,
-        byteOffset: this.contentFeed.byteLength
-      })
-      this.trie.put(name, st, err => {
-        release(cb, err)
+    this.ready(err => {
+      if (err) return cb(err)
+
+      this._lock(release => {
+        var st = Stat.directory({
+          ...opts,
+          offset: this.contentFeed.length,
+          byteOffset: this.contentFeed.byteLength
+        })
+        this.trie.put(name, st, err => {
+          release(cb, err)
+        })
       })
     })
   }
@@ -317,7 +358,7 @@ class Hyperdrive extends EventEmitter {
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      let st = Stat.directory()
+      st = Stat.directory()
       return cb(null, st)
     })
   }
@@ -327,9 +368,14 @@ class Hyperdrive extends EventEmitter {
     if (!opts) opts = {}
     name = unixify(name)
 
-    this.trie.get(name, opts, (err, st) => {
-      if (err) return this._statDirectory(name, opts, cb)
-      cb(null, new Stat(st))
+    this.ready(err => {
+      if (err) return cb(err)
+
+      this.trie.get(name, opts, (err, node) => {
+        if (err) return cb(err)
+        if (!node) return this._statDirectory(name, opts, cb)
+        cb(null, new Stat(node.value))
+      })
     })
   }
 
@@ -368,14 +414,16 @@ class Hyperdrive extends EventEmitter {
 
   _del (name, cb) {
     var _release = null
+    var self = this
 
-    this.ready(err => {
+    this.contentReady(err => {
       if (err) return cb(err)
       this._lock(release => {
         _release = release
-        this.trie.get(name, (err, st) => {
+        this.trie.get(name, (err, node) => {
           if (err) return done(err)
-          self.contentFeed.clear(st.offset, st.offset + st.blocks, del)
+          var st = node.value
+          this.contentFeed.clear(st.offset, st.offset + st.blocks, del)
         })
       })
     })
@@ -413,7 +461,7 @@ class Hyperdrive extends EventEmitter {
 
     var stream = this.metadataFeed.replicate(opts)
 
-    this.ready(err => {
+    this.contentReady(err => {
       if (err) return stream.destroy(err)
       if (stream.destroyed) return
       this.contentFeed.replicate({
@@ -435,7 +483,26 @@ class Hyperdrive extends EventEmitter {
       contentFeed: this.contentFeed,
       trie: versionedTrie,
     }
-    return new Hyperdrive(null, null, opts)
+    return new Hyperdrive(this.storage, this.key, opts)
+  }
+
+  _closeFile (fd, cb) {
+    // TODO: implement
+    process.nextTick(cb, null)
+  }
+
+  close (fd, cb) {
+    if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
+    else cb = fd
+    if (!cb) cb = noop
+
+    this.contentReady(err => {
+      if (err) return cb(err)
+      this.metadataFeed.close(err => {
+        if (!this.contentFeed) return cb(err)
+        this.contentFeed.close(cb)
+      })
+    })
   }
 }
 

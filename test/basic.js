@@ -50,7 +50,7 @@ tape('write and read (2 parallel)', function (t) {
   })
 })
 
-tape.skip('write and read (sparse)', function (t) {
+tape('write and read (sparse)', function (t) {
   t.plan(2)
 
   var archive = create()
@@ -70,7 +70,7 @@ tape.skip('write and read (sparse)', function (t) {
   })
 })
 
-tape.skip('write and unlink', function (t) {
+tape('write and unlink', function (t) {
   var archive = create()
 
   archive.writeFile('/hello.txt', 'world', function (err) {
@@ -85,7 +85,7 @@ tape.skip('write and unlink', function (t) {
   })
 })
 
-tape.skip('root is always there', function (t) {
+tape('root is always there', function (t) {
   var archive = create()
 
   archive.access('/', function (err) {
@@ -98,7 +98,7 @@ tape.skip('root is always there', function (t) {
   })
 })
 
-tape.skip('provide keypair', function (t) {
+tape('provide keypair', function (t) {
   var publicKey = new Buffer(sodium.crypto_sign_PUBLICKEYBYTES)
   var secretKey = new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
 
@@ -109,7 +109,7 @@ tape.skip('provide keypair', function (t) {
   archive.on('ready', function () {
     t.ok(archive.writable)
     t.ok(archive.metadataFeed.writable)
-    t.ok(archive.contentFeek.writable)
+    t.ok(archive.contentFeed.writable)
     t.ok(publicKey.equals(archive.key))
 
     archive.writeFile('/hello.txt', 'world', function (err) {
@@ -123,7 +123,7 @@ tape.skip('provide keypair', function (t) {
   })
 })
 
-tape('download a version', function (t) {
+tape.skip('download a version', function (t) {
   var src = create()
   src.on('ready', function () {
     t.ok(src.writable)
@@ -163,7 +163,7 @@ tape('download a version', function (t) {
   }
 })
 
-tape.skip('write and read, no cache', function (t) {
+tape('write and read, no cache', function (t) {
   var archive = create({
     metadataStorageCacheSize: 0,
     contentStorageCacheSize: 0,
@@ -178,6 +178,7 @@ tape.skip('write and read, no cache', function (t) {
       t.end()
     })
   })
+  var self = this
 })
 
 tape.skip('closing a read-only, latest clone', function (t) {
@@ -193,7 +194,3 @@ tape.skip('closing a read-only, latest clone', function (t) {
     t.end()
   })
 })
-
-
-
-
