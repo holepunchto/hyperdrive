@@ -55,19 +55,11 @@ class Hyperdrive extends EventEmitter {
     this.ready(onReady)
     this.contentReady(onContentReady)
 
-    var self = this
+    const self = this
 
     function onReady (err) {
       if (err) return self.emit('error', err)
       self.emit('ready')
-      /*
-      if (self.latest && !self.metadata.writable) {
-        self._trackLatest(function (err) {
-          if (self._closed) return
-          onerror(err)
-        })
-      }
-      */
     }
 
     function onContentReady (err) {
@@ -85,7 +77,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   _ready (cb) {
-    var self = this
+    const self = this
 
     this.metadataFeed.on('error', onerror)
     this.metadataFeed.on('append', update)
@@ -93,7 +85,7 @@ class Hyperdrive extends EventEmitter {
     this.metadataFeed.ready(err => {
       if (err) return cb(err)
 
-      var keyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
+      const keyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
       this._contentOpts = contentOptions(this, keyPair.secretKey)
 
       /**
@@ -200,7 +192,7 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    var stream = coreByteStream({
+    const stream = coreByteStream({
       ...opts,
       highWaterMark: opts.highWaterMark || 64 * 1024 
     })
@@ -214,8 +206,8 @@ class Hyperdrive extends EventEmitter {
 
         st = st.value
 
-        var byteOffset = (opts.start) ? st.byteOffset + opts.start : st.byteOffset
-        var byteLength = (opts.start) ? st.size - opts.start : st.size
+        let byteOffset = (opts.start) ? st.byteOffset + opts.start : st.byteOffset
+        let byteLength = (opts.start) ? st.size - opts.start : st.size
 
         stream.start({
           feed: this.contentFeed,
@@ -230,13 +222,25 @@ class Hyperdrive extends EventEmitter {
     return stream
   }
 
+  createDirectoryStream (name, opts) {
+    if (!opts) opts = {}
+
+    name = unixify(name)
+
+    const proxy = duplexify()
+
+    this.ready(err => {
+      if (err) return
+    })
+  }
+
   createWriteStream (name,  opts) {
     if (!opts) opts = {}
 
     name = unixify(name)
 
-    var self = this
-    var proxy = duplexify()
+    const self = this
+    const proxy = duplexify()
     var release = null
     proxy.setReadable(false)
 
@@ -246,11 +250,7 @@ class Hyperdrive extends EventEmitter {
       if (err) return proxy.destroy(err)
       this._lock(_release => {
         release = _release
-        this.trie.get(name, (err, st) => {
-          if (err) return proxy.destroy(err)
-          if (!st) return append(null)
-          this.contentFeed.clear(st.offset, st.offset + st.blocks, append)
-        })
+        return append()
       })
     })
 
@@ -261,13 +261,13 @@ class Hyperdrive extends EventEmitter {
       if (proxy.destroyed) return release()
 
       // No one should mutate the content other than us
-      var byteOffset = self.contentFeed.byteLength
-      var offset = self.contentFeed.length
+      let byteOffset = self.contentFeed.byteLength
+      let offset = self.contentFeed.length
 
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      var stream = self.contentFeed.createWriteStream()
+      const stream = self.contentFeed.createWriteStream()
 
       proxy.on('close', done)
       proxy.on('finish', done)
@@ -307,7 +307,7 @@ class Hyperdrive extends EventEmitter {
 
     collect(this.createReadStream(name, opts), function (err, bufs) {
       if (err) return cb(err)
-      var buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
+      let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
       cb(null, opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf)
     })
   }
@@ -321,11 +321,11 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    var bufs = split(buf) // split the input incase it is a big buffer.
-    var stream = this.createWriteStream(name, opts)
+    let bufs = split(buf) // split the input incase it is a big buffer.
+    let stream = this.createWriteStream(name, opts)
     stream.on('error', cb)
     stream.on('finish', cb)
-    for (var i = 0; i < bufs.length; i++) stream.write(bufs[i])
+    for (let i = 0; i < bufs.length; i++) stream.write(bufs[i])
     stream.end()
   }
 
@@ -341,7 +341,7 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
 
       this._lock(release => {
-        var st = Stat.directory({
+        let st = Stat.directory({
           ...opts,
           offset: this.contentFeed.length,
           byteOffset: this.contentFeed.byteLength
@@ -354,7 +354,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   _statDirectory (name, opts, cb) {
-    var ite = this.trie.iterator(name)
+    const ite = this.trie.iterator(name)
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
@@ -413,34 +413,22 @@ class Hyperdrive extends EventEmitter {
   }
 
   _del (name, cb) {
-    var _release = null
-    var self = this
-
     this.contentReady(err => {
       if (err) return cb(err)
       this._lock(release => {
-        _release = release
         this.trie.get(name, (err, node) => {
           if (err) return done(err)
-          var st = node.value
-          this.contentFeed.clear(st.offset, st.offset + st.blocks, del)
+          let st = node.value
+          this.trie.del(name, err => {
+            release(cb, err)
+          })
         })
       })
     })
-
-    function del (err) {
-      if (err) return done(err)
-      self.trie.del(name, done)
-    }
-
-    function done (err) {
-      _release(cb, err)
-    }
   }
 
   unlink (name, cb) {
     name = unixify(name)
-
     this._del(name, cb || noop)
   }
 
@@ -459,7 +447,7 @@ class Hyperdrive extends EventEmitter {
     if (!opts) opts = {}
     opts.expectedFeeds = 2
 
-    var stream = this.metadataFeed.replicate(opts)
+    const stream = this.metadataFeed.replicate(opts)
 
     this.contentReady(err => {
       if (err) return stream.destroy(err)
@@ -476,7 +464,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   checkout (version, opts) {
-    var versionedTrie = this.trie.checkout(version) 
+    const versionedTrie = this.trie.checkout(version) 
     opts = {
       ...opts,
       metadataFeed: this.metadataFeed,
