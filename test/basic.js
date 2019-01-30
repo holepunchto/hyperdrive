@@ -123,6 +123,26 @@ tape('provide keypair', function (t) {
   })
 })
 
+tape('write and read, no cache', function (t) {
+  var archive = create({
+    metadataStorageCacheSize: 0,
+    contentStorageCacheSize: 0,
+    treeCacheSize: 0
+  })
+
+  archive.writeFile('/hello.txt', 'world', function (err) {
+    t.error(err, 'no error')
+    archive.readFile('/hello.txt', function (err, buf) {
+      t.error(err, 'no error')
+      t.same(buf, new Buffer('world'))
+      t.end()
+    })
+  })
+  var self = this
+})
+
+// TODO: Re-enable the following tests once the `download` and `fetchLatest` APIs are reimplemented.
+
 tape.skip('download a version', function (t) {
   var src = create()
   src.on('ready', function () {
@@ -161,24 +181,6 @@ tape.skip('download a version', function (t) {
     var stream = clone.replicate()
     stream.pipe(src.replicate()).pipe(stream)
   }
-})
-
-tape('write and read, no cache', function (t) {
-  var archive = create({
-    metadataStorageCacheSize: 0,
-    contentStorageCacheSize: 0,
-    treeCacheSize: 0
-  })
-
-  archive.writeFile('/hello.txt', 'world', function (err) {
-    t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
-      t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
-      t.end()
-    })
-  })
-  var self = this
 })
 
 tape.skip('closing a read-only, latest clone', function (t) {

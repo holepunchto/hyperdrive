@@ -31,7 +31,8 @@
     "stream-collector": "^1.0.1",
     "through2": "^3.0.0",
     "thunky": "^1.0.3",
-    "unixify": "^1.0.0"
+    "unixify": "^1.0.0",
+    "hypercore-byte-stream": "^1.0.0"
   },
   "devDependencies": {
     "fuzzbuzz": "^1.2.0",
