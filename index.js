@@ -417,7 +417,8 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       this._lock(release => {
         this.trie.get(name, (err, node) => {
-          if (err) return done(err)
+          if (err) return release(cb, err)
+          if (!node) return release(cb, new errors.FileNotFound(name))
           let st = node.value
           this.trie.del(name, err => {
             release(cb, err)
@@ -548,11 +549,11 @@ function contentOptions (self, secretKey) {
 }
 
 function contentKeyPair (secretKey) {
-  var seed = new Buffer(sodium.crypto_sign_SEEDBYTES)
-  var context = new Buffer('hyperdri') // 8 byte context
+  var seed = Buffer.allocUnsafe(sodium.crypto_sign_SEEDBYTES)
+  var context = Buffer.from('hyperdri', 'utf8') // 8 byte context
   var keyPair = {
-    publicKey: new Buffer(sodium.crypto_sign_PUBLICKEYBYTES),
-    secretKey: new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+    publicKey: Buffer.allocUnsafe(sodium.crypto_sign_PUBLICKEYBYTES),
+    secretKey: Buffer.allocUnsafe(sodium.crypto_sign_SECRETKEYBYTES)
   }
 
   sodium.crypto_kdf_derive_from_key(seed, 1, context, secretKey)
