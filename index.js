@@ -492,6 +492,11 @@ class Hyperdrive extends EventEmitter {
       })
     })
   }
+
+  watch (name, onchange) {
+    name = unixify(name)
+    return this.trie.watch(name, onchange)
+  }
 }
 
 module.exports = Hyperdrive

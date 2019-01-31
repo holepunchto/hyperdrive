@@ -196,3 +196,30 @@ tape.skip('closing a read-only, latest clone', function (t) {
     t.end()
   })
 })
+
+tape('simple watch', function (t) {
+  const db = create(null, { valueEncoding: 'utf8' })
+
+  var watchEvents = 0
+  db.ready(err => {
+    t.error(err, 'no error')
+    db.watch('/a/path/', () => {
+      if (++watchEvents === 2) {
+        t.end()
+      }
+    })
+    doWrites()
+  })
+
+  function doWrites () {
+    db.writeFile('/a/path/hello', 't1', err => {
+      t.error(err, 'no error')
+      db.writeFile('/b/path/hello', 't2', err => {
+        t.error(err, 'no error')
+        db.writeFile('/a/path/world', 't3', err => {
+          t.error(err, 'no error')
+        })
+      })
+    })
+  }
+})
