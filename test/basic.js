@@ -37,7 +37,7 @@ tape('write and read (2 parallel)', function (t) {
     t.error(err, 'no error')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, Buffer.from('world'))
     })
   })
 
@@ -45,7 +45,7 @@ tape('write and read (2 parallel)', function (t) {
     t.error(err, 'no error')
     archive.readFile('/world.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('hello'))
+      t.same(buf, Buffer.from('hello'))
     })
   })
 })
@@ -99,8 +99,8 @@ tape('root is always there', function (t) {
 })
 
 tape('provide keypair', function (t) {
-  var publicKey = new Buffer(sodium.crypto_sign_PUBLICKEYBYTES)
-  var secretKey = new Buffer(sodium.crypto_sign_SECRETKEYBYTES)
+  var publicKey = Buffer.allocUnsafe(sodium.crypto_sign_PUBLICKEYBYTES)
+  var secretKey = Buffer.allocUnsafe(sodium.crypto_sign_SECRETKEYBYTES)
 
   sodium.crypto_sign_keypair(publicKey, secretKey)
 
@@ -116,7 +116,7 @@ tape('provide keypair', function (t) {
       t.error(err, 'no error')
       archive.readFile('/hello.txt', function (err, buf) {
         t.error(err, 'no error')
-        t.same(buf, new Buffer('world'))
+        t.same(buf, Buffer.from('world'))
         t.end()
       })
     })
@@ -134,7 +134,7 @@ tape('write and read, no cache', function (t) {
     t.error(err, 'no error')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
-      t.same(buf, new Buffer('world'))
+      t.same(buf, Buffer.from('world'))
       t.end()
     })
   })
@@ -198,7 +198,7 @@ tape.skip('closing a read-only, latest clone', function (t) {
 })
 
 tape('simple watch', function (t) {
-  const db = create(null, { valueEncoding: 'utf8' })
+  const db = create(null)
 
   var watchEvents = 0
   db.ready(err => {
@@ -219,6 +219,98 @@ tape('simple watch', function (t) {
         db.writeFile('/a/path/world', 't3', err => {
           t.error(err, 'no error')
         })
+      })
+    })
+  }
+})
+
+tape('simple checkout', function (t) {
+  const drive = create(null)
+
+  drive.writeFile('/hello', 'world', err => {
+    t.error(err, 'no error')
+    let version = drive.version
+    drive.readFile('/hello', (err, data) => {
+      t.error(err, 'no error')
+      t.same(data, Buffer.from('world'))
+      drive.unlink('/hello', err => {
+        t.error(err, 'no error')
+        drive.readFile('/hello', (err, data) => {
+          t.true(err)
+          t.same(err.code, 'ENOENT')
+          testCheckout(version)
+        })
+      })
+    })
+  })
+
+  function testCheckout (version) {
+    let oldVersion = drive.checkout(version)
+    oldVersion.readFile('/hello', (err, data) => {
+      t.error(err, 'no error')
+      t.same(data, Buffer.from('world'))
+      t.end()
+    })
+  }
+})
+
+tape('can read a single directory', async function (t) {
+  const drive = create(null)
+
+  let files = ['a', 'b', 'c', 'd', 'e', 'f']
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  drive.readdir('/', (err, files) => {
+    t.error(err, 'no error')
+    for (let file of files) {
+      t.true(fileSet.has(file), 'correct file was listed')
+      fileSet.delete(file)
+    }
+    t.same(fileSet.size, 0, 'all files were listed')
+    t.end()
+  })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
+
+tape('can stream a large directory', async function (t) {
+  const drive = create(null)
+
+  let files = new Array(1000).fill(0).map((_, idx) => '' + idx)
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  let stream = drive.createDirectoryStream('/')
+  stream.on('data', ({ path, stat }) => {
+    if (!fileSet.has(path)) {
+      return t.fail('an incorrect file was streamed')
+    }
+    fileSet.delete(path)
+  })
+  stream.on('end', () => {
+    t.same(fileSet.size, 0, 'all files were streamed')
+    t.end()
+  })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
       })
     })
   }

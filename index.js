@@ -8,6 +8,8 @@ const raf = require('random-access-file')
 const mutexify = require('mutexify')
 const duplexify = require('duplexify')
 const sodium = require('sodium-universal')
+const through = require('through2')
+const pump = require('pump')
 
 const hypercore = require('hypercore')
 const hypertrie = require('hypertrie')
@@ -34,7 +36,7 @@ class Hyperdrive extends EventEmitter {
 
     this._storages = defaultStorage(this, storage, opts)
 
-    this.metadataFeed = opts.metatadataFeed || hypercore(this._storages.metadata, key, {
+    this.metadataFeed = opts.metadataFeed || hypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
       sparse: opts.sparseMetadata,
       createIfMissing: opts.createIfMissing,
@@ -45,7 +47,6 @@ class Hyperdrive extends EventEmitter {
     this.contentFeed = opts.contentFeed || null
     this.storage = storage
 
-    this._checkout = opts._checkout
     this._contentOpts = null
     this._lock = mutexify()
 
@@ -69,7 +70,8 @@ class Hyperdrive extends EventEmitter {
   }
 
   get version () {
-    return this._checkout ? this.trie.version : (this.metadataFeed.length ? this.metadataFeed.length - 1 : 0)
+    // TODO: The trie version starts at 1, so the empty hyperdrive version is also 1. This should be 0.
+    return this.trie.version
   }
 
   get writable () {
@@ -183,6 +185,7 @@ class Hyperdrive extends EventEmitter {
   _contentReady (cb) {
     this.ready(err => {
       if (err) return cb(err)
+      if (this.contentFeed) return cb(null)
       this._ensureContent(cb)
     })
   }
@@ -227,11 +230,24 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    const proxy = duplexify()
+    const proxy = duplexify.obj()
+    proxy.setWritable(false)
 
     this.ready(err => {
       if (err) return
+      let stream = pump(
+        this.trie.createReadStream(name, opts),
+        through.obj((chunk, enc, cb) => {
+          return cb(null, {
+            path: chunk.key,
+            stat: chunk.value
+          })
+        })
+      )
+      proxy.setReadable(stream)
     })
+
+    return proxy
   }
 
   createWriteStream (name,  opts) {
@@ -316,7 +332,7 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
     if (typeof opts === 'string') opts = {encoding: opts}
     if (!opts) opts = {}
-    if (typeof buf === 'string') buf = new Buffer(buf, opts.encoding || 'utf-8')
+    if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding || 'utf-8')
     if (!cb) cb = noop
 
     name = unixify(name)
@@ -409,7 +425,11 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.readdir(name, null, opts)
     name = unixify(name)
 
-    return this.trie.list(name, opts, cb)
+    let dirStream = this.createDirectoryStream(name, opts)
+    collect(dirStream, (err, stats) => {
+      if (err) return cb(err)
+      return cb(null, stats.map(s => s.path))
+    })
   }
 
   _del (name, cb) {

@@ -1,28 +1,24 @@
 const tape = require('tape')
 const sodium = require('sodium-universal')
-const FuzzBuzz = require('fuzzbuzz')
-
+const FuzzBuzz = require('fuzzbuzz') 
 const create = require('./helpers/create')
 
 const MAX_PATH_DEPTH = 30
 const MAX_FILE_LENGTH = 1e4
 const CHARACTERS = 1e3
+const INVALID_CHARS = new Set(['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' '])
 
 class HyperdriveFuzzer extends FuzzBuzz {
-  constructor (drive, opts) {
+  constructor (opts) {
     super(opts)
-    this.drive = drive 
-    this.files = new Map()
-    this.directories = new Map()
-
-    this.validate(this._validate)
-    this.setup(this._setup)
 
     this.add(10, this.writeFile)
     this.add(5, this.deleteFile)
     this.add(3, this.statFile)
     this.add(2, this.deleteInvalidFile)
   }
+
+  // START Helper functions.
 
   _select (map) {
     let idx = this.randomInt(map.size -1)
@@ -39,9 +35,15 @@ class HyperdriveFuzzer extends FuzzBuzz {
     return this._select(this.directories)
   }
 
+  _validChar () {
+    do {
+      var char = String.fromCharCode(this.randomInt(CHARACTERS))
+    } while(INVALID_CHARS.has(char))
+    return char
+  }
   _fileName () {
     let depth = this.randomInt(MAX_PATH_DEPTH)
-    let name = (new Array(depth)).fill(0).map(() => String.fromCharCode(this.randomInt(CHARACTERS))).join('/')
+    let name = (new Array(depth)).fill(0).map(() => this._validChar()).join('/')
     return name
   }
   _createFile () {
@@ -54,60 +56,26 @@ class HyperdriveFuzzer extends FuzzBuzz {
       this.drive.unlink(name, err => {
         if (err) return reject(err)
         this.files.delete(name)
-        return resolve()
+        return resolve({ type: 'delete', name })
       })
     })
   }
 
-  // START Public operations
+  // START FuzzBuzz interface
 
-  // File-level operations
+  _setup () {
+    this.drive = create() 
+    this.files = new Map()
+    this.directories = new Map()
+    this.log = []
 
-  async writeFile () {
-    let { name, content } = this._createFile()
     return new Promise((resolve, reject) => {
-      this.drive.writeFile(name, content, err => {
+      this.drive.ready(err => {
         if (err) return reject(err)
-        this.files.set(name, content)
         return resolve()
       })
     })
   }
-
-  async deleteFile () {
-    let selected = this._selectFile()
-    if (!selected) return
-
-    let fileName = selected[0]
-    return this._deleteFile(fileName)
-  }
-
-  async deleteInvalidFile () {
-    let name = this._fileName()
-    while (this.files.get(name)) name = this._fileName()
-    try {
-      await this._deleteFile(name)
-    } catch (err) {
-      if (err && err.code !== 'ENOENT') throw err
-    }
-  }
-
-  statFile () {
-    let selected = this._selectFile()
-    if (!selected) return
-
-    let [fileName, contents] = selected
-    return new Promise((resolve, reject) => {
-      this.drive.stat(fileName, (err, st) => {
-        if (err) return reject(err)
-        if (!st) return reject(new Error(`File ${fileName} should exist does not exist.`))
-        if (st.size !== contents.length) return reject(new Error(`Incorrect content length for file ${fileName}.`))
-        return resolve()
-      })
-    })
-  }
-
-  // END Public operations
 
   _validateFile (name, content) {
     return new Promise((resolve, reject) => {
@@ -142,25 +110,73 @@ class HyperdriveFuzzer extends FuzzBuzz {
     }
   }
 
-  _setup () {
+
+  async call (ops) {
+    let res = await super.call(ops)
+    this.log.push(res)
+  }
+
+  // START Fuzzing operations
+
+  async writeFile () {
+    let { name, content } = this._createFile()
     return new Promise((resolve, reject) => {
-      this.drive.ready(err => {
+      this.drive.writeFile(name, content, err => {
         if (err) return reject(err)
-        return resolve()
+        this.files.set(name, content)
+        return resolve({ type: 'write', name, content })
+      })
+    })
+  }
+
+  async deleteFile () {
+    let selected = this._selectFile()
+    if (!selected) return
+
+    let fileName = selected[0]
+    return this._deleteFile(fileName)
+  }
+
+  async deleteInvalidFile () {
+    let name = this._fileName()
+    while (this.files.get(name)) name = this._fileName()
+    try {
+      await this._deleteFile(name)
+    } catch (err) {
+      if (err && err.code !== 'ENOENT') throw err
+    }
+  }
+
+  statFile () {
+    let selected = this._selectFile()
+    if (!selected) return
+
+    let [fileName, contents] = selected
+    return new Promise((resolve, reject) => {
+      this.drive.stat(fileName, (err, st) => {
+        if (err) return reject(err)
+        if (!st) return reject(new Error(`File ${fileName} should exist does not exist.`))
+        if (st.size !== contents.length) return reject(new Error(`Incorrect content length for file ${fileName}.`))
+        return resolve({ type: 'stat', fileName, stat: st })
       })
     })
   }
 }
 
-tape.only('100000 mixed operations', async t => {
+module.exports = HyperdriveFuzzer
+
+tape('100000 mixed operations', async t => {
   t.plan(1)
 
-  let drive = create()
-  const fuzz = new HyperdriveFuzzer(drive, {
+  const fuzz = new HyperdriveFuzzer({
     seed: 'hyperdrive'
   })
 
   try {
+    /*
+    let failingIteration = await fuzz.bisect(100000)
+    t.true(failingIteration, `failed on iteration ${failingIteration}`) 
+    */
     await fuzz.run(100000)
     t.pass('fuzzing succeeded')
   } catch (err) {

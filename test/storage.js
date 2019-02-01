@@ -20,7 +20,7 @@ tape('dir storage with resume', function (t) {
     archive.ready(function () {
       t.ok(archive.metadataFeed.writable, 'archive metadata is writable')
       t.ok(archive.contentFeed.writable, 'archive content is writable')
-      t.same(archive.version, 0, 'archive has version 0')
+      t.same(archive.version, 1, 'archive has version 1')
       archive.close(function (err) {
         t.ifError(err)
 
@@ -28,7 +28,7 @@ tape('dir storage with resume', function (t) {
         archive2.ready(function (err) {
           t.ok(archive2.metadataFeed.writable, 'archive2 metadata is writable')
           t.ok(archive2.contentFeed.writable, 'archive2 content is writable')
-          t.same(archive2.version, 0, 'archive has version 0')
+          t.same(archive2.version, 1, 'archive has version 1')
 
           cleanup(function (err) {
             t.ifError(err)
