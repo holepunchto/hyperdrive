@@ -21,7 +21,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
 
     this.add(10, this.writeFile)
     this.add(5, this.deleteFile)
-    // this.add(5, this.existingFileOverwrite)
+    this.add(5, this.existingFileOverwrite)
     this.add(3, this.statFile)
     this.add(2, this.deleteInvalidFile)
   }
@@ -185,7 +185,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
         this.files.set(fileName, newContent)
         resolve()
       })
-      writeStream.write(newContent)
+      writeStream.end(newContent)
     })
   }
 
@@ -203,10 +203,6 @@ tape('100000 mixed operations', async t => {
   })
 
   try {
-    /*
-    let failingIteration = await fuzz.bisect(100000)
-    t.true(failingIteration, `failed on iteration ${failingIteration}`) 
-    */
     await fuzz.run(100000)
     t.pass('fuzzing succeeded')
   } catch (err) {
