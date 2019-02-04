@@ -8,12 +8,20 @@ const MAX_FILE_LENGTH = 1e4
 const CHARACTERS = 1e3
 const INVALID_CHARS = new Set(['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' '])
 
+class Peer {
+  constructor (drive, files) {
+    this.drive = drive
+    this.files = files
+  }
+}
+
 class HyperdriveFuzzer extends FuzzBuzz {
   constructor (opts) {
     super(opts)
 
     this.add(10, this.writeFile)
     this.add(5, this.deleteFile)
+    // this.add(5, this.existingFileOverwrite)
     this.add(3, this.statFile)
     this.add(2, this.deleteInvalidFile)
   }
@@ -67,6 +75,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.drive = create() 
     this.files = new Map()
     this.directories = new Map()
+    this.streams = new Map()
     this.log = []
 
     return new Promise((resolve, reject) => {
@@ -151,15 +160,36 @@ class HyperdriveFuzzer extends FuzzBuzz {
     let selected = this._selectFile()
     if (!selected) return
 
-    let [fileName, contents] = selected
+    let [fileName, content] = selected
     return new Promise((resolve, reject) => {
       this.drive.stat(fileName, (err, st) => {
         if (err) return reject(err)
         if (!st) return reject(new Error(`File ${fileName} should exist does not exist.`))
-        if (st.size !== contents.length) return reject(new Error(`Incorrect content length for file ${fileName}.`))
+        if (st.size !== content.length) return reject(new Error(`Incorrect content length for file ${fileName}.`))
         return resolve({ type: 'stat', fileName, stat: st })
       })
     })
+  }
+
+  existingFileOverwrite () {
+    let selected = this._selectFile()
+    if (!selected) return
+    let [fileName, content] = selected
+
+    let { content: newContent } = this._createFile()
+
+    return new Promise((resolve, reject) => {
+      let writeStream = this.drive.createWriteStream(fileName)
+      writeStream.on('error', err => reject(err))
+      writeStream.on('finish', () => {
+        this.files.set(fileName, newContent)
+        resolve()
+      })
+      writeStream.write(newContent)
+    })
+  }
+
+  readFileStream () {
   }
 }
 
