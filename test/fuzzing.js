@@ -1,19 +1,14 @@
 const tape = require('tape')
 const sodium = require('sodium-universal')
+const collect = require('stream-collector')
+
 const FuzzBuzz = require('fuzzbuzz') 
 const create = require('./helpers/create')
 
 const MAX_PATH_DEPTH = 30
-const MAX_FILE_LENGTH = 1e4
+const MAX_FILE_LENGTH = 1e3
 const CHARACTERS = 1e3
 const INVALID_CHARS = new Set(['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' '])
-
-class Peer {
-  constructor (drive, files) {
-    this.drive = drive
-    this.files = files
-  }
-}
 
 class HyperdriveFuzzer extends FuzzBuzz {
   constructor (opts) {
@@ -24,6 +19,8 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(5, this.existingFileOverwrite)
     this.add(3, this.statFile)
     this.add(2, this.deleteInvalidFile)
+    this.add(2, this.randomReadStream)
+    this.add(1, this.writeAndMkdir)
   }
 
   // START Helper functions.
@@ -56,7 +53,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
   }
   _createFile () {
     let name = this._fileName()
-    let content = Buffer.allocUnsafe(this.randomInt(MAX_FILE_LENGTH)).fill(this.randomInt(10))
+    let content = Buffer.allocUnsafe(this.randomInt(MAX_FILE_LENGTH)).fill(0).map(() => this.randomInt(10))
     return { name, content }
   }
   _deleteFile (name) {
@@ -86,9 +83,13 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
+  _validationDrive () {
+    return this.drive
+  }
   _validateFile (name, content) {
+    let drive = this._validationDrive()
     return new Promise((resolve, reject) => {
-      this.drive.readFile(name, (err, data) => {
+      drive.readFile(name, (err, data) => {
         if (err) return reject(err)
         if (!data.equals(content)) return reject(new Error(`Read data for ${name} does not match written content.`))
         return resolve()
@@ -96,8 +97,9 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
   _validateDirectory (name, list) {
+    let drive = this._validationDrive()
     return new Promise((resolve, reject) => {
-      this.drive.readdir(name, (err, list) => {
+      drive.readdir(name, (err, list) => {
         if (err) return reject(err)
         let fileSet = new Set(list)
         for (const file of list) {
@@ -109,7 +111,6 @@ class HyperdriveFuzzer extends FuzzBuzz {
       })
     })
   }
-
   async _validate () {
     for (const [fileName, content] of this.files) {
       await this._validateFile(fileName, content)
@@ -189,13 +190,52 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
-  readFileStream () {
+  writeAndMkdir () {
+  }
+
+  randomReadStream () {
+    let selected = this._selectFile()
+    if (!selected) return
+    let [fileName, content] = selected
+
+    return new Promise((resolve, reject) => {
+      let drive = this._validationDrive()
+      let start = this.randomInt(content.length)
+      let stream = drive.createReadStream(fileName, {
+        start
+      })
+      collect(stream, (err, bufs) => {
+        if (err) return reject(err)
+        let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
+        if (!buf.equals(content.slice(start))) return reject(new Error('Read stream does not match content slice.'))
+        return resolve()
+      })
+    })
+  }
+}
+
+class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
+  constructor(opts) {
+    super(opts)
+  }
+  _setup () {
+    return super._setup().then(() => {
+      this.remoteDrive = create(this.drive.key)
+      this.remoteDrive.ready(err => {
+        if (err) throw err
+        let s1 = this.remoteDrive.replicate({ live: true })
+        s1.pipe(this.drive.replicate({ live: true })).pipe(s1)
+      })
+    })
+  }
+  _validationDrive () {
+    return this.remoteDrive
   }
 }
 
 module.exports = HyperdriveFuzzer
 
-tape('100000 mixed operations', async t => {
+tape('100000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({
@@ -204,6 +244,21 @@ tape('100000 mixed operations', async t => {
 
   try {
     await fuzz.run(100000)
+    t.pass('fuzzing succeeded')
+  } catch (err) {
+    t.error(err, 'no error')
+  }
+})
+
+tape.only('10000 mixed operations, replicating drives', async t => {
+  t.plan(1)
+
+  const fuzz = new SparseHyperdriveFuzzer({
+    seed: 'hyperdrive2'
+  })
+
+  try {
+    await fuzz.run(10000)
     t.pass('fuzzing succeeded')
   } catch (err) {
     t.error(err, 'no error')
