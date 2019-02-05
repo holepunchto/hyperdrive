@@ -447,7 +447,6 @@ class Hyperdrive extends EventEmitter {
       this._db.del(name, (err, node) => {
         if (err) return cb(err)
         if (!node) return cb(new errors.FileNotFound(name))
-        // TODO: Need to check if it's a directory, and the directory was not found
         return cb(null)
       })
     })
