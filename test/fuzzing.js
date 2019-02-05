@@ -48,8 +48,8 @@ class HyperdriveFuzzer extends FuzzBuzz {
     return char
   }
   _fileName () {
-    let depth = Math.max(this.randomInt(MAX_PATH_DEPTH), 1)
     do {
+      let depth = Math.max(this.randomInt(MAX_PATH_DEPTH), 1)
       var name = (new Array(depth)).fill(0).map(() => this._validChar()).join('/')
     } while (this.files.get(name) || this.directories.get(name))
     return name
@@ -127,6 +127,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
 
 
   async call (ops) {
+    if (!this._counter) this._counter = 0
     let res = await super.call(ops)
     this.log.push(res)
   }
@@ -294,7 +295,7 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
 
 module.exports = HyperdriveFuzzer
 
-tape('10000 mixed operations, single drive', async t => {
+tape('20000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({
@@ -303,16 +304,14 @@ tape('10000 mixed operations, single drive', async t => {
   })
 
   try {
-    // let failure = await fuzz.bisect(10000)
-    // console.log('failure:', failure)
-    await fuzz.run(10000)
+    await fuzz.run(20000)
     t.pass('fuzzing succeeded')
   } catch (err) {
     t.error(err, 'no error')
   }
 })
 
-tape('10000 mixed operations, replicating drives', async t => {
+tape('20000 mixed operations, replicating drives', async t => {
   t.plan(1)
 
   const fuzz = new SparseHyperdriveFuzzer({
@@ -321,7 +320,7 @@ tape('10000 mixed operations, replicating drives', async t => {
   })
 
   try {
-    await fuzz.run(10000)
+    await fuzz.run(20000)
     t.pass('fuzzing succeeded')
   } catch (err) {
     t.error(err, 'no error')
