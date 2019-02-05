@@ -367,8 +367,15 @@ class Hyperdrive extends EventEmitter {
         offset: this._contentFeedLength,
         byteOffset: this._contentFeedByteLength
       })
-      this._db.put(name, st, cb)
+      this._db.put(name, st, {
+        condition: ifNotExists
+      }, cb)
     })
+
+    function ifNotExists (oldNode, newNode, cb) {
+      if (oldNode) return cb(new errors.PathAlreadyExists(name))
+      return cb(null, true)
+    }
   }
 
   _statDirectory (name, opts, cb) {
