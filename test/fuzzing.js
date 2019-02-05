@@ -18,6 +18,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(5, this.deleteFile)
     this.add(5, this.existingFileOverwrite)
     this.add(3, this.statFile)
+    this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
     this.add(2, this.randomReadStream)
     this.add(1, this.writeAndMkdir)
@@ -43,12 +44,14 @@ class HyperdriveFuzzer extends FuzzBuzz {
   _validChar () {
     do {
       var char = String.fromCharCode(this.randomInt(CHARACTERS))
-    } while(INVALID_CHARS.has(char))
+    } while (INVALID_CHARS.has(char))
     return char
   }
   _fileName () {
-    let depth = this.randomInt(MAX_PATH_DEPTH)
-    let name = (new Array(depth)).fill(0).map(() => this._validChar()).join('/')
+    let depth = Math.max(this.randomInt(MAX_PATH_DEPTH), 1)
+    do {
+      var name = (new Array(depth)).fill(0).map(() => this._validChar()).join('/')
+    } while (this.files.get(name) || this.directories.get(name))
     return name
   }
   _createFile () {
@@ -97,6 +100,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
   _validateDirectory (name, list) {
+    /*
     let drive = this._validationDrive()
     return new Promise((resolve, reject) => {
       drive.readdir(name, (err, list) => {
@@ -110,6 +114,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
         return resolve()
       })
     })
+    */
   }
   async _validate () {
     for (const [fileName, content] of this.files) {
@@ -165,9 +170,30 @@ class HyperdriveFuzzer extends FuzzBuzz {
     return new Promise((resolve, reject) => {
       this.drive.stat(fileName, (err, st) => {
         if (err) return reject(err)
-        if (!st) return reject(new Error(`File ${fileName} should exist does not exist.`))
+        if (!st) return reject(new Error(`File ${fileName} should exist but does not exist.`))
         if (st.size !== content.length) return reject(new Error(`Incorrect content length for file ${fileName}.`))
         return resolve({ type: 'stat', fileName, stat: st })
+      })
+    })
+  }
+
+  statDirectory () {
+    let selected = this._selectDirectory()
+    if (!selected) return
+
+    let [dirName, { offset, byteOffset }] = selected
+
+    this.debug(`Statting directory ${dirName}.`)
+    let fileStat = JSON.stringify(this.files.get(dirName))
+    this.debug(`   File stat for name: ${fileStat} and typeof ${typeof fileStat}`)
+    return new Promise((resolve, reject) => {
+      this.drive.stat(dirName, (err, st) => {
+        if (err) return reject(err)
+        this.debug(`Stat for directory ${dirName}: ${JSON.stringify(st)}`)
+        if (!st) return reject(new Error(`Directory ${dirName} should exist but does not exist.`))
+        if (!st.isDirectory()) return reject(new Error(`Stat for directory ${dirName} does not have directory mode`))
+        if (st.offset !== offset || st.byteOffset !== byteOffset) return reject(new Error(`Invalid offsets for ${dirName}`))
+        return resolve({ type: 'stat', dirName })
       })
     })
   }
@@ -190,17 +216,16 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
-  writeAndMkdir () {
-  }
-
   randomReadStream () {
     let selected = this._selectFile()
     if (!selected) return
     let [fileName, content] = selected
 
+
     return new Promise((resolve, reject) => {
       let drive = this._validationDrive()
       let start = this.randomInt(content.length)
+      this.debug(`Creating random read stream for ${fileName} at start ${start}`)
       let stream = drive.createReadStream(fileName, {
         start
       })
@@ -208,8 +233,42 @@ class HyperdriveFuzzer extends FuzzBuzz {
         if (err) return reject(err)
         let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
         if (!buf.equals(content.slice(start))) return reject(new Error('Read stream does not match content slice.'))
+        this.debug(`Random read stream for ${fileName} succeeded.`)
         return resolve()
       })
+    })
+  }
+
+  writeAndMkdir () {
+    const self = this
+
+    let { name: fileName, content } = this._createFile()
+    let dirName = this._fileName()
+
+    return new Promise((resolve, reject) => {
+      let pending = 2
+
+      let offset = this.drive._contentFeedLength
+      let byteOffset = this.drive._contentFeedByteLength
+
+      let writeStream = this.drive.createWriteStream(fileName)
+      writeStream.on('finish', done)
+
+      this.drive.mkdir(dirName, done)
+      writeStream.end(content)
+
+      function done (err) {
+        if (err) return reject(err)
+        if (!--pending) {
+          self.files.set(fileName, content)
+          self.debug(`Created directory ${dirName}`)
+          self.directories.set(dirName, {
+            offset,
+            byteOffset
+          })
+          return resolve()
+        }
+      }
     })
   }
 }
@@ -235,26 +294,30 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
 
 module.exports = HyperdriveFuzzer
 
-tape('100000 mixed operations, single drive', async t => {
+tape('10000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({
-    seed: 'hyperdrive'
+    seed: 'hyperdrive',
+    debugging: false
   })
 
   try {
-    await fuzz.run(100000)
+    // let failure = await fuzz.bisect(10000)
+    // console.log('failure:', failure)
+    await fuzz.run(10000)
     t.pass('fuzzing succeeded')
   } catch (err) {
     t.error(err, 'no error')
   }
 })
 
-tape.only('10000 mixed operations, replicating drives', async t => {
+tape('10000 mixed operations, replicating drives', async t => {
   t.plan(1)
 
   const fuzz = new SparseHyperdriveFuzzer({
-    seed: 'hyperdrive2'
+    seed: 'hyperdrive2',
+    debugging: false
   })
 
   try {
