@@ -114,13 +114,8 @@ class Hyperdrive extends EventEmitter {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize (keyPair) {
-      self.contentFeed = hypercore(self._storages.content, keyPair.publicKey, self._contentOpts)
-      self.contentFeed.on('error', function (err) {
-        self.emit('error', err)
-      })
-      self.contentFeed.ready(function (err) {
+      self._ensureContent(keyPair.publicKey, err => {
         if (err) return cb(err)
-
         self._db = hypertrie(null, {
           feed: self.metadataFeed,
           metadata: self.contentFeed.key,
@@ -147,7 +142,7 @@ class Hyperdrive extends EventEmitter {
       if (self.metadataFeed.writable) {
         self._db.ready(err => {
           if (err) return done(err)
-          self._ensureContent(done)
+          self._ensureContent(null, done)
         })
       } else {
         self._db.ready(done)
@@ -170,28 +165,38 @@ class Hyperdrive extends EventEmitter {
     }
   }
 
-  _ensureContent (cb) {
-    this._db.getMetadata((err, contentKey) => {
-      if (err) return cb(err)
+  _ensureContent (publicKey, cb) {
+    let self = this
 
-      this.contentFeed = hypercore(this._storages.content, contentKey, this._contentOpts)
-      this.contentFeed.ready(err => {
+    if (publicKey) return onkey(publicKey)
+    else loadkey()
+
+    function loadkey () {
+      self._db.getMetadata((err, contentKey) => {
+        if (err) return cb(err)
+        return onkey(contentKey)
+      })
+    }
+
+    function onkey (publicKey) {
+      self.contentFeed = hypercore(self._storages.content, publicKey, self._contentOpts)
+      self.contentFeed.ready(err => {
         if (err) return cb(err)
 
-        this._contentFeedByteLength = this.contentFeed.byteLength
-        this._contentFeedLength = this.contentFeed.length
+        self._contentFeedByteLength = self.contentFeed.byteLength
+        self._contentFeedLength = self.contentFeed.length
 
-        this.contentFeed.on('error', err => this.emit('error', err))
+        self.contentFeed.on('error', err => self.emit('error', err))
         return cb(null)
       })
-    })
+    }
   }
 
   _contentReady (cb) {
     this.ready(err => {
       if (err) return cb(err)
       if (this.contentFeed) return cb(null)
-      this._ensureContent(cb)
+      this._ensureContent(null, cb)
     })
   }
 
@@ -360,7 +365,7 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    this.ready(err => {
+    this.contentReady(err => {
       if (err) return cb(err)
       let st = Stat.directory({
         ...opts,

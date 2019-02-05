@@ -79,7 +79,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.log = []
 
     return new Promise((resolve, reject) => {
-      this.drive.ready(err => {
+      this.drive.contentReady(err => {
         if (err) return reject(err)
         return resolve()
       })
@@ -278,13 +278,20 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
   constructor(opts) {
     super(opts)
   }
-  _setup () {
-    return super._setup().then(() => {
-      this.remoteDrive = create(this.drive.key)
+  async _setup () {
+    await super._setup()
+
+    this.remoteDrive = create(this.drive.key)
+
+    return new Promise((resolve, reject) => {
       this.remoteDrive.ready(err => {
         if (err) throw err
         let s1 = this.remoteDrive.replicate({ live: true })
         s1.pipe(this.drive.replicate({ live: true })).pipe(s1)
+        this.remoteDrive.contentReady(err => {
+          if (err) return reject(err)
+          return resolve()
+        })
       })
     })
   }
@@ -322,6 +329,23 @@ tape('20000 mixed operations, replicating drives', async t => {
   try {
     await fuzz.run(20000)
     t.pass('fuzzing succeeded')
+  } catch (err) {
+    t.error(err, 'no error')
+  }
+})
+
+tape('100 quick validations (initialization timing)', async t => {
+  t.plan(1)
+
+  try {
+    for (let i = 0; i < 100; i++) {
+      const fuzz = new SparseHyperdriveFuzzer({
+        seed: 'iteration #' + i,
+        debugging: false
+      })
+      await fuzz.run(100)
+    }
+    t.pass('fuzzing suceeded')
   } catch (err) {
     t.error(err, 'no error')
   }
