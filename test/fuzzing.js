@@ -226,14 +226,16 @@ class HyperdriveFuzzer extends FuzzBuzz {
     return new Promise((resolve, reject) => {
       let drive = this._validationDrive()
       let start = this.randomInt(content.length)
-      this.debug(`Creating random read stream for ${fileName} at start ${start}`)
+      let length = this.randomInt(content.length - start)
+      this.debug(`Creating random read stream for ${fileName} at start ${start} with length ${length}`)
       let stream = drive.createReadStream(fileName, {
-        start
+        start,
+        length
       })
       collect(stream, (err, bufs) => {
         if (err) return reject(err)
         let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-        if (!buf.equals(content.slice(start))) return reject(new Error('Read stream does not match content slice.'))
+        if (!buf.equals(content.slice(start, start + length))) return reject(new Error('Read stream does not match content slice.'))
         this.debug(`Random read stream for ${fileName} succeeded.`)
         return resolve()
       })
