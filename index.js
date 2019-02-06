@@ -19,6 +19,8 @@ const messages = require('./lib/messages')
 const { defaultStorage } = require('./lib/storage')
 const { contentKeyPair, contentOptions } = require('./lib/content')
 
+module.exports = (...args) => new Hyperdrive(...args)
+
 class Hyperdrive extends EventEmitter {
   constructor (storage, key, opts) {
     super()
@@ -33,12 +35,13 @@ class Hyperdrive extends EventEmitter {
     this.discoveryKey = null
     this.live = true
     this.latest = !!opts.latest
+    this.sparse = !!opts.sparse
 
     this._storages = defaultStorage(this, storage, opts)
 
     this.metadataFeed = opts.metadataFeed || hypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
-      sparse: opts.sparseMetadata,
+      sparse: !!opts.sparseMetadata,
       createIfMissing: opts.createIfMissing,
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
@@ -46,6 +49,7 @@ class Hyperdrive extends EventEmitter {
     this._db = opts.db
     this.contentFeed = opts.contentFeed || null
     this.storage = storage
+    this.contentStorageCacheSize = opts.contentStorageCacheSize
 
     this._contentOpts = null
     this._contentFeedLength = null
@@ -205,6 +209,7 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
+    const length = typeof opts.end === 'number' ? 1 + opts.end - (opts.start || 0) : typeof opts.length === 'number' ? opts.length : -1
     const stream = coreByteStream({
       ...opts,
       highWaterMark: opts.highWaterMark || 64 * 1024 
@@ -219,8 +224,8 @@ class Hyperdrive extends EventEmitter {
 
         st = st.value
 
-        let byteOffset = (opts.start) ? st.byteOffset + opts.start : st.byteOffset
-        let byteLength = (opts.start) ? st.size - opts.start : st.size
+        let byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+        let byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
 
         stream.start({
           feed: this.contentFeed,
@@ -529,8 +534,6 @@ class Hyperdrive extends EventEmitter {
     return this._db.watch(name, onchange)
   }
 }
-
-module.exports = Hyperdrive
 
 function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
