@@ -3,41 +3,41 @@
   "version": "9.14.2",
   "description": "Hyperdrive is a secure, real time distributed file system",
   "main": "index.js",
-  "dependencies": {
-    "append-tree": "^2.3.5",
-    "duplexify": "^3.5.0",
-    "from2": "^2.3.0",
-    "hypercore": "^6.22.1",
-    "inherits": "^2.0.3",
-    "mutexify": "^1.1.0",
-    "protocol-buffers-encodings": "^1.1.0",
-    "random-access-file": "^2.0.1",
-    "sodium-universal": "^2.0.0",
-    "stream-collector": "^1.0.1",
-    "stream-each": "^1.2.0",
-    "thunky": "^1.0.2",
-    "uint64be": "^2.0.1",
-    "unixify": "^1.0.0"
-  },
-  "devDependencies": {
-    "protocol-buffers": "^4.0.2",
-    "random-access-memory": "^2.3.0",
-    "standard": "^9.0.2",
-    "tape": "^4.6.3",
-    "temporary-directory": "^1.0.2"
-  },
   "scripts": {
-    "test": "standard && tape test/*.js",
-    "protobuf": "protocol-buffers schema.proto -o lib/messages.js"
+    "test": "tape test/*.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mafintosh/hyperdrive.git"
+    "url": "git+https://github.com/mafintosh/hyperdrive.git"
   },
+  "keywords": [
+    "hyperdrive",
+    "hypertrie"
+  ],
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/mafintosh/hyperdrive/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperdrive"
+  "homepage": "https://github.com/mafintosh/hyperdrive#readme",
+  "dependencies": {
+    "custom-error-class": "^1.0.0",
+    "duplexify": "^3.7.1",
+    "hypercore": "^6.24.0",
+    "hypercore-byte-stream": "^1.0.1",
+    "hypertrie": "^3.3.0",
+    "mutexify": "^1.2.0",
+    "pump": "^3.0.0",
+    "stream-collector": "^1.0.1",
+    "through2": "^3.0.0",
+    "thunky": "^1.0.3",
+    "unixify": "^1.0.0"
+  },
+  "devDependencies": {
+    "fuzzbuzz": "^1.2.0",
+    "random-access-memory": "^3.1.1",
+    "sodium-universal": "^2.0.0",
+    "tape": "^4.9.2",
+    "temporary-directory": "^1.0.2"
+  }
 }
