@@ -23,9 +23,9 @@
   "dependencies": {
     "custom-error-class": "^1.0.0",
     "duplexify": "^3.7.1",
-    "hypercore": "^6.24.0",
-    "hypercore-byte-stream": "^1.0.1",
-    "hypertrie": "^3.3.0",
+    "hypercore": "^6.25.0",
+    "hypercore-byte-stream": "^1.0.2",
+    "hypertrie": "^3.3.1",
     "mutexify": "^1.2.0",
     "pump": "^3.0.0",
     "stream-collector": "^1.0.1",
@@ -34,7 +34,7 @@
     "unixify": "^1.0.0"
   },
   "devDependencies": {
-    "fuzzbuzz": "^1.2.0",
+    "fuzzbuzz": "^2.0.0",
     "random-access-memory": "^3.1.1",
     "sodium-universal": "^2.0.0",
     "tape": "^4.9.2",
