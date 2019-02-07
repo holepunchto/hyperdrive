@@ -13,6 +13,7 @@ const hypercore = require('hypercore')
 const hypertrie = require('hypertrie')
 const coreByteStream = require('hypercore-byte-stream')
 
+const FD = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const messages = require('./lib/messages')
@@ -55,6 +56,7 @@ class Hyperdrive extends EventEmitter {
     this._contentFeedLength = null
     this._contentFeedByteLength = null
     this._lock = mutexify()
+    this._fds = []
 
     this.ready = thunky(this._ready.bind(this))
     this.contentReady = thunky(this._contentReady.bind(this))
@@ -202,6 +204,35 @@ class Hyperdrive extends EventEmitter {
       if (this.contentFeed) return cb(null)
       this._ensureContent(null, cb)
     })
+  }
+
+  open (name, flags, cb) {
+    name = unixify(name)
+
+    this.contentReady(err => {
+      if (err) return cb(err)
+
+      this._db.get(name, (err, st) => {
+        if (err) return cb(err)
+        if (!st) return cb(new errors.FileNotFound(name))
+
+        // 20 is arbitrary, just to make the fds > stdio etc
+        const fd = 20 + this._fds.push(new FD(this.contentFeed, name, st.value)) - 1
+        cb(null, fd)
+      })
+    })
+  }
+
+  read (fd, buf, offset, len, pos, cb) {
+    if (typeof pos === 'function') {
+      cb = pos
+      pos = null
+    }
+
+    const desc = this._fds[fd - 20]
+    if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
+    if (pos == null) pos = desc.position
+    desc.read(buf, offset, len, pos, cb)
   }
 
   createReadStream (name, opts) {
@@ -511,7 +542,11 @@ class Hyperdrive extends EventEmitter {
   }
 
   _closeFile (fd, cb) {
-    // TODO: implement
+    const desc = this._fds[fd - 20]
+    if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
+    this._fds[fd - 20] = null
+    while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
+    desc.close()
     process.nextTick(cb, null)
   }
 
