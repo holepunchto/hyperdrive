@@ -230,7 +230,7 @@ class Hyperdrive extends EventEmitter {
     }
 
     const desc = this._fds[fd - 20]
-    if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
+    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(fd))
     if (pos == null) pos = desc.position
     desc.read(buf, offset, len, pos, cb)
   }
