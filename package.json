@@ -28,6 +28,7 @@
     "hypertrie": "^3.3.1",
     "mutexify": "^1.2.0",
     "pump": "^3.0.0",
+    "sodium-universal": "^2.0.0",
     "stream-collector": "^1.0.1",
     "through2": "^3.0.0",
     "thunky": "^1.0.3",
@@ -36,7 +37,6 @@
   "devDependencies": {
     "fuzzbuzz": "^2.0.0",
     "random-access-memory": "^3.1.1",
-    "sodium-universal": "^2.0.0",
     "tape": "^4.9.2",
     "temporary-directory": "^1.0.2"
   }

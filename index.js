@@ -520,7 +520,7 @@ class Hyperdrive extends EventEmitter {
     else cb = fd
     if (!cb) cb = noop
 
-    this.contentReady(err => {
+    this.ready(err => {
       if (err) return cb(err)
       this.metadataFeed.close(err => {
         if (!this.contentFeed) return cb(err)
