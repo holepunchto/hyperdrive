@@ -127,7 +127,6 @@ class HyperdriveFuzzer extends FuzzBuzz {
 
 
   async call (ops) {
-    if (!this._counter) this._counter = 0
     let res = await super.call(ops)
     this.log.push(res)
   }
