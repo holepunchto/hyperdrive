@@ -20,6 +20,9 @@ const messages = require('./lib/messages')
 const { defaultStorage } = require('./lib/storage')
 const { contentKeyPair, contentOptions } = require('./lib/content')
 
+// 20 is arbitrary, just to make the fds > stdio etc
+const STDIO_CAP = 20
+
 module.exports = (...args) => new Hyperdrive(...args)
 
 class Hyperdrive extends EventEmitter {
@@ -47,7 +50,7 @@ class Hyperdrive extends EventEmitter {
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
     })
-    this._db = opts.db
+    this._db = opts._db
     this.contentFeed = opts.contentFeed || null
     this.storage = storage
     this.contentStorageCacheSize = opts.contentStorageCacheSize
@@ -207,6 +210,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   open (name, flags, cb) {
+    if (typeof flags === 'function') return this.open(name, null, flags)
     name = unixify(name)
 
     this.contentReady(err => {
@@ -216,8 +220,7 @@ class Hyperdrive extends EventEmitter {
         if (err) return cb(err)
         if (!st) return cb(new errors.FileNotFound(name))
 
-        // 20 is arbitrary, just to make the fds > stdio etc
-        const fd = 20 + this._fds.push(new FD(this.contentFeed, name, st.value)) - 1
+        const fd = STDIO_CAP + this._fds.push(new FD(this.contentFeed, name, st.value)) - 1
         cb(null, fd)
       })
     })
@@ -229,7 +232,7 @@ class Hyperdrive extends EventEmitter {
       pos = null
     }
 
-    const desc = this._fds[fd - 20]
+    const desc = this._fds[fd - STDIO_CAP]
     if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(fd))
     if (pos == null) pos = desc.position
     desc.read(buf, offset, len, pos, cb)
@@ -255,8 +258,8 @@ class Hyperdrive extends EventEmitter {
 
         st = st.value
 
-        let byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
-        let byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
+        const byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+        const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
 
         stream.start({
           feed: this.contentFeed,
@@ -281,7 +284,7 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return
-      let stream = pump(
+      const stream = pump(
         this._db.createReadStream(name, opts),
         through.obj((chunk, enc, cb) => {
           return cb(null, {
@@ -531,12 +534,11 @@ class Hyperdrive extends EventEmitter {
   }
 
   checkout (version, opts) {
-    const versionedTrie = this._db.checkout(version) 
     opts = {
       ...opts,
       metadataFeed: this.metadataFeed,
       contentFeed: this.contentFeed,
-      db: versionedTrie,
+      _db: this._db.checkout(version),
     }
     return new Hyperdrive(this.storage, this.key, opts)
   }

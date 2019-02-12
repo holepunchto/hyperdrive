@@ -88,3 +88,91 @@ tape('basic fd read with implicit position', function (t) {
     })
   })
 })
+
+tape('fd read with zero length', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+
+  drive.writeFile('hi', content, function (err) {
+    t.error(err, 'no error')
+
+    drive.open('hi', 'r', function (err, fd) {
+      t.error(err, 'no error')
+
+      const buf = Buffer.alloc(content.length)
+
+      drive.read(fd, buf, 0, 0, function (err, bytesRead) {
+        t.error(err, 'no error')
+        t.same(bytesRead, 0)
+        t.end()
+      })
+    })
+  })
+})
+
+tape('fd read with out-of-bounds offset', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+
+  drive.writeFile('hi', content, function (err) {
+    t.error(err, 'no error')
+
+    drive.open('hi', 'r', function (err, fd) {
+      t.error(err, 'no error')
+
+      const buf = Buffer.alloc(content.length)
+
+      drive.read(fd, buf, content.length, 10, function (err, bytesRead) {
+        t.error(err, 'no error')
+        t.same(bytesRead, 0)
+        t.end()
+      })
+    })
+  })
+})
+
+tape('fd read with out-of-bounds length', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+
+  drive.writeFile('hi', content, function (err) {
+    t.error(err, 'no error')
+
+    drive.open('hi', 'r', function (err, fd) {
+      t.error(err, 'no error')
+
+      const buf = Buffer.alloc(content.length)
+
+      drive.read(fd, buf, 0, content.length + 1, function (err, bytesRead) {
+        t.error(err, 'no error')
+        t.same(bytesRead, content.length)
+        t.end()
+      })
+    })
+  })
+})
+
+tape('fd read of empty drive', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+
+  drive.open('hi', 'r', function (err, fd) {
+    t.true(err)
+    t.same(err.errno, 2)
+    t.end()
+  })
+})
+
+tape('fd read of invalid file', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+
+  drive.writeFile('hi', content, function (err) {
+    t.error(err, 'no error')
+    drive.open('hello', 'r', function (err, fd) {
+      t.true(err)
+      t.same(err.errno, 2)
+      t.end()
+    })
+  })
+})
