@@ -21,6 +21,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
     this.add(2, this.randomReadStream)
+    this.add(2, this.randomFileDescriptor)
     this.add(1, this.writeAndMkdir)
   }
 
@@ -221,7 +222,6 @@ class HyperdriveFuzzer extends FuzzBuzz {
     if (!selected) return
     let [fileName, content] = selected
 
-
     return new Promise((resolve, reject) => {
       let drive = this._validationDrive()
       let start = this.randomInt(content.length)
@@ -237,6 +237,35 @@ class HyperdriveFuzzer extends FuzzBuzz {
         if (!buf.equals(content.slice(start, start + length))) return reject(new Error('Read stream does not match content slice.'))
         this.debug(`Random read stream for ${fileName} succeeded.`)
         return resolve()
+      })
+    })
+  }
+
+  randomFileDescriptor () {
+    let selected = this._selectFile()
+    if (!selected) return
+    let [fileName, content] = selected
+
+    let length = this.randomInt(content.length)
+    let start = this.randomInt(content.length)
+    let actualLength = Math.min(length, content.length)
+    let buf = Buffer.alloc(actualLength)
+
+    return new Promise((resolve, reject) => {
+      let drive = this._validationDrive()
+      drive.open(fileName, (err, fd) => {
+        if (err) return reject(err)
+
+        console.log('length:', length, 'start:', start, 'content.length:', content.length)
+        drive.read(fd, buf, 0, length, start, err => {
+          if (err) return reject(err)
+          console.log('buf:', buf, 'content:', content)
+          if (!buf.equals(content.slice(start, actualLength))) return reject(new Error('File descriptor read does not match slice.'))
+          this.debug(`Random file descriptor read for ${fileName} succeeded`)
+
+          fd.close()
+          return resolve()
+        })
       })
     })
   }
@@ -273,6 +302,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
       }
     })
   }
+
 }
 
 class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
