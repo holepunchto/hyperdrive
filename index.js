@@ -544,9 +544,9 @@ class Hyperdrive extends EventEmitter {
   }
 
   _closeFile (fd, cb) {
-    const desc = this._fds[fd - 20]
+    const desc = this._fds[fd - STDIO_CAP]
     if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
-    this._fds[fd - 20] = null
+    this._fds[fd - STDIO_CAP] = null
     while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
     desc.close()
     process.nextTick(cb, null)
