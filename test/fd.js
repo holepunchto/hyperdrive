@@ -177,7 +177,7 @@ tape('fd read of invalid file', function (t) {
   })
 })
 
-tape.only('fd basic write, creating file', function (t) {
+tape('fd basic write, creating file', function (t) {
   const drive = create()
   const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
   drive.open('hello', 'w+', function (err, fd) {
@@ -192,6 +192,110 @@ tape.only('fd basic write, creating file', function (t) {
           t.true(readContent.equals(content))
           t.end()
         })
+      })
+    })
+  })
+})
+
+tape('fd basic write, appending file', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  let first = content.slice(0, 2000)
+  let second = content.slice(2000)
+
+  drive.writeFile('hello', first, err => {
+    t.error(err, 'no error')
+    writeSecond()
+  })
+
+  function writeSecond () {
+    drive.open('hello', 'a', function (err, fd) {
+      t.error(err, 'no error')
+      drive.write(fd, second, 0, second.length, first.length, function (err, bytesWritten) {
+        t.error(err, 'no error')
+        t.same(bytesWritten, second.length)
+        drive.close(fd, err => {
+          t.error(err, 'no error')
+          drive.readFile('hello', function (err, readContent) {
+            t.error(err, 'no error')
+            t.true(readContent.equals(content))
+            t.end()
+          })
+        })
+      })
+    })
+  }
+})
+
+tape('fd basic write, overwrite file', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  let first = content.slice(0, 2000)
+  let second = content.slice(2000)
+
+  drive.writeFile('hello', first, err => {
+    t.error(err, 'no error')
+    writeSecond()
+  })
+
+  function writeSecond () {
+    drive.open('hello', 'w', function (err, fd) {
+      t.error(err, 'no error')
+      drive.write(fd, second, 0, second.length, 0, function (err, bytesWritten) {
+        t.error(err, 'no error')
+        t.same(bytesWritten, second.length)
+        drive.close(fd, err => {
+          t.error(err, 'no error')
+          drive.readFile('hello', function (err, readContent) {
+            t.error(err, 'no error')
+            t.true(readContent.equals(second))
+            t.end()
+          })
+        })
+      })
+    })
+  }
+})
+
+tape('fd stateful write', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  let first = content.slice(0, 2000)
+  let second = content.slice(2000)
+
+  drive.open('hello', 'w', function (err, fd) {
+    t.error(err, 'no error')
+    drive.write(fd, first, 0, first.length, 0, function (err) {
+      t.error(err, 'no error')
+      drive.write(fd, second, 0, second.length, first.length, function (err) {
+        t.error(err, 'no error')
+        drive.close(fd, err => {
+          t.error(err, 'no error')
+          drive.readFile('hello', function (err, readContent) {
+            t.error(err, 'no error')
+            t.true(readContent.equals(content))
+            t.end()
+          })
+        })
+      })
+    })
+  })
+})
+
+tape('fd random-access write fails', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  let first = content.slice(0, 2000)
+  let second = content.slice(2000)
+
+  drive.open('hello', 'w', function (err, fd) {
+    t.error(err, 'no error')
+    drive.write(fd, first, 0, first.length, 0, function (err) {
+      t.error(err, 'no error')
+      drive.write(fd, second, 0, second.length, first.length - 500, function (err) {
+        t.true(err)
+        t.same(err.errno, 9)
+        t.end()
       })
     })
   })
