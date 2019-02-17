@@ -17,13 +17,13 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(10, this.writeFile)
     this.add(5, this.deleteFile)
     this.add(5, this.existingFileOverwrite)
-    this.add(5, this.randomStatefulFileDescriptor)
+    this.add(5, this.randomStatefulFileDescriptorRead)
     this.add(3, this.statFile)
     this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
     this.add(2, this.randomReadStream)
-    this.add(2, this.randomStatelessFileDescriptor)
-    this.add(1, this.createFileDescriptor)
+    this.add(2, this.randomStatelessFileDescriptorRead)
+    this.add(1, this.createReadableFileDescriptor)
     this.add(1, this.writeAndMkdir)
   }
 
@@ -254,7 +254,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
-  randomStatelessFileDescriptor () {
+  randomStatelessFileDescriptorRead () {
     let selected = this._selectFile()
     if (!selected) return
     let [fileName, content] = selected
@@ -267,7 +267,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     return new Promise((resolve, reject) => {
       let drive = this._validationDrive()
       this.debug(`Random stateless file descriptor read for ${fileName}`)
-      drive.open(fileName, (err, fd) => {
+      drive.open(fileName, 'r', (err, fd) => {
         if (err) return reject(err)
 
         drive.read(fd, buf, 0, length, start, (err, bytesRead) => {
@@ -287,7 +287,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
-  createFileDescriptor () {
+  createReadableFileDescriptor () {
     let selected = this._selectFile()
     if (!selected) return
     let [fileName, content] = selected
@@ -298,7 +298,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.debug(`Creating FD for file ${fileName} and start: ${start}`)
 
     return new Promise((resolve, reject) => {
-      drive.open(fileName, (err, fd) => {
+      drive.open(fileName, 'r', (err, fd) => {
         if (err) return reject(err)
         this.fds.set(fd, {
           pos: start,
@@ -310,7 +310,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     })
   }
 
-  randomStatefulFileDescriptor () {
+  randomStatefulFileDescriptorRead () {
     let selected = this._selectFileDescriptor()
     if (!selected) return
     let [fd, fdInfo] = selected

@@ -176,3 +176,20 @@ tape('fd read of invalid file', function (t) {
     })
   })
 })
+
+tape.skip('fd basic write, creating file', function (t) {
+  const drive = create()
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  drive.open('hello', 'w+', function (err, fd) {
+    t.error(err, 'no error')
+    drive.write(fd, content, 0, content.length, 0, function (err, bytesWritten) {
+      t.error(err, 'no error')
+      t.same(bytesWritten, content.length)
+      drive.readFile('hello', function (err, readContent) {
+        t.error(err, 'no error')
+        console.log('readContent:', readContent)
+        t.true(readContent.equals(content))
+      })
+    })
+  })
+})

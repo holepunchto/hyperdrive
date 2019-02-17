@@ -210,19 +210,11 @@ class Hyperdrive extends EventEmitter {
   }
 
   open (name, flags, cb) {
-    if (typeof flags === 'function') return this.open(name, null, flags)
     name = unixify(name)
 
-    this.contentReady(err => {
+    FD.create(this, name, flags, (err, fd) => {
       if (err) return cb(err)
-
-      this._db.get(name, (err, st) => {
-        if (err) return cb(err)
-        if (!st) return cb(new errors.FileNotFound(name))
-
-        const fd = STDIO_CAP + this._fds.push(new FD(this.contentFeed, name, st.value)) - 1
-        cb(null, fd)
-      })
+      cb(null, STDIO_CAP + this._fds.push(fd) - 1)
     })
   }
 
@@ -233,9 +225,21 @@ class Hyperdrive extends EventEmitter {
     }
 
     const desc = this._fds[fd - STDIO_CAP]
-    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(fd))
+    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
     if (pos == null) pos = desc.position
     desc.read(buf, offset, len, pos, cb)
+  }
+
+  write (fd, buf, offset, len, pos, cb) {
+    if (typeof pos === 'function') {
+      cb = pos
+      pos = null
+    }
+
+    const desc = this._fds[fd - STDIO_CAP]
+    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
+    if (pos == null) pos = desc.position
+    desc.write(buf, offset, len, pos, cb)
   }
 
   createReadStream (name, opts) {
@@ -301,12 +305,12 @@ class Hyperdrive extends EventEmitter {
 
   createWriteStream (name,  opts) {
     if (!opts) opts = {}
-
     name = unixify(name)
 
     const self = this
+    var release
+
     const proxy = duplexify()
-    var release = null
     proxy.setReadable(false)
 
     // TODO: support piping through a "split" stream like rabin
@@ -315,40 +319,39 @@ class Hyperdrive extends EventEmitter {
       if (err) return proxy.destroy(err)
       this._lock(_release => {
         release = _release
-        return append()
+        append()
       })
     })
 
     return proxy
 
     function append (err) {
-      if (err) proxy.destroy(err)
+      if (err) return proxy.destroy(err)
       if (proxy.destroyed) return release()
 
-      // No one should mutate the content other than us
-      let byteOffset = self.contentFeed.byteLength
-      let offset = self.contentFeed.length
+      const byteOffset = self.contentFeed.byteLength
+      const offset = self.contentFeed.length
 
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
       const stream = self.contentFeed.createWriteStream()
 
-      proxy.on('close', done)
-      proxy.on('finish', done)
+      proxy.on('close', ondone)
+      proxy.on('finish', ondone)
 
       proxy.setWritable(stream)
       proxy.on('prefinish', function () {
-        var st = Stat.file({
+        const stat = Stat.file({
           ...opts,
-          size: self.contentFeed.byteLength - byteOffset,
-          blocks: self.contentFeed.length - offset,
           offset: offset,
           byteOffset: byteOffset,
+          size: self.contentFeed.byteLength - byteOffset,
+          blocks: self.contentFeed.length - offset
         })
 
         proxy.cork()
-        self._db.put(name, st, function (err) {
+        self._db.put(name, stat, function (err) {
           if (err) return proxy.destroy(err)
           self.emit('append', name, opts)
           proxy.uncork()
@@ -356,9 +359,9 @@ class Hyperdrive extends EventEmitter {
       })
     }
 
-    function done () {
-      proxy.removeListener('close', done)
-      proxy.removeListener('finish', done)
+    function ondone () {
+      proxy.removeListener('close', ondone)
+      proxy.removeListener('finish', ondone)
       self._contentFeedLength = self.contentFeed.length
       self._contentFeedByteLength = self.contentFeed.byteLength
       release()
@@ -548,8 +551,7 @@ class Hyperdrive extends EventEmitter {
     if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
     this._fds[fd - STDIO_CAP] = null
     while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
-    desc.close()
-    process.nextTick(cb, null)
+    desc.close(cb)
   }
 
   close (fd, cb) {
