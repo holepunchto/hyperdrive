@@ -13,4 +13,5 @@ message Stat {
   optional uint64 byteOffset = 7;
   optional uint64 mtime = 8;
   optional uint64 ctime = 9;
+  optional bool live = 10;
 }
