@@ -230,6 +230,7 @@ class Hyperdrive extends EventEmitter {
     desc.read(buf, offset, len, pos, cb)
   }
 
+    /*
   write (fd, buf, offset, len, pos, cb) {
     if (typeof pos === 'function') {
       cb = pos
@@ -241,6 +242,7 @@ class Hyperdrive extends EventEmitter {
     if (pos == null) pos = desc.position
     desc.write(buf, offset, len, pos, cb)
   }
+  */
 
   createReadStream (name, opts) {
     if (!opts) opts = {}
