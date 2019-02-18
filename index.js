@@ -575,6 +575,23 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
+  updateMetadata (name, stat, cb) {
+    name = unixify(name)
+
+    this.ready(err => {
+      if (err) return cb(err)
+      this._db.get(name, (err, st) => {
+        if (err) return cb(err)
+        if (!st) return cb(new errors.FileNotFound(name))
+        const newStat = Object.assign(st.value, stat)
+        this._db.put(name, newStat, err => {
+          if (err) return cb(err)
+          return cb(null)
+        })
+      })
+    })
+  }
+
   watch (name, onchange) {
     name = unixify(name)
     return this._db.watch(name, onchange)
