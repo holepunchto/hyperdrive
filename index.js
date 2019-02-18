@@ -41,9 +41,10 @@ class Hyperdrive extends EventEmitter {
     this.latest = !!opts.latest
     this.sparse = !!opts.sparse
 
-    this._storages = defaultStorage(this, storage, opts)
+    this._factory = opts.factory ? storage : null
+    this._storages = !this.factory ? defaultStorage(this, storage, opts) : null
 
-    this.metadataFeed = opts.metadataFeed || hypercore(this._storages.metadata, key, {
+    this.metadataFeed = opts.metadataFeed || this._createHypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
       sparse: !!opts.sparseMetadata,
       createIfMissing: opts.createIfMissing,
@@ -80,6 +81,11 @@ class Hyperdrive extends EventEmitter {
     }
   }
 
+  _createHypercore (storage, key, opts) {
+    if (this._factory) return this._factory(key, opts)
+    return hypercore(storage, key, opts)
+  }
+
   get version () {
     // TODO: The trie version starts at 1, so the empty hyperdrive version is also 1. This should be 0.
     return this._db.version
@@ -98,8 +104,9 @@ class Hyperdrive extends EventEmitter {
     this.metadataFeed.ready(err => {
       if (err) return cb(err)
 
-      const keyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
-      this._contentOpts = contentOptions(this, keyPair.secretKey)
+      this._contentKeyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
+      this._contentOpts = contentOptions(this, this._contentKeyPair.secretKey)
+      this._contentOpts.keyPair = this._contentKeyPair
 
       /**
        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
@@ -113,9 +120,9 @@ class Hyperdrive extends EventEmitter {
         if (!this.contentFeed || !this.metadataFeed) return cb(new Error('Must provide a db and both content/metadata feeds'))
         return done(null)
       } else if (this.metadataFeed.writable && !this.metadataFeed.length) {
-        initialize(keyPair)
+        initialize(this._contentKeyPair)
       } else {
-        restore(keyPair)
+        restore(this._contentKeyPair)
       }
     })
 
@@ -188,7 +195,7 @@ class Hyperdrive extends EventEmitter {
     }
 
     function onkey (publicKey) {
-      self.contentFeed = hypercore(self._storages.content, publicKey, self._contentOpts)
+      self.contentFeed = self._createHypercore(self._storages.content, publicKey, self._contentOpts)
       self.contentFeed.ready(err => {
         if (err) return cb(err)
 
