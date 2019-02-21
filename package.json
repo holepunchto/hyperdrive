@@ -25,7 +25,7 @@
     "duplexify": "^3.7.1",
     "hypercore": "^6.25.0",
     "hypercore-byte-stream": "^1.0.2",
-    "hypertrie": "^3.3.1",
+    "hypertrie": "^3.4.0",
     "mutexify": "^1.2.0",
     "pump": "^3.0.0",
     "sodium-universal": "^2.0.0",

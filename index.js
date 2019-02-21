@@ -135,7 +135,6 @@ class Hyperdrive extends EventEmitter {
         self._db = hypertrie(null, {
           feed: self.metadataFeed,
           metadata: self.contentFeed.key,
-          valueEncoding: messages.Stat
         })
 
         self._db.ready(function (err) {
@@ -152,8 +151,7 @@ class Hyperdrive extends EventEmitter {
      */
     function restore (keyPair) {
       self._db = hypertrie(null, {
-        feed: self.metadataFeed,
-        valueEncoding: messages.Stat
+        feed: self.metadataFeed
       })
       if (self.metadataFeed.writable) {
         self._db.ready(err => {
@@ -213,6 +211,21 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       if (this.contentFeed) return cb(null)
       this._ensureContent(null, cb)
+    })
+  }
+
+  _update (name, stat, cb) {
+    name = unixify(name)
+
+    if (err) return cb(err)
+    this._db.get(name, (err, st) => {
+      if (err) return cb(err)
+      if (!st) return cb(new errors.FileNotFound(name))
+      const newStat = Object.assign(messages.Stat.decode(st.value), stat)
+      this._db.put(name, newStat, err => {
+        if (err) return cb(err)
+        return cb(null)
+      })
     })
   }
 
@@ -437,7 +450,7 @@ class Hyperdrive extends EventEmitter {
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      st = Stat.directory()
+      st = Stat.directory(st)
       return cb(null, st)
     })
   }
@@ -453,7 +466,8 @@ class Hyperdrive extends EventEmitter {
       this._db.get(name, opts, (err, node) => {
         if (err) return cb(err)
         if (!node) return this._statDirectory(name, opts, cb)
-        cb(null, new Stat(node.value))
+        const st = messages.Stat.decode(node.value)
+        cb(null, new Stat(st))
       })
     })
   }
@@ -571,23 +585,6 @@ class Hyperdrive extends EventEmitter {
       this.metadataFeed.close(err => {
         if (!this.contentFeed) return cb(err)
         this.contentFeed.close(cb)
-      })
-    })
-  }
-
-  updateMetadata (name, stat, cb) {
-    name = unixify(name)
-
-    this.ready(err => {
-      if (err) return cb(err)
-      this._db.get(name, (err, st) => {
-        if (err) return cb(err)
-        if (!st) return cb(new errors.FileNotFound(name))
-        const newStat = Object.assign(st.value, stat)
-        this._db.put(name, newStat, err => {
-          if (err) return cb(err)
-          return cb(null)
-        })
       })
     })
   }
