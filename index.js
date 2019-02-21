@@ -252,6 +252,7 @@ class Hyperdrive extends EventEmitter {
     const desc = this._fds[fd - STDIO_CAP]
     if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
     if (pos == null) pos = desc.position
+    console.log('reading into buffer at buffer offset:', offset, len, 'bytes at pos', pos)
     desc.read(buf, offset, len, pos, cb)
   }
 
@@ -441,16 +442,22 @@ class Hyperdrive extends EventEmitter {
   truncate (name, size, cb) {
     name = unixify(name)
 
+    this.ready(err => {
+      if (err) return cb(err)
+      this._update(name, { size: size }, cb)
+    })
+    /*
     this.contentReady(err => {
       if (err) return cb(err)
       this._db.get(name, (err, st) => {
         if (err) return cb(err)
-        if (!st) return this.writeFile(name, Buffer.alloc(size), cb)
+        if (!st || !size) return this.writeFile(name, Buffer.alloc(size), cb)
         try {
           st = messages.Stat.decode(st.value)
         } catch (err) {
           return cb(err)
         }
+        console.log('truncating to size:', size, 'from size:', st.size)
         if (size === st.size) return cb(null)
         if (size < st.size) {
           const readStream = this.createReadStream(name, { length: size })
@@ -468,6 +475,7 @@ class Hyperdrive extends EventEmitter {
         }
       })
     })
+    */
   }
 
   mkdir (name, opts, cb) {
