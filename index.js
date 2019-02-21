@@ -222,11 +222,12 @@ class Hyperdrive extends EventEmitter {
       if (!st) return cb(new errors.FileNotFound(name))
       try {
         var decoded = messages.Stat.decode(st.value)
+        const newStat = Object.assign(decoded, stat)
+        var encoded = messages.Stat.encode(newStat)
       } catch (err) {
         return cb(err)
       }
-      const newStat = Object.assign(decoded, stat)
-      this._db.put(name, newStat, err => {
+      this._db.put(name, encoded, err => {
         if (err) return cb(err)
         return cb(null)
       })
