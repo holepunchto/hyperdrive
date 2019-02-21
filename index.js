@@ -320,9 +320,14 @@ class Hyperdrive extends EventEmitter {
       const stream = pump(
         this._db.createReadStream(name, opts),
         through.obj((chunk, enc, cb) => {
+          try {
+            var stat = messages.Stat.decode(chunk.value)
+          } catch (err) {
+            return cb(err)
+          }
           return cb(null, {
             path: chunk.key,
-            stat: new Stat(chunk.value)
+            stat: new Stat(stat)
           })
         })
       )
