@@ -470,7 +470,7 @@ class Hyperdrive extends EventEmitter {
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
       if (st) {
         try {
-          st = messages.Stat.decode(st)
+          st = messages.Stat.decode(st.value)
         } catch (err) {
           return cb(err)
         }
