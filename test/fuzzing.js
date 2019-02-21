@@ -8,7 +8,9 @@ const create = require('./helpers/create')
 const MAX_PATH_DEPTH = 30
 const MAX_FILE_LENGTH = 1e3
 const CHARACTERS = 1e3
-const INVALID_CHARS = new Set(['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' '])
+const APPROX_READS_PER_FD = 5
+const APPROX_WRITES_PER_FD = 5
+const INVALID_CHARS = new Set(['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' ', '\n', '\t', '\r'])
 
 class HyperdriveFuzzer extends FuzzBuzz {
   constructor (opts) {
@@ -18,6 +20,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(5, this.deleteFile)
     this.add(5, this.existingFileOverwrite)
     this.add(5, this.randomStatefulFileDescriptorRead)
+    this.add(5, this.randomStatefulFileDescriptorWrite)
     this.add(3, this.statFile)
     this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
@@ -43,8 +46,8 @@ class HyperdriveFuzzer extends FuzzBuzz {
   _selectDirectory () {
     return this._select(this.directories)
   }
-  _selectFileDescriptor () {
-    return this._select(this.fds)
+  _selectReadableFileDescriptor () {
+    return this._select(this.readable_fds)
   }
 
   _validChar () {
@@ -60,9 +63,12 @@ class HyperdriveFuzzer extends FuzzBuzz {
     } while (this.files.get(name) || this.directories.get(name))
     return name
   }
+  _content () {
+    return Buffer.allocUnsafe(this.randomInt(MAX_FILE_LENGTH)).fill(0).map(() => this.randomInt(10))
+  }
   _createFile () {
     let name = this._fileName()
-    let content = Buffer.allocUnsafe(this.randomInt(MAX_FILE_LENGTH)).fill(0).map(() => this.randomInt(10))
+    let content = this._content()
     return { name, content }
   }
   _deleteFile (name) {
@@ -82,7 +88,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.files = new Map()
     this.directories = new Map()
     this.streams = new Map()
-    this.fds = new Map()
+    this.readable_fds = new Map()
     this.log = []
 
     return new Promise((resolve, reject) => {
@@ -197,15 +203,13 @@ class HyperdriveFuzzer extends FuzzBuzz {
     let [dirName, { offset, byteOffset }] = selected
 
     this.debug(`Statting directory ${dirName}.`)
-    let fileStat = JSON.stringify(this.files.get(dirName))
-    this.debug(`   File stat for name: ${fileStat} and typeof ${typeof fileStat}`)
     return new Promise((resolve, reject) => {
       this.drive.stat(dirName, (err, st) => {
         if (err) return reject(err)
-        this.debug(`Stat for directory ${dirName}: ${JSON.stringify(st)}`)
         if (!st) return reject(new Error(`Directory ${dirName} should exist but does not exist.`))
         if (!st.isDirectory()) return reject(new Error(`Stat for directory ${dirName} does not have directory mode`))
         if (st.offset !== offset || st.byteOffset !== byteOffset) return reject(new Error(`Invalid offsets for ${dirName}`))
+        this.debug(`  Successfully statted directory.`)
         return resolve({ type: 'stat', dirName })
       })
     })
@@ -266,7 +270,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
 
     return new Promise((resolve, reject) => {
       let drive = this._validationDrive()
-      this.debug(`Random stateless file descriptor read for ${fileName}`)
+      this.debug(`Random stateless file descriptor read for ${fileName}, ${length} starting at ${start}`)
       drive.open(fileName, 'r', (err, fd) => {
         if (err) return reject(err)
 
@@ -295,12 +299,11 @@ class HyperdriveFuzzer extends FuzzBuzz {
     let start = this.randomInt(content.length / 5)
     let drive = this._validationDrive()
 
-    this.debug(`Creating FD for file ${fileName} and start: ${start}`)
-
     return new Promise((resolve, reject) => {
+      this.debug(`Creating readable FD for file ${fileName} and start: ${start}`)
       drive.open(fileName, 'r', (err, fd) => {
         if (err) return reject(err)
-        this.fds.set(fd, {
+        this.readable_fds.set(fd, {
           pos: start,
           started: false,
           content
@@ -311,13 +314,13 @@ class HyperdriveFuzzer extends FuzzBuzz {
   }
 
   randomStatefulFileDescriptorRead () {
-    let selected = this._selectFileDescriptor()
+    let selected = this._selectReadableFileDescriptor()
     if (!selected) return
     let [fd, fdInfo] = selected
 
     let { content, pos, started } = fdInfo
     // Try to get multiple reads of of each fd.
-    let length = this.randomInt(content.length / 5)
+    let length = this.randomInt(content.length / APPROX_READS_PER_FD)
     let actualLength = Math.min(length, content.length)
     let buf = Buffer.alloc(actualLength)
 
@@ -352,7 +355,57 @@ class HyperdriveFuzzer extends FuzzBuzz {
       function close () {
         drive.close(fd, err => {
           if (err) return reject(err)
-          self.fds.delete(fd)
+          self.readable_fds.delete(fd)
+          return resolve()
+        })
+      }
+    })
+  }
+
+  randomStatefulFileDescriptorWrite () {
+    let append = !!this.randomInt(1)
+    let flags = append ? 'a' : 'w+'
+
+    if (append) {
+      let selected = this._selectFile()
+      if (!selected) return
+      var [fileName, content] = selected
+      var pos = content.length
+    } else {
+      fileName = this._fileName()
+      content = Buffer.alloc(0)
+      pos = 0
+    }
+
+    const bufs = new Array(this.randomInt(APPROX_WRITES_PER_FD - 1)).fill(0).map(() => this._content())
+    const self = this
+
+    let count = 0
+
+    return new Promise((resolve, reject) => {
+      this.debug(`Writing stateful file descriptor for fileName ${fileName} with flags ${flags} and buffers ${bufs.length}`)
+      this.drive.open(fileName, flags, (err, fd) => {
+        if (err) return reject(err)
+        if (!bufs.length) return close(fd)
+        return writeNext(fd)
+      })
+
+      function writeNext(fd) {
+        let next = bufs[count]
+        self.debug(`  Writing content with length ${next.length} to FD ${fd} at pos: ${pos}`)
+        self.drive.write(fd, next, 0, next.length, pos, (err, bytesWritten) => {
+          if (err) return reject(err)
+          pos += bytesWritten
+          bufs[count] = next.slice(0, bytesWritten)
+          if (++count === bufs.length) return close(fd)
+          return writeNext(fd)
+        })
+      }
+
+      function close (fd) {
+        self.drive.close(fd, err => {
+          if (err) return reject(err)
+          self.files.set(fileName, Buffer.concat([content, ...bufs]))
           return resolve()
         })
       }
@@ -366,6 +419,8 @@ class HyperdriveFuzzer extends FuzzBuzz {
     let dirName = this._fileName()
 
     return new Promise((resolve, reject) => {
+      this.debug(`Writing ${fileName} and making dir ${dirName} simultaneously`)
+
       let pending = 2
 
       let offset = this.drive._contentFeedLength
