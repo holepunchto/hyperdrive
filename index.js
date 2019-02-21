@@ -438,6 +438,38 @@ class Hyperdrive extends EventEmitter {
     stream.end()
   }
 
+  truncate (name, size, cb) {
+    name = unixify(name)
+
+    this.contentReady(err => {
+      if (err) return cb(err)
+      this._db.get(name, (err, st) => {
+        if (err) return cb(err)
+        if (!st) return this.writeFile(name, Buffer.alloc(size), cb)
+        try {
+          st = messages.Stat.decode(st.value)
+        } catch (err) {
+          return cb(err)
+        }
+        if (size === st.size) return cb(null)
+        if (size < st.size) {
+          const readStream = this.createReadStream(name, { length: size })
+          const writeStream = this.createWriteStream(name)
+          return pump(readStream, writeStream, cb)
+        } else {
+          this.open(name, 'a', (err, fd) => {
+            if (err) return cb(err)
+            const length = size - st.size
+            this.write(fd, Buffer.alloc(length), 0, length, st.size, err => {
+              if (err) return cb(err)
+              this.close(fd, cb)
+            })
+          })
+        }
+      })
+    })
+  }
+
   mkdir (name, opts, cb) {
     if (typeof opts === 'function') return this.mkdir(name, null, opts)
     if (typeof opts === 'number') opts = {mode: opts}
@@ -473,12 +505,11 @@ class Hyperdrive extends EventEmitter {
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      if (st) {
-        try {
-          st = messages.Stat.decode(st.value)
-        } catch (err) {
-          return cb(err)
-        }
+      if (name === '/') return cb(null, Stat.directory())
+      try {
+        st = messages.Stat.decode(st.value)
+      } catch (err) {
+        return cb(err)
       }
       return cb(null, Stat.directory(st))
     })
@@ -535,7 +566,6 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.readdir(name, null, opts)
     name = unixify(name)
 
-    let dirStream = this.createDirectoryStream(name, opts)
     this._db.list(name, (err, list) => {
       if (err) return cb(err)
       return cb(null, list.map(st => name === '/' ? st.key : path.basename(name, st.key)))
