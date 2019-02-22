@@ -463,7 +463,7 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       this._db.get(name, (err, st) => {
         if (err) return cb(err)
-        if (!st || !size) return this.writeFile(name, Buffer.alloc(size), cb)
+        if (!st || !size) return this.create(name, cb)
         try {
           st = messages.Stat.decode(st.value)
         } catch (err) {
