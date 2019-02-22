@@ -252,7 +252,6 @@ class Hyperdrive extends EventEmitter {
     const desc = this._fds[fd - STDIO_CAP]
     if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
     if (pos == null) pos = desc.position
-    console.log('reading into buffer at buffer offset:', offset, len, 'bytes at pos', pos)
     desc.read(buf, offset, len, pos, cb)
   }
 
@@ -379,11 +378,12 @@ class Hyperdrive extends EventEmitter {
       proxy.on('prefinish', function () {
         const stat = Stat.file({
           ...opts,
-          offset: offset,
-          byteOffset: byteOffset,
+          offset,
+          byteOffset,
           size: self.contentFeed.byteLength - byteOffset,
           blocks: self.contentFeed.length - offset
         })
+
         try {
           var encoded = messages.Stat.encode(stat)
         } catch (err) {
@@ -406,6 +406,25 @@ class Hyperdrive extends EventEmitter {
       self._contentFeedByteLength = self.contentFeed.byteLength
       release()
     }
+  }
+
+  create (name, opts, cb) {
+    if (typeof opts === 'function') return this.create(name, null, opts)
+
+    name = unixify(name)
+
+    this.ready(err => {
+      if (err) return cb(err)
+      try {
+        var st = messages.Stat.encode(Stat.file(opts))
+      } catch (err) {
+        return cb(err)
+      }
+      this._db.put(name, st, err => {
+        if (err) return cb(err)
+        return cb(null)
+      })
+    })
   }
 
   readFile (name, opts, cb) {
@@ -431,22 +450,15 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    let bufs = split(buf) // split the input incase it is a big buffer.
     let stream = this.createWriteStream(name, opts)
     stream.on('error', cb)
     stream.on('finish', cb)
-    for (let i = 0; i < bufs.length; i++) stream.write(bufs[i])
-    stream.end()
+    stream.end(buf)
   }
 
   truncate (name, size, cb) {
     name = unixify(name)
 
-    this.ready(err => {
-      if (err) return cb(err)
-      this._update(name, { size: size }, cb)
-    })
-    /*
     this.contentReady(err => {
       if (err) return cb(err)
       this._db.get(name, (err, st) => {
@@ -457,7 +469,6 @@ class Hyperdrive extends EventEmitter {
         } catch (err) {
           return cb(err)
         }
-        console.log('truncating to size:', size, 'from size:', st.size)
         if (size === st.size) return cb(null)
         if (size < st.size) {
           const readStream = this.createReadStream(name, { length: size })
@@ -475,7 +486,6 @@ class Hyperdrive extends EventEmitter {
         }
       })
     })
-    */
   }
 
   mkdir (name, opts, cb) {
@@ -572,11 +582,15 @@ class Hyperdrive extends EventEmitter {
 
   readdir (name, opts, cb) {
     if (typeof opts === 'function') return this.readdir(name, null, opts)
-    name = unixify(name)
 
-    this._db.list(name, (err, list) => {
+    name = unixify(name)
+    if (name !== '/' && name.startsWith('/')) name = name.slice(1)
+
+    const recursive = !!(opts && opts.recursive)
+
+    this._db.list(name, { gt: true, recursive }, (err, list) => {
       if (err) return cb(err)
-      return cb(null, list.map(st => name === '/' ? st.key : path.basename(name, st.key)))
+      return cb(null, list.map(st => name === '/' ? st.key.split('/')[0] : path.basename(st.key, name)))
     })
   }
 
