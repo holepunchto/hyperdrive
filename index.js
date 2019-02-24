@@ -590,7 +590,10 @@ class Hyperdrive extends EventEmitter {
 
     this._db.list(name, { gt: true, recursive }, (err, list) => {
       if (err) return cb(err)
-      return cb(null, list.map(st => name === '/' ? st.key.split('/')[0] : path.basename(st.key, name)))
+      return cb(null, list.map(st => {
+        if (name === '/')  return st.key.split('/')[0]
+        return path.relative(name, st.key).split('/')[0]
+      }))
     })
   }
 
