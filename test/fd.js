@@ -1,5 +1,6 @@
 const tape = require('tape')
 const create = require('./helpers/create')
+const hyperdrive = require('..')
 
 tape('basic fd read', function (t) {
   const drive = create()
@@ -280,6 +281,63 @@ tape('fd stateful write', function (t) {
       })
     })
   })
+})
+
+tape('huge stateful write + stateless read', function (t) {
+  const NUM_SLICES = 1000
+  const SLICE_SIZE = 4096
+  const READ_SIZE = Math.floor(4096 * 2.75)
+
+  const drive = create()
+
+  const content = Buffer.alloc(SLICE_SIZE * NUM_SLICES).fill('0123456789abcdefghijklmnopqrstuvwxyz')
+  let slices = new Array(NUM_SLICES).fill(0).map((_, i) => content.slice(SLICE_SIZE * i, SLICE_SIZE * (i+1)))
+
+  drive.open('hello', 'w+', function (err, fd) {
+    t.error(err, 'no error')
+    writeSlices(drive, fd, err => {
+      t.error(err, 'no errors during write')
+      drive.open('hello', 'r', function (err, fd) {
+        t.error(err, 'no error')
+        compareSlices(drive, fd)
+      })
+    })
+  })
+
+  function compareSlices (drive, fd) {
+    let read = 0
+    readNext()
+
+    function readNext () {
+      const buf = Buffer.alloc(READ_SIZE)
+      const pos = read * READ_SIZE
+      drive.read(fd, buf, 0, READ_SIZE, pos, (err, bytesRead) => {
+        if (err) return t.fail(err)
+        if (!buf.slice(0, bytesRead).equals(content.slice(pos, pos + READ_SIZE))) {
+          return t.fail(`Slices do not match at position: ${read}`)
+        }
+        if (++read * READ_SIZE >= NUM_SLICES * SLICE_SIZE) {
+          console.log('they all matched')
+          return t.end()
+        }
+        return readNext(drive, fd)
+      })
+    }
+  }
+
+  function writeSlices (drive, fd, cb) {
+    let written = 0
+    writeNext()
+
+    function writeNext () {
+      const buf = slices[written]
+      drive.write(fd, buf, 0, SLICE_SIZE, err => {
+        if (err) return cb(err)
+        if (++written === NUM_SLICES) return drive.close(fd, cb)
+        return writeNext()
+      })
+    }
+  }
 })
 
 tape('fd random-access write fails', function (t) {
