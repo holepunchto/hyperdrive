@@ -317,7 +317,6 @@ tape('huge stateful write + stateless read', function (t) {
           return t.fail(`Slices do not match at position: ${read}`)
         }
         if (++read * READ_SIZE >= NUM_SLICES * SLICE_SIZE) {
-          console.log('they all matched')
           return t.end()
         }
         return readNext(drive, fd)

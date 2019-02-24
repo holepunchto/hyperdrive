@@ -316,3 +316,49 @@ tape('can stream a large directory', async function (t) {
     })
   }
 })
+
+tape('can read nested directories', async function (t) {
+  const drive = create(null)
+
+  let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
+  let rootSet = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+  let bSet = new Set(['a', 'c'])
+  let dSet = new Set(['e'])
+  let eSet = new Set(['a', 'b']) 
+  let deSet = new Set(['f', 'a'])
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  await checkDir('/', rootSet)
+  await checkDir('b', bSet)
+  await checkDir('d', dSet)
+  await checkDir('e', eSet)
+  await checkDir('d/e', deSet)
+
+  t.end()
+
+  function checkDir (dir, fileSet) {
+    return new Promise(resolve => {
+      drive.readdir(dir, (err, files) => {
+        t.error(err, 'no error')
+        for (let file of files) {
+          t.true(fileSet.has(file), 'correct file was listed')
+          fileSet.delete(file)
+        }
+        t.same(fileSet.size, 0, 'all files were listed')
+        return resolve()
+      })
+    })
+  }
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
