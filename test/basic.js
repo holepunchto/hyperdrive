@@ -362,3 +362,47 @@ tape('can read nested directories', async function (t) {
     })
   }
 })
+
+tape('can read sparse metadata', async function (t) {
+  const { read, write }  = await getTestDrives()
+
+  let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+    await checkFile(file)
+  }
+
+  t.end()
+
+  function checkFile (file) {
+    return new Promise(resolve => {
+      read.stat(file, (err, st) => {
+        t.error(err, 'no error')
+        t.true(st)
+        return resolve()
+      })
+    })
+  }
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      write.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+
+  function getTestDrives () {
+    return new Promise(resolve => {
+      let drive = create()
+      drive.on('ready', () => {
+        let clone = create(drive.key, { sparseMetadata: true, sparse: true })
+        let s1 = clone.replicate({ live: true })
+        s1.pipe(drive.replicate({ live: true })).pipe(s1)
+        return resolve({ read: clone, write: drive })
+      })
+    })
+  }
+})

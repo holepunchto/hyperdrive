@@ -40,13 +40,14 @@ class Hyperdrive extends EventEmitter {
     this.live = true
     this.latest = !!opts.latest
     this.sparse = !!opts.sparse
+    this.sparseMetadata = !!opts.sparseMetadata
 
     this._factory = opts.factory ? storage : null
     this._storages = !this.factory ? defaultStorage(this, storage, opts) : null
 
     this.metadataFeed = opts.metadataFeed || this._createHypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
-      sparse: !!opts.sparseMetadata,
+      sparse: this.sparseMetadata,
       createIfMissing: opts.createIfMissing,
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
@@ -103,6 +104,12 @@ class Hyperdrive extends EventEmitter {
 
     this.metadataFeed.ready(err => {
       if (err) return cb(err)
+
+      if (this.sparseMetadata) {
+        this.metadataFeed.update(function loop () {
+          self.metadataFeed.update(loop)
+        })
+      }
 
       this._contentKeyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
       this._contentOpts = contentOptions(this, this._contentKeyPair.secretKey)
