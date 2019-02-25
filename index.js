@@ -7,6 +7,7 @@ const unixify = require('unixify')
 const mutexify = require('mutexify')
 const duplexify = require('duplexify')
 const through = require('through2')
+const pumpify = require('pumpify')
 const pump = require('pump')
 
 const hypercore = require('hypercore')
@@ -312,6 +313,34 @@ class Hyperdrive extends EventEmitter {
     })
 
     return stream
+  }
+
+  createDiffStream (other, prefix, opts) {
+    if (other instanceof Hyperdrive) other = other.version
+    if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
+    prefix = prefix || '/'
+
+    const proxy = duplexify.obj()
+    proxy.setWritable(false)
+
+    this.ready(err => {
+      if (err) return proxy.destroy(err)
+
+      const decoder = through.obj((chunk, enc, cb) => {
+        let obj = { type: !chunk.left ? 'del' : 'put', name: chunk.key}
+        if (chunk.left) {
+          try {
+            obj.stat = messages.Stat.decode(chunk.left.value) 
+          } catch (err) {
+            return cb(err)
+          }
+        }
+        return cb(null, obj)
+      })
+      proxy.setReadable(pumpify.obj(this._db.createDiffStream(other, prefix, opts), decoder))
+    })
+
+    return proxy
   }
 
   createDirectoryStream (name, opts) {
