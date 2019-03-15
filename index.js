@@ -129,6 +129,7 @@ Hyperdrive.prototype._oncontent = function () {
 
 Hyperdrive.prototype._trackLatest = function (cb) {
   var self = this
+  var clearing = false
 
   this.ready(function (err) {
     if (err) return cb(err)
@@ -141,10 +142,12 @@ Hyperdrive.prototype._trackLatest = function (cb) {
 
   function loop (err) {
     if (err) return cb(err)
+    if (clearing) return
 
     if (stableVersion()) return fetch()
 
     // TODO: lock downloading while doing this
+    clearing = true
     self._clearDangling(self._latestVersion, self.version, onclear)
   }
 
@@ -157,7 +160,6 @@ Hyperdrive.prototype._trackLatest = function (cb) {
     self.emit('syncing')
     self._fetchVersion(self._latestSynced, function (err, fullySynced) {
       if (err) return cb(err)
-
       if (fullySynced) {
         self._latestSynced = self._latestVersion
         self.emit('sync')
@@ -172,7 +174,11 @@ Hyperdrive.prototype._trackLatest = function (cb) {
   function onclear (err, version) {
     if (err) return cb(err)
     self._latestVersion = version
-    self._latestStorage.write(0, uint64be.encode(self._latestVersion), loop)
+    self._latestStorage.write(0, uint64be.encode(self._latestVersion), (err) => {
+      if (err) return cb(err)
+      clearing = false
+      loop(null)
+    })
   }
 
   function stableVersion () {
