@@ -22,6 +22,14 @@ var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-
 
 module.exports = Hyperdrive
 
+var once = function (cb) {
+  if (typeof cb !== 'function') throw new Error('callback not function')
+  return function () {
+    var args = Array.prototype.slice.call(arguments, 0)
+    cb.apply(null, args)
+  }
+}
+
 function Hyperdrive (storage, key, opts) {
   if (!(this instanceof Hyperdrive)) return new Hyperdrive(storage, key, opts)
   events.EventEmitter.call(this)
@@ -182,6 +190,7 @@ Hyperdrive.prototype._trackLatest = function (cb) {
 }
 
 Hyperdrive.prototype._fetchVersion = function (prev, cb) {
+  cb = once(cb)
   var self = this
   var version = self.version
   var updated = false
