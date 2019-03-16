@@ -23,7 +23,10 @@ var DEFAULT_DMODE = (4 | 2 | 1) << 6 | ((4 | 0 | 1) << 3) | (4 | 0 | 1) // rwxr-
 module.exports = Hyperdrive
 
 var once = function (cb) {
+  var called = false
   return function () {
+    if (called) return
+    called = true
     var args = Array.prototype.slice.call(arguments, 0)
     cb.apply(null, args)
   }
