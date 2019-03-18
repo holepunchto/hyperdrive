@@ -196,7 +196,7 @@ Hyperdrive.prototype._fetchVersion = function (prev, cb) {
 
   this.metadata.update(function () {
     updated = true
-    queued = 0
+    if (queued > 0) queued = 0
     if (stream) stream.destroy()
     kick()
   })
