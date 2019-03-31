@@ -142,7 +142,7 @@ class Hyperdrive extends EventEmitter {
         if (err) return cb(err)
         self._db = hypertrie(null, {
           feed: self.metadata,
-          metadata: self.content.key,
+          metadata: self.content.key
         })
 
         self._db.ready(function (err) {
@@ -283,7 +283,7 @@ class Hyperdrive extends EventEmitter {
     const length = typeof opts.end === 'number' ? 1 + opts.end - (opts.start || 0) : typeof opts.length === 'number' ? opts.length : -1
     const stream = coreByteStream({
       ...opts,
-      highWaterMark: opts.highWaterMark || 64 * 1024 
+      highWaterMark: opts.highWaterMark || 64 * 1024
     })
 
     this.contentReady(err => {
@@ -327,10 +327,10 @@ class Hyperdrive extends EventEmitter {
       if (err) return proxy.destroy(err)
 
       const decoder = through.obj((chunk, enc, cb) => {
-        let obj = { type: !chunk.left ? 'del' : 'put', name: chunk.key}
+        let obj = { type: !chunk.left ? 'del' : 'put', name: chunk.key }
         if (chunk.left) {
           try {
-            obj.stat = messages.Stat.decode(chunk.left.value) 
+            obj.stat = messages.Stat.decode(chunk.left.value)
           } catch (err) {
             return cb(err)
           }
@@ -627,7 +627,7 @@ class Hyperdrive extends EventEmitter {
     this._db.list(name, { gt: true, recursive }, (err, list) => {
       if (err) return cb(err)
       return cb(null, list.map(st => {
-        if (name === '/')  return st.key.split('/')[0]
+        if (name === '/') return st.key.split('/')[0]
         return path.relative(name, st.key).split('/')[0]
       }))
     })
@@ -652,6 +652,8 @@ class Hyperdrive extends EventEmitter {
   rmdir (name, cb) {
     if (!cb) cb = noop
     name = unixify(name)
+
+    const self = this
 
     let stream = this._db.iterator(name)
     stream.next((err, val) => {
@@ -686,7 +688,7 @@ class Hyperdrive extends EventEmitter {
       ...opts,
       metadata: this.metadata,
       content: this.content,
-      _db: this._db.checkout(version),
+      _db: this._db.checkout(version)
     }
     return new Hyperdrive(this.storage, this.key, opts)
   }
@@ -721,14 +723,6 @@ class Hyperdrive extends EventEmitter {
 
 function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
-}
-
-function split (buf) {
-  var list = []
-  for (var i = 0; i < buf.length; i += 65536) {
-    list.push(buf.slice(i, i + 65536))
-  }
-  return list
 }
 
 function noop () {}

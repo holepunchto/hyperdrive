@@ -1,8 +1,7 @@
 const tape = require('tape')
-const sodium = require('sodium-universal')
 const collect = require('stream-collector')
 
-const FuzzBuzz = require('fuzzbuzz') 
+const FuzzBuzz = require('fuzzbuzz')
 const create = require('./helpers/create')
 
 const MAX_PATH_DEPTH = 30
@@ -33,7 +32,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
   // START Helper functions.
 
   _select (map) {
-    let idx = this.randomInt(map.size -1)
+    let idx = this.randomInt(map.size - 1)
     if (idx < 0) return null
 
     let ite = map.entries()
@@ -84,7 +83,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
   // START FuzzBuzz interface
 
   _setup () {
-    this.drive = create() 
+    this.drive = create()
     this.files = new Map()
     this.directories = new Map()
     this.streams = new Map()
@@ -137,7 +136,6 @@ class HyperdriveFuzzer extends FuzzBuzz {
       await this._validateDirectory(dirName, list)
     }
   }
-
 
   async call (ops) {
     let res = await super.call(ops)
@@ -218,7 +216,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
   existingFileOverwrite () {
     let selected = this._selectFile()
     if (!selected) return
-    let [fileName, content] = selected
+    let [fileName] = selected
 
     let { content: newContent } = this._createFile()
 
@@ -390,7 +388,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
         return writeNext(fd)
       })
 
-      function writeNext(fd) {
+      function writeNext (fd) {
         let next = bufs[count]
         self.debug(`  Writing content with length ${next.length} to FD ${fd} at pos: ${pos}`)
         self.drive.write(fd, next, 0, next.length, pos, (err, bytesWritten) => {
@@ -446,13 +444,9 @@ class HyperdriveFuzzer extends FuzzBuzz {
       }
     })
   }
-
 }
 
 class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
-  constructor(opts) {
-    super(opts)
-  }
   async _setup () {
     await super._setup()
 

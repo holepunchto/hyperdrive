@@ -139,7 +139,6 @@ tape('write and read, no cache', function (t) {
       t.end()
     })
   })
-  var self = this
 })
 
 // TODO: Re-enable the following tests once the `download` and `fetchLatest` APIs are reimplemented.
@@ -324,7 +323,7 @@ tape('can read nested directories', async function (t) {
   let rootSet = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g'])
   let bSet = new Set(['a', 'c'])
   let dSet = new Set(['e'])
-  let eSet = new Set(['a', 'b']) 
+  let eSet = new Set(['a', 'b'])
   let deSet = new Set(['f', 'a'])
 
   for (let file of files) {
@@ -364,7 +363,7 @@ tape('can read nested directories', async function (t) {
 })
 
 tape('can read sparse metadata', async function (t) {
-  const { read, write }  = await getTestDrives()
+  const { read, write } = await getTestDrives()
 
   let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
 

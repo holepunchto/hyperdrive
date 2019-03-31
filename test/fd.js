@@ -1,10 +1,9 @@
 const tape = require('tape')
 const create = require('./helpers/create')
-const hyperdrive = require('..')
 
 tape('basic fd read', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -48,7 +47,7 @@ tape('basic fd read', function (t) {
 
 tape('basic fd read with implicit position', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -92,7 +91,7 @@ tape('basic fd read with implicit position', function (t) {
 
 tape('fd read with zero length', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -113,7 +112,7 @@ tape('fd read with zero length', function (t) {
 
 tape('fd read with out-of-bounds offset', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -134,7 +133,7 @@ tape('fd read with out-of-bounds offset', function (t) {
 
 tape('fd read with out-of-bounds length', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -155,8 +154,6 @@ tape('fd read with out-of-bounds length', function (t) {
 
 tape('fd read of empty drive', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
-
   drive.open('hi', 'r', function (err, fd) {
     t.true(err)
     t.same(err.errno, 2)
@@ -166,7 +163,7 @@ tape('fd read of empty drive', function (t) {
 
 tape('fd read of invalid file', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
 
   drive.writeFile('hi', content, function (err) {
     t.error(err, 'no error')
@@ -180,7 +177,7 @@ tape('fd read of invalid file', function (t) {
 
 tape('fd basic write, creating file', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   drive.open('hello', 'w+', function (err, fd) {
     t.error(err, 'no error')
     drive.write(fd, content, 0, content.length, 0, function (err, bytesWritten) {
@@ -200,7 +197,7 @@ tape('fd basic write, creating file', function (t) {
 
 tape('fd basic write, appending file', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
   let second = content.slice(2000)
 
@@ -230,7 +227,7 @@ tape('fd basic write, appending file', function (t) {
 
 tape('fd basic write, overwrite file', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
   let second = content.slice(2000)
 
@@ -260,7 +257,7 @@ tape('fd basic write, overwrite file', function (t) {
 
 tape('fd stateful write', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
   let second = content.slice(2000)
 
@@ -291,7 +288,7 @@ tape('huge stateful write + stateless read', function (t) {
   const drive = create()
 
   const content = Buffer.alloc(SLICE_SIZE * NUM_SLICES).fill('0123456789abcdefghijklmnopqrstuvwxyz')
-  let slices = new Array(NUM_SLICES).fill(0).map((_, i) => content.slice(SLICE_SIZE * i, SLICE_SIZE * (i+1)))
+  let slices = new Array(NUM_SLICES).fill(0).map((_, i) => content.slice(SLICE_SIZE * i, SLICE_SIZE * (i + 1)))
 
   drive.open('hello', 'w+', function (err, fd) {
     t.error(err, 'no error')
@@ -341,7 +338,7 @@ tape('huge stateful write + stateless read', function (t) {
 
 tape('fd random-access write fails', function (t) {
   const drive = create()
-  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz') 
+  const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
   let second = content.slice(2000)
 
