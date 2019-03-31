@@ -6,8 +6,8 @@ tape('owner is writable', function (t) {
 
   archive.on('ready', function () {
     t.ok(archive.writable)
-    t.ok(archive.metadataFeed.writable)
-    t.ok(archive.contentFeed.writable)
+    t.ok(archive.metadata.writable)
+    t.ok(archive.content.writable)
     t.end()
   })
 })

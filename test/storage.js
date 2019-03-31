@@ -7,8 +7,8 @@ tape('ram storage', function (t) {
   var archive = create()
 
   archive.ready(function () {
-    t.ok(archive.metadataFeed.writable, 'archive metadata is writable')
-    t.ok(archive.contentFeed.writable, 'archive content is writable')
+    t.ok(archive.metadata.writable, 'archive metadata is writable')
+    t.ok(archive.content.writable, 'archive content is writable')
     t.end()
   })
 })
@@ -18,16 +18,16 @@ tape('dir storage with resume', function (t) {
     t.ifError(err)
     var archive = hyperdrive(dir)
     archive.ready(function () {
-      t.ok(archive.metadataFeed.writable, 'archive metadata is writable')
-      t.ok(archive.contentFeed.writable, 'archive content is writable')
+      t.ok(archive.metadata.writable, 'archive metadata is writable')
+      t.ok(archive.content.writable, 'archive content is writable')
       t.same(archive.version, 1, 'archive has version 1')
       archive.close(function (err) {
         t.ifError(err)
 
         var archive2 = hyperdrive(dir)
         archive2.ready(function (err) {
-          t.ok(archive2.metadataFeed.writable, 'archive2 metadata is writable')
-          t.ok(archive2.contentFeed.writable, 'archive2 content is writable')
+          t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
+          t.ok(archive2.content.writable, 'archive2 content is writable')
           t.same(archive2.version, 1, 'archive has version 1')
 
           cleanup(function (err) {
@@ -48,8 +48,8 @@ tape('dir storage for non-writable archive', function (t) {
 
       var clone = hyperdrive(dir, src.key)
       clone.on('content', function () {
-        t.ok(!clone.metadataFeed.writable, 'clone metadata not writable')
-        t.ok(!clone.contentFeed.writable, 'clone content not writable')
+        t.ok(!clone.metadata.writable, 'clone metadata not writable')
+        t.ok(!clone.content.writable, 'clone content not writable')
         t.same(clone.key, src.key, 'keys match')
         cleanup(function (err) {
           t.ifError(err)
@@ -107,7 +107,7 @@ tape('sparse read/write two files', function (t) {
         t.error(err, 'no error')
         var stream = clone.replicate()
         stream.pipe(archive.replicate()).pipe(stream)
-        clone.metadataFeed.update(start)
+        clone.metadata.update(start)
       })
     })
 

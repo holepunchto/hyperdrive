@@ -109,8 +109,8 @@ tape('provide keypair', function (t) {
 
   archive.on('ready', function () {
     t.ok(archive.writable)
-    t.ok(archive.metadataFeed.writable)
-    t.ok(archive.contentFeed.writable)
+    t.ok(archive.metadata.writable)
+    t.ok(archive.content.writable)
     t.ok(publicKey.equals(archive.key))
 
     archive.writeFile('/hello.txt', 'world', function (err) {
@@ -148,8 +148,8 @@ tape.skip('download a version', function (t) {
   var src = create()
   src.on('ready', function () {
     t.ok(src.writable)
-    t.ok(src.metadataFeed.writable)
-    t.ok(src.contentFeed.writable)
+    t.ok(src.metadata.writable)
+    t.ok(src.content.writable)
     src.writeFile('/first.txt', 'number 1', function (err) {
       t.error(err, 'no error')
       src.writeFile('/second.txt', 'number 2', function (err) {
