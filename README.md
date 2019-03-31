@@ -279,6 +279,20 @@ Options include:
 
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
+#### `archive.open(name, flags, callback)`
+
+Open a file and get a file descriptor back. Similar to fs.open.
+
+Note that currently only read mode is supported in this API.
+
+#### `archive.read(fd, buf, offset, len, position, callback)`
+
+Read from a file descriptor into a buffer. Similar to fs.read.
+
+#### `archive.write(fd, buf, offset, len, pos, cb)`
+
+Write from a buffer into a file descriptor. Similar to fs.write.
+
 #### `archive.close(fd, [callback])`
 
 Close a file. Similar to fs.close.

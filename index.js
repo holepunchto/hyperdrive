@@ -14,11 +14,11 @@ const hypercore = require('hypercore')
 const hypertrie = require('hypertrie')
 const coreByteStream = require('hypercore-byte-stream')
 
-const FD = require('./lib/fd')
+const createFileDescriptor = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const messages = require('./lib/messages')
-const { defaultStorage } = require('./lib/storage')
+const defaultStorage = require('./lib/storage')
 const { contentKeyPair, contentOptions } = require('./lib/content')
 
 // 20 is arbitrary, just to make the fds > stdio etc
@@ -46,7 +46,7 @@ class Hyperdrive extends EventEmitter {
     this._factory = opts.factory ? storage : null
     this._storages = !this.factory ? defaultStorage(this, storage, opts) : null
 
-    this.metadataFeed = opts.metadataFeed || this._createHypercore(this._storages.metadata, key, {
+    this.metadata = opts.metadata || this._createHypercore(this._storages.metadata, key, {
       secretKey: opts.secretKey,
       sparse: this.sparseMetadata,
       createIfMissing: opts.createIfMissing,
@@ -54,7 +54,7 @@ class Hyperdrive extends EventEmitter {
       valueEncoding: 'binary'
     })
     this._db = opts._db
-    this.contentFeed = opts.contentFeed || null
+    this.content = opts.content || null
     this.storage = storage
     this.contentStorageCacheSize = opts.contentStorageCacheSize
 
@@ -94,25 +94,25 @@ class Hyperdrive extends EventEmitter {
   }
 
   get writable () {
-    return this.metadataFeed.writable && this.contentFeed.writable
+    return this.metadata.writable && this.content.writable
   }
 
   _ready (cb) {
     const self = this
 
-    this.metadataFeed.on('error', onerror)
-    this.metadataFeed.on('append', update)
+    this.metadata.on('error', onerror)
+    this.metadata.on('append', update)
 
-    this.metadataFeed.ready(err => {
+    this.metadata.ready(err => {
       if (err) return cb(err)
 
       if (this.sparseMetadata) {
-        this.metadataFeed.update(function loop () {
-          self.metadataFeed.update(loop)
+        this.metadata.update(function loop () {
+          self.metadata.update(loop)
         })
       }
 
-      this._contentKeyPair = this.metadataFeed.secretKey ? contentKeyPair(this.metadataFeed.secretKey) : {}
+      this._contentKeyPair = this.metadata.secretKey ? contentKeyPair(this.metadata.secretKey) : {}
       this._contentOpts = contentOptions(this, this._contentKeyPair.secretKey)
       this._contentOpts.keyPair = this._contentKeyPair
 
@@ -125,9 +125,9 @@ class Hyperdrive extends EventEmitter {
        *    Initialize the db without metadata and load the content feed key from the header.
        */
       if (this._db) {
-        if (!this.contentFeed || !this.metadataFeed) return cb(new Error('Must provide a db and both content/metadata feeds'))
+        if (!this.content || !this.metadata) return cb(new Error('Must provide a db and both content/metadata feeds'))
         return done(null)
-      } else if (this.metadataFeed.writable && !this.metadataFeed.length) {
+      } else if (this.metadata.writable && !this.metadata.length) {
         initialize(this._contentKeyPair)
       } else {
         restore(this._contentKeyPair)
@@ -141,8 +141,8 @@ class Hyperdrive extends EventEmitter {
       self._ensureContent(keyPair.publicKey, err => {
         if (err) return cb(err)
         self._db = hypertrie(null, {
-          feed: self.metadataFeed,
-          metadata: self.contentFeed.key,
+          feed: self.metadata,
+          metadata: self.content.key,
         })
 
         self._db.ready(function (err) {
@@ -159,9 +159,9 @@ class Hyperdrive extends EventEmitter {
      */
     function restore (keyPair) {
       self._db = hypertrie(null, {
-        feed: self.metadataFeed
+        feed: self.metadata
       })
-      if (self.metadataFeed.writable) {
+      if (self.metadata.writable) {
         self._db.ready(err => {
           if (err) return done(err)
           self._ensureContent(null, done)
@@ -173,8 +173,8 @@ class Hyperdrive extends EventEmitter {
 
     function done (err) {
       if (err) return cb(err)
-      self.key = self.metadataFeed.key
-      self.discoveryKey = self.metadataFeed.discoveryKey
+      self.key = self.metadata.key
+      self.discoveryKey = self.metadata.discoveryKey
       return cb(null)
     }
 
@@ -201,14 +201,14 @@ class Hyperdrive extends EventEmitter {
     }
 
     function onkey (publicKey) {
-      self.contentFeed = self._createHypercore(self._storages.content, publicKey, self._contentOpts)
-      self.contentFeed.ready(err => {
+      self.content = self._createHypercore(self._storages.content, publicKey, self._contentOpts)
+      self.content.ready(err => {
         if (err) return cb(err)
 
-        self._contentFeedByteLength = self.contentFeed.byteLength
-        self._contentFeedLength = self.contentFeed.length
+        self._contentFeedByteLength = self.content.byteLength
+        self._contentFeedLength = self.content.length
 
-        self.contentFeed.on('error', err => self.emit('error', err))
+        self.content.on('error', err => self.emit('error', err))
         return cb(null)
       })
     }
@@ -217,7 +217,7 @@ class Hyperdrive extends EventEmitter {
   _contentReady (cb) {
     this.ready(err => {
       if (err) return cb(err)
-      if (this.contentFeed) return cb(null)
+      if (this.content) return cb(null)
       this._ensureContent(null, cb)
     })
   }
@@ -245,7 +245,7 @@ class Hyperdrive extends EventEmitter {
   open (name, flags, cb) {
     name = unixify(name)
 
-    FD.create(this, name, flags, (err, fd) => {
+    createFileDescriptor(this, name, flags, (err, fd) => {
       if (err) return cb(err)
       cb(null, STDIO_CAP + this._fds.push(fd) - 1)
     })
@@ -303,7 +303,7 @@ class Hyperdrive extends EventEmitter {
         const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
 
         stream.start({
-          feed: this.contentFeed,
+          feed: this.content,
           blockOffset: st.offset,
           blockLength: st.blocks,
           byteOffset,
@@ -399,13 +399,13 @@ class Hyperdrive extends EventEmitter {
       if (err) return proxy.destroy(err)
       if (proxy.destroyed) return release()
 
-      const byteOffset = self.contentFeed.byteLength
-      const offset = self.contentFeed.length
+      const byteOffset = self.content.byteLength
+      const offset = self.content.length
 
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      const stream = self.contentFeed.createWriteStream()
+      const stream = self.content.createWriteStream()
 
       proxy.on('close', ondone)
       proxy.on('finish', ondone)
@@ -416,8 +416,8 @@ class Hyperdrive extends EventEmitter {
           ...opts,
           offset,
           byteOffset,
-          size: self.contentFeed.byteLength - byteOffset,
-          blocks: self.contentFeed.length - offset
+          size: self.content.byteLength - byteOffset,
+          blocks: self.content.length - offset
         })
 
         try {
@@ -438,8 +438,8 @@ class Hyperdrive extends EventEmitter {
     function ondone () {
       proxy.removeListener('close', ondone)
       proxy.removeListener('finish', ondone)
-      self._contentFeedLength = self.contentFeed.length
-      self._contentFeedByteLength = self.contentFeed.byteLength
+      self._contentFeedLength = self.content.length
+      self._contentFeedByteLength = self.content.byteLength
       release()
     }
   }
@@ -665,12 +665,12 @@ class Hyperdrive extends EventEmitter {
     if (!opts) opts = {}
     opts.expectedFeeds = 2
 
-    const stream = this.metadataFeed.replicate(opts)
+    const stream = this.metadata.replicate(opts)
 
     this.contentReady(err => {
       if (err) return stream.destroy(err)
       if (stream.destroyed) return
-      this.contentFeed.replicate({
+      this.content.replicate({
         live: opts.live,
         download: opts.download,
         upload: opts.upload,
@@ -684,8 +684,8 @@ class Hyperdrive extends EventEmitter {
   checkout (version, opts) {
     opts = {
       ...opts,
-      metadataFeed: this.metadataFeed,
-      contentFeed: this.contentFeed,
+      metadata: this.metadata,
+      content: this.content,
       _db: this._db.checkout(version),
     }
     return new Hyperdrive(this.storage, this.key, opts)
@@ -706,9 +706,9 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return cb(err)
-      this.metadataFeed.close(err => {
-        if (!this.contentFeed) return cb(err)
-        this.contentFeed.close(cb)
+      this.metadata.close(err => {
+        if (!this.content) return cb(err)
+        this.content.close(cb)
       })
     })
   }
