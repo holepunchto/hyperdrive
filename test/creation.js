@@ -11,5 +11,3 @@ tape('owner is writable', function (t) {
     t.end()
   })
 })
-
-

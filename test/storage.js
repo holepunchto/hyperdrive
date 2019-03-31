@@ -26,6 +26,7 @@ tape('dir storage with resume', function (t) {
 
         var archive2 = hyperdrive(dir)
         archive2.ready(function (err) {
+          t.error(err, 'no error')
           t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
           t.ok(archive2.content.writable, 'archive2 content is writable')
           t.same(archive2.version, 1, 'archive has version 1')
