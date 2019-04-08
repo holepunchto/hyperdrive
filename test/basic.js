@@ -204,5 +204,3 @@ tape('no .. entries', function (t) {
     })
   })
 })
-
-
