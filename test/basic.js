@@ -191,3 +191,18 @@ tape('closing a read-only, latest clone', function (t) {
     t.end()
   })
 })
+
+tape('no .. entries', function (t) {
+  var archive = create()
+
+  archive.writeFile('../hello.txt', 'world', function (err) {
+    t.error(err, 'no error')
+    archive.readdir('/', function (err, list) {
+      t.error(err, 'no error')
+      t.same(list, [ 'hello.txt' ])
+      t.end()
+    })
+  })
+})
+
+

@@ -431,7 +431,7 @@ Hyperdrive.prototype.read = function (fd, buf, offset, len, pos, cb) {
 Hyperdrive.prototype.createReadStream = function (name, opts) {
   if (!opts) opts = {}
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   var self = this
   var downloaded = false
@@ -533,7 +533,7 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
   if (typeof opts === 'string') opts = {encoding: opts}
   if (!opts) opts = {}
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   collect(this.createReadStream(name, opts), function (err, bufs) {
     if (err) return cb(err)
@@ -545,7 +545,7 @@ Hyperdrive.prototype.readFile = function (name, opts, cb) {
 Hyperdrive.prototype.createWriteStream = function (name, opts) {
   if (!opts) opts = {}
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   var self = this
   var proxy = duplexify()
@@ -625,7 +625,7 @@ Hyperdrive.prototype.writeFile = function (name, buf, opts, cb) {
   if (typeof buf === 'string') buf = new Buffer(buf, opts.encoding || 'utf-8')
   if (!cb) cb = noop
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   var bufs = split(buf) // split the input incase it is a big buffer.
   var stream = this.createWriteStream(name, opts)
@@ -641,7 +641,7 @@ Hyperdrive.prototype.mkdir = function (name, opts, cb) {
   if (!opts) opts = {}
   if (!cb) cb = noop
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   var self = this
 
@@ -679,7 +679,7 @@ Hyperdrive.prototype._statDirectory = function (name, opts, cb) {
 Hyperdrive.prototype.access = function (name, opts, cb) {
   if (typeof opts === 'function') return this.access(name, null, opts)
   if (!opts) opts = {}
-  name = unixify(name)
+  name = normalizePath(name)
   this.stat(name, opts, function (err) {
     cb(err)
   })
@@ -698,7 +698,7 @@ Hyperdrive.prototype.lstat = function (name, opts, cb) {
   if (!opts) opts = {}
   var self = this
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   this.tree.get(name, opts, function (err, st) {
     if (err) return self._statDirectory(name, opts, cb)
@@ -715,28 +715,31 @@ Hyperdrive.prototype.stat = function (name, opts, cb) {
 Hyperdrive.prototype.readdir = function (name, opts, cb) {
   if (typeof opts === 'function') return this.readdir(name, null, opts)
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   if (name === '/') return this._readdirRoot(opts, cb) // TODO: should be an option in append-tree prob
-  this.tree.list(name, opts, cb)
+  this.tree.list(name, opts, function (err, list) {
+    if (err) return cb(err)
+    cb(null, sanitizeDirs(list))
+  })
 }
 
 Hyperdrive.prototype._readdirRoot = function (opts, cb) {
   this.tree.list('/', opts, function (_, list) {
-    if (list) return cb(null, list)
+    if (list) return cb(null, sanitizeDirs(list))
     cb(null, [])
   })
 }
 
 Hyperdrive.prototype.unlink = function (name, cb) {
-  name = unixify(name)
+  name = normalizePath(name)
   this._del(name, cb || noop)
 }
 
 Hyperdrive.prototype.rmdir = function (name, cb) {
   if (!cb) cb = noop
 
-  name = unixify(name)
+  name = normalizePath(name)
 
   var self = this
 
@@ -932,6 +935,21 @@ function getTime (date) {
   if (typeof date === 'number') return date
   if (!date) return Date.now()
   return date.getTime()
+}
+
+function normalizePath (p) {
+  return unixify(path.resolve('/', p))
+}
+
+function sanitizeDirs (list) {
+  for (var i = 0; i < list.length; i++) {
+    if (!noDots(list[i])) return list.filter(noDots)
+  }
+  return list
+}
+
+function noDots (entry) {
+  return entry !== '..' && entry !== '.'
 }
 
 function contentKeyPair (secretKey) {
