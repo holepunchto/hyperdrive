@@ -24,6 +24,7 @@
     "byte-stream": "^2.1.0",
     "custom-error-class": "^1.0.0",
     "duplexify": "^3.7.1",
+    "filesystem-constants": "^1.0.0",
     "hypercore": "^6.25.0",
     "hypercore-byte-stream": "^1.0.2",
     "hypertrie": "^3.4.0",
