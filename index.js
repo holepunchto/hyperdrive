@@ -25,6 +25,7 @@ const { contentKeyPair, contentOptions } = require('./lib/content')
 const STDIO_CAP = 20
 
 module.exports = (...args) => new Hyperdrive(...args)
+module.exports.constants = require('filesystem-constants').linux
 
 class Hyperdrive extends EventEmitter {
   constructor (storage, key, opts) {
