@@ -64,6 +64,7 @@ class Hyperdrive extends EventEmitter {
     this._contentFeedByteLength = null
     this._lock = mutexify()
     this._fds = []
+    this._writingFd = null
 
     this.ready = thunky(this._ready.bind(this))
     this.contentReady = thunky(this._contentReady.bind(this))
@@ -585,6 +586,10 @@ class Hyperdrive extends EventEmitter {
           var st = messages.Stat.decode(node.value)
         } catch (err) {
           return cb(err)
+        }
+        if (this._writingFd && name === this._writingFd.path) {
+          console.log('SETTING SIZE TO:', this._writingFd.stat.size)
+          st.size = this._writingFd.stat.size
         }
         cb(null, new Stat(st))
       })
