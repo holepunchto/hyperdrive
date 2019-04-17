@@ -588,7 +588,6 @@ class Hyperdrive extends EventEmitter {
           return cb(err)
         }
         if (this._writingFd && name === this._writingFd.path) {
-          console.log('SETTING SIZE TO:', this._writingFd.stat.size)
           st.size = this._writingFd.stat.size
         }
         cb(null, new Stat(st))
