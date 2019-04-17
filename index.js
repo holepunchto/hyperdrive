@@ -460,7 +460,7 @@ class Hyperdrive extends EventEmitter {
       }
       this._db.put(name, st, err => {
         if (err) return cb(err)
-        return cb(null)
+        return cb(null, st)
       })
     })
   }
