@@ -454,11 +454,12 @@ class Hyperdrive extends EventEmitter {
     this.ready(err => {
       if (err) return cb(err)
       try {
-        var st = messages.Stat.encode(Stat.file(opts))
+        var st = Stat.file(opts)
+        var buf = messages.Stat.encode(st)
       } catch (err) {
         return cb(err)
       }
-      this._db.put(name, st, err => {
+      this._db.put(name, buf, err => {
         if (err) return cb(err)
         return cb(null, st)
       })
