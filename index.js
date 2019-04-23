@@ -453,7 +453,7 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return cb(err)
-      this.lstat(name, (err, stat) => {
+      this.lstat(name, { file: true }, (err, stat) => {
         if (err && err.errno !== 2) return cb(err)
         if (stat) return cb(null, stat)
         try {
@@ -504,7 +504,7 @@ class Hyperdrive extends EventEmitter {
 
     this.contentReady(err => {
       if (err) return cb(err)
-      this.lstat(name, (err, st) => {
+      this.lstat(name, { file: true }, (err, st) => {
         if (err && err.errno !== 2) return cb(err)
         if (!st) return this.create(name, cb)
         if (size === st.size) return cb(null)
@@ -576,6 +576,7 @@ class Hyperdrive extends EventEmitter {
 
       this._db.get(name, opts, (err, node) => {
         if (err) return cb(err)
+        if (!node && opts.file) return cb(new errors.FileNotFound(name))
         if (!node) return this._statDirectory(name, opts, cb)
         try {
           var st = messages.Stat.decode(node.value)
