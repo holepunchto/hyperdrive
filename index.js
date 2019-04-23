@@ -453,15 +453,19 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return cb(err)
-      try {
-        var st = Stat.file(opts)
-        var buf = messages.Stat.encode(st)
-      } catch (err) {
-        return cb(err)
-      }
-      this._db.put(name, buf, err => {
-        if (err) return cb(err)
-        return cb(null, st)
+      this.lstat(name, (err, stat) => {
+        if (err && err.errno !== 2) return cb(err)
+        if (stat) return cb(null, stat)
+        try {
+          var st = Stat.file(opts)
+          var buf = messages.Stat.encode(st)
+        } catch (err) {
+          return cb(err)
+        }
+        this._db.put(name, buf, err => {
+          if (err) return cb(err)
+          return cb(null, st)
+        })
       })
     })
   }
@@ -500,14 +504,9 @@ class Hyperdrive extends EventEmitter {
 
     this.contentReady(err => {
       if (err) return cb(err)
-      this._db.get(name, (err, st) => {
-        if (err) return cb(err)
-        if (!st || !size) return this.create(name, cb)
-        try {
-          st = messages.Stat.decode(st.value)
-        } catch (err) {
-          return cb(err)
-        }
+      this.lstat(name, (err, st) => {
+        if (err && err.errno !== 2) return cb(err)
+        if (!st) return this.create(name, cb)
         if (size === st.size) return cb(null)
         if (size < st.size) {
           const readStream = this.createReadStream(name, { length: size })
@@ -550,11 +549,6 @@ class Hyperdrive extends EventEmitter {
         condition: ifNotExists
       }, cb)
     })
-
-    function ifNotExists (oldNode, newNode, cb) {
-      if (oldNode) return cb(new errors.PathAlreadyExists(name))
-      return cb(null, true)
-    }
   }
 
   _statDirectory (name, opts, cb) {
@@ -729,6 +723,11 @@ class Hyperdrive extends EventEmitter {
 
 function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
+}
+
+function ifNotExists (oldNode, newNode, cb) {
+  if (oldNode) return cb(new errors.PathAlreadyExists(oldNode.key))
+  return cb(null, true)
 }
 
 function noop () {}
