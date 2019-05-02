@@ -203,7 +203,7 @@ class Hyperdrive extends EventEmitter {
     }
 
     function onkey (publicKey) {
-      self.content = self._createHypercore(self._storages.content, publicKey, self._contentOpts)
+      self.content = self.content || self._createHypercore(self._storages.content, publicKey, self._contentOpts)
       self.content.ready(err => {
         if (err) return cb(err)
 
