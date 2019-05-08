@@ -51,7 +51,7 @@ tape('write and read (2 parallel)', function (t) {
   })
 })
 
-tape.only('write and read (sparse)', function (t) {
+tape('write and read (sparse)', function (t) {
   t.plan(2)
 
   var archive = create()
@@ -61,40 +61,21 @@ tape.only('write and read (sparse)', function (t) {
 
     archive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      var s1 = clone.replicate()
-      var s2 = archive.replicate()
+      var s1 = clone.replicate({ live: true })
+      var s2 = archive.replicate({ live: true })
       // stream.pipe(archive.replicate()).pipe(stream)
       s1.pipe(s2).pipe(s1)
-      s1.on('feed', dkey => console.log('S1 REPLICATING DKEY:', dkey))
-      s1.on('data', d => console.log('S1 DATA:', d))
-      s2.on('data', d => console.log('S2 DATA:', d))
       setTimeout(() => {
-        console.log('S2 METADATA LENGTH:', clone.metadata.length, 'METADATA:', clone.metadata)
         var readStream = clone.createReadStream('/hello.txt')
         readStream.on('data', function (data) {
           t.same(data.toString(), 'world')
         })
-      }, 2000)
+      }, 100)
     })
   })
 })
 
-tape.skip('write and unlink', function (t) {
-  var archive = create()
-
-  archive.writeFile('/hello.txt', 'world', function (err) {
-    t.error(err, 'no error')
-    archive.unlink('/hello.txt', function (err) {
-      t.error(err, 'no error')
-      archive.readFile('/hello.txt', function (err) {
-        t.ok(err, 'had error')
-        t.end()
-      })
-    })
-  })
-})
-
-tape.skip('root is always there', function (t) {
+tape('root is always there', function (t) {
   var archive = create()
 
   archive.access('/', function (err) {
@@ -107,7 +88,7 @@ tape.skip('root is always there', function (t) {
   })
 })
 
-tape.skip('provide keypair', function (t) {
+tape('provide keypair', function (t) {
   var publicKey = Buffer.allocUnsafe(sodium.crypto_sign_PUBLICKEYBYTES)
   var secretKey = Buffer.allocUnsafe(sodium.crypto_sign_SECRETKEYBYTES)
 
@@ -118,7 +99,6 @@ tape.skip('provide keypair', function (t) {
   archive.on('ready', function () {
     t.ok(archive.writable)
     t.ok(archive.metadata.writable)
-    t.ok(archive.content.writable)
     t.ok(publicKey.equals(archive.key))
 
     archive.writeFile('/hello.txt', 'world', function (err) {
@@ -132,7 +112,7 @@ tape.skip('provide keypair', function (t) {
   })
 })
 
-tape.skip('write and read, no cache', function (t) {
+tape('write and read, no cache', function (t) {
   var archive = create({
     metadataStorageCacheSize: 0,
     contentStorageCacheSize: 0,
@@ -149,7 +129,7 @@ tape.skip('write and read, no cache', function (t) {
   })
 })
 
-tape.skip('can read a single directory', async function (t) {
+tape('can read a single directory', async function (t) {
   const drive = create(null)
 
   let files = ['a', 'b', 'c', 'd', 'e', 'f']
@@ -179,7 +159,7 @@ tape.skip('can read a single directory', async function (t) {
   }
 })
 
-tape.skip('can stream a large directory', async function (t) {
+tape('can stream a large directory', async function (t) {
   const drive = create(null)
 
   let files = new Array(1000).fill(0).map((_, idx) => '' + idx)
@@ -211,7 +191,7 @@ tape.skip('can stream a large directory', async function (t) {
   }
 })
 
-tape.skip('can read nested directories', async function (t) {
+tape('can read nested directories', async function (t) {
   const drive = create(null)
 
   let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
@@ -257,7 +237,7 @@ tape.skip('can read nested directories', async function (t) {
   }
 })
 
-tape.skip('can read sparse metadata', async function (t) {
+tape('can read sparse metadata', async function (t) {
   const { read, write } = await getTestDrives()
 
   let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
