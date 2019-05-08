@@ -54,10 +54,9 @@ class Hyperdrive extends EventEmitter {
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
     })
-    console.log('METADATA:', this.metadata)
     this._db = opts._db || new MountableHypertrie(this._corestore, key, { feed: this.metadata })
 
-    this._contentFeeds = new WeakMap()
+    this._contentFeeds = new Map()
     if (opts.content) this._contentFeeds.set(this._db, new ContentState(opts.content))
 
     this._fds = []
@@ -80,11 +79,10 @@ class Hyperdrive extends EventEmitter {
   }
 
   get writable () {
-    return this.metadata.writable && this.content.writable
+    return this.metadata.writable
   }
 
   _ready (cb) {
-    console.log('IN _READY')
     const self = this
 
     self.metadata.on('error', onerror)
@@ -93,8 +91,6 @@ class Hyperdrive extends EventEmitter {
     return self.metadata.ready(err => {
       if (err) return cb(err)
 
-      console.log('METADATA IS READY')
-
       if (self.sparseMetadata) {
         self.metadata.update(function loop () {
           self.metadata.update(loop)
@@ -102,11 +98,6 @@ class Hyperdrive extends EventEmitter {
       }
 
       const rootContentKeyPair = self.metadata.secretKey ? contentKeyPair(self.metadata.secretKey) : {}
-      const rootContentOpts = contentOptions(self, rootContentKeyPair.secretKey)
-      rootContentOpts.keyPair = rootContentKeyPair
-      console.log('rootContentOpts:', rootContentOpts)
-
-      console.log('self.metadata:', self.metadata)
 
       /**
        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
@@ -117,7 +108,6 @@ class Hyperdrive extends EventEmitter {
        *    Initialize the db without metadata and load the content feed key from the header.
        */
       if (self.opts._db) {
-        console.log('A _DB WAS PROVIDED IN OPTS')
         if (!self.contentFeeds.get(self.opts._db.key)) return cb(new Error('Must provide a db and a content feed'))
         return done(null)
       } else if (self.metadata.writable && !self.metadata.length) {
@@ -131,7 +121,6 @@ class Hyperdrive extends EventEmitter {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize (keyPair) {
-      console.log('INITIALIZING')
       self._db.setMetadata(keyPair.publicKey)
       self._db.ready(err => {
         if (err) return cb(err)
@@ -148,9 +137,7 @@ class Hyperdrive extends EventEmitter {
      * (Otherwise, we need to read the feed's metadata block first)
      */
     function restore (keyPair) {
-      console.log('RESTORING')
       if (self.metadata.writable) {
-        console.log('IT IS WRITABLE')
         self._db.ready(err => {
           if (err) return done(err)
           self._getContent(self._db, done)
@@ -161,7 +148,6 @@ class Hyperdrive extends EventEmitter {
     }
 
     function done (err) {
-      console.log('DONE WITH READY, err:', err)
       if (err) return cb(err)
       self.key = self.metadata.key
       self.discoveryKey = self.metadata.discoveryKey
@@ -181,23 +167,20 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this._getContent(db, null, opts)
     const self = this
 
-    console.log('GETTING CONTENT FOR:', 'db:', db)
     const existingContent = self._contentFeeds.get(db)
     if (existingContent) return process.nextTick(cb, null, existingContent)
-    console.log('  NOT EXISTING')
 
     db.getMetadata((err, publicKey) => {
       if (err) return cb(err)
-      console.log('  METADATA:', publicKey)
       return onkey(publicKey)
     })
 
     function onkey (publicKey) {
-      const feed = self._corestore.get({ key: publicKey, ...self._contentOpts, ...opts })
+      const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey), ...opts }
+      const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
         const state = new ContentState(feed, mutexify())
-        console.log('  SETTING CONTENT FEED FOR:', db)
         self._contentFeeds.set(db, state)
         feed.on('error', err => self.emit('error', err))
         return cb(null, state)
@@ -259,7 +242,6 @@ class Hyperdrive extends EventEmitter {
   }
 
   createReadStream (name, opts) {
-    console.log('IN CREATEREADSTREAM FOR:', name)
     if (!opts) opts = {}
 
     name = unixify(name)
@@ -274,7 +256,6 @@ class Hyperdrive extends EventEmitter {
       if (err) return stream.destroy(err)
       this._db.get(name, (err, node, trie) => {
         if (err) return stream.destroy(err)
-        console.log('HERE ERR:', err, 'NODE:', node)
         if (!node) return stream.destroy(new errors.FileNotFound(name))
 
         this._getContent(trie, (err, contentState) => {
@@ -385,7 +366,6 @@ class Hyperdrive extends EventEmitter {
         if (err) return proxy.destroy(err)
         this._getContent(trie, (err, contentState) => {
           if (err) return proxy.destroy(err)
-          console.log('contentState:', contentState)
           contentState.lock(_release => {
             release = _release
             append(contentState)
@@ -430,7 +410,6 @@ class Hyperdrive extends EventEmitter {
         self._db.put(name, encoded, function (err) {
           if (err) return proxy.destroy(err)
           self.emit('append', name, opts)
-          console.log('AFTER WRite FOR:', name, 'METADATA:', self.metadata)
           proxy.uncork()
         })
       })
