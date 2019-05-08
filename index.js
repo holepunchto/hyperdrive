@@ -11,15 +11,15 @@ const pumpify = require('pumpify')
 const pump = require('pump')
 
 const hypercore = require('hypercore')
-const hypertrie = require('hypertrie')
 const coreByteStream = require('hypercore-byte-stream')
+const MountableHypertrie = require('mountable-hypertrie')
 
 const createFileDescriptor = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const messages = require('./lib/messages')
-const defaultStorage = require('./lib/storage')
-const { contentKeyPair, contentOptions } = require('./lib/content')
+const defaultCorestore = require('random-access-corestore')
+const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
@@ -37,40 +37,34 @@ class Hyperdrive extends EventEmitter {
     }
     if (!opts) opts = {}
 
+    this.opts = opts
     this.key = null
     this.discoveryKey = null
     this.live = true
-    this.latest = !!opts.latest
     this.sparse = !!opts.sparse
     this.sparseMetadata = !!opts.sparseMetadata
 
-    this._factory = opts.factory ? storage : null
-    this._storages = !this.factory ? defaultStorage(this, storage, opts) : null
-
-    this.metadata = opts.metadata || this._createHypercore(this._storages.metadata, key, {
+    this._corestore = opts.corestore || defaultCorestore(path => storage(path), opts)
+    this.metadata = this._corestore.get({
+      key,
+      main: true, 
       secretKey: opts.secretKey,
       sparse: this.sparseMetadata,
       createIfMissing: opts.createIfMissing,
       storageCacheSize: opts.metadataStorageCacheSize,
       valueEncoding: 'binary'
     })
-    this._db = opts._db
-    this.content = opts.content || null
-    this.storage = storage
-    this.contentStorageCacheSize = opts.contentStorageCacheSize
+    console.log('METADATA:', this.metadata)
+    this._db = opts._db || new MountableHypertrie(this._corestore, key, { feed: this.metadata })
 
-    this._contentOpts = null
-    this._contentFeedLength = null
-    this._contentFeedByteLength = null
-    this._lock = mutexify()
+    this._contentFeeds = new WeakMap()
+    if (opts.content) this._contentFeeds.set(this._db, new ContentState(opts.content))
+
     this._fds = []
-    this._writingFd = null
+    this._writingFds = new Map()
 
     this.ready = thunky(this._ready.bind(this))
-    this.contentReady = thunky(this._contentReady.bind(this))
-
     this.ready(onReady)
-    this.contentReady(onContentReady)
 
     const self = this
 
@@ -78,16 +72,6 @@ class Hyperdrive extends EventEmitter {
       if (err) return self.emit('error', err)
       self.emit('ready')
     }
-
-    function onContentReady (err) {
-      if (err) return self.emit('error', err)
-      self.emit('content')
-    }
-  }
-
-  _createHypercore (storage, key, opts) {
-    if (this._factory) return this._factory(key, opts)
-    return hypercore(storage, key, opts)
   }
 
   get version () {
@@ -100,23 +84,29 @@ class Hyperdrive extends EventEmitter {
   }
 
   _ready (cb) {
+    console.log('IN _READY')
     const self = this
 
-    this.metadata.on('error', onerror)
-    this.metadata.on('append', update)
+    self.metadata.on('error', onerror)
+    self.metadata.on('append', update)
 
-    this.metadata.ready(err => {
+    return self.metadata.ready(err => {
       if (err) return cb(err)
 
-      if (this.sparseMetadata) {
-        this.metadata.update(function loop () {
+      console.log('METADATA IS READY')
+
+      if (self.sparseMetadata) {
+        self.metadata.update(function loop () {
           self.metadata.update(loop)
         })
       }
 
-      this._contentKeyPair = this.metadata.secretKey ? contentKeyPair(this.metadata.secretKey) : {}
-      this._contentOpts = contentOptions(this, this._contentKeyPair.secretKey)
-      this._contentOpts.keyPair = this._contentKeyPair
+      const rootContentKeyPair = self.metadata.secretKey ? contentKeyPair(self.metadata.secretKey) : {}
+      const rootContentOpts = contentOptions(self, rootContentKeyPair.secretKey)
+      rootContentOpts.keyPair = rootContentKeyPair
+      console.log('rootContentOpts:', rootContentOpts)
+
+      console.log('self.metadata:', self.metadata)
 
       /**
        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
@@ -126,13 +116,14 @@ class Hyperdrive extends EventEmitter {
        * If the metadata feed is readable:
        *    Initialize the db without metadata and load the content feed key from the header.
        */
-      if (this._db) {
-        if (!this.content || !this.metadata) return cb(new Error('Must provide a db and both content/metadata feeds'))
+      if (self.opts._db) {
+        console.log('A _DB WAS PROVIDED IN OPTS')
+        if (!self.contentFeeds.get(self.opts._db.key)) return cb(new Error('Must provide a db and a content feed'))
         return done(null)
-      } else if (this.metadata.writable && !this.metadata.length) {
-        initialize(this._contentKeyPair)
+      } else if (self.metadata.writable && !self.metadata.length) {
+        initialize(rootContentKeyPair)
       } else {
-        restore(this._contentKeyPair)
+        restore(rootContentKeyPair)
       }
     })
 
@@ -140,14 +131,11 @@ class Hyperdrive extends EventEmitter {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize (keyPair) {
-      self._ensureContent(keyPair.publicKey, err => {
+      console.log('INITIALIZING')
+      self._db.setMetadata(keyPair.publicKey)
+      self._db.ready(err => {
         if (err) return cb(err)
-        self._db = hypertrie(null, {
-          feed: self.metadata,
-          metadata: self.content.key
-        })
-
-        self._db.ready(function (err) {
+        self._getContent(self._db, { secretKey: keyPair.secretKey }, err => {
           if (err) return cb(err)
           return done(null)
         })
@@ -160,13 +148,12 @@ class Hyperdrive extends EventEmitter {
      * (Otherwise, we need to read the feed's metadata block first)
      */
     function restore (keyPair) {
-      self._db = hypertrie(null, {
-        feed: self.metadata
-      })
+      console.log('RESTORING')
       if (self.metadata.writable) {
+        console.log('IT IS WRITABLE')
         self._db.ready(err => {
           if (err) return done(err)
-          self._ensureContent(null, done)
+          self._getContent(self._db, done)
         })
       } else {
         self._db.ready(done)
@@ -174,6 +161,7 @@ class Hyperdrive extends EventEmitter {
     }
 
     function done (err) {
+      console.log('DONE WITH READY, err:', err)
       if (err) return cb(err)
       self.key = self.metadata.key
       self.discoveryKey = self.metadata.discoveryKey
@@ -189,39 +177,32 @@ class Hyperdrive extends EventEmitter {
     }
   }
 
-  _ensureContent (publicKey, cb) {
-    let self = this
+  _getContent (db, opts, cb) {
+    if (typeof opts === 'function') return this._getContent(db, null, opts)
+    const self = this
 
-    if (publicKey) return onkey(publicKey)
-    else loadkey()
+    console.log('GETTING CONTENT FOR:', 'db:', db)
+    const existingContent = self._contentFeeds.get(db)
+    if (existingContent) return process.nextTick(cb, null, existingContent)
+    console.log('  NOT EXISTING')
 
-    function loadkey () {
-      self._db.getMetadata((err, contentKey) => {
-        if (err) return cb(err)
-        return onkey(contentKey)
-      })
-    }
+    db.getMetadata((err, publicKey) => {
+      if (err) return cb(err)
+      console.log('  METADATA:', publicKey)
+      return onkey(publicKey)
+    })
 
     function onkey (publicKey) {
-      self.content = self._createHypercore(self._storages.content, publicKey, self._contentOpts)
-      self.content.ready(err => {
+      const feed = self._corestore.get({ key: publicKey, ...self._contentOpts, ...opts })
+      feed.ready(err => {
         if (err) return cb(err)
-
-        self._contentFeedByteLength = self.content.byteLength
-        self._contentFeedLength = self.content.length
-
-        self.content.on('error', err => self.emit('error', err))
-        return cb(null)
+        const state = new ContentState(feed, mutexify())
+        console.log('  SETTING CONTENT FEED FOR:', db)
+        self._contentFeeds.set(db, state)
+        feed.on('error', err => self.emit('error', err))
+        return cb(null, state)
       })
     }
-  }
-
-  _contentReady (cb) {
-    this.ready(err => {
-      if (err) return cb(err)
-      if (this.content) return cb(null)
-      this._ensureContent(null, cb)
-    })
   }
 
   _update (name, stat, cb) {
@@ -278,6 +259,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   createReadStream (name, opts) {
+    console.log('IN CREATEREADSTREAM FOR:', name)
     if (!opts) opts = {}
 
     name = unixify(name)
@@ -288,35 +270,44 @@ class Hyperdrive extends EventEmitter {
       highWaterMark: opts.highWaterMark || 64 * 1024
     })
 
-    this.contentReady(err => {
+    this.ready(err => {
       if (err) return stream.destroy(err)
-
-      this._db.get(name, (err, st) => {
+      this._db.get(name, (err, node, trie) => {
         if (err) return stream.destroy(err)
-        if (!st) return stream.destroy(new errors.FileNotFound(name))
+        console.log('HERE ERR:', err, 'NODE:', node)
+        if (!node) return stream.destroy(new errors.FileNotFound(name))
 
-        try {
-          st = messages.Stat.decode(st.value)
-        } catch (err) {
-          return stream.destroy(err)
-        }
-
-        const byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
-        const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
-
-        stream.start({
-          feed: this.content,
-          blockOffset: st.offset,
-          blockLength: st.blocks,
-          byteOffset,
-          byteLength
+        this._getContent(trie, (err, contentState) => {
+          if (err) return stream.destroy(err)
+          return oncontent(node.value, contentState)
         })
       })
     })
 
+    function oncontent (st, contentState) {
+      try {
+        st = messages.Stat.decode(st)
+      } catch (err) {
+        return stream.destroy(err)
+      }
+
+      const byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+      const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
+
+      stream.start({
+        feed: contentState.feed,
+        blockOffset: st.offset,
+        blockLength: st.blocks,
+        byteOffset,
+        byteLength
+      })
+    }
+
     return stream
   }
 
+  // TODO: Update when support is added to MountableHypertrie
+  /*
   createDiffStream (other, prefix, opts) {
     if (other instanceof Hyperdrive) other = other.version
     if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
@@ -344,6 +335,7 @@ class Hyperdrive extends EventEmitter {
 
     return proxy
   }
+  */
 
   createDirectoryStream (name, opts) {
     if (!opts) opts = {}
@@ -387,27 +379,33 @@ class Hyperdrive extends EventEmitter {
 
     // TODO: support piping through a "split" stream like rabin
 
-    this.contentReady(err => {
+    this.ready(err => {
       if (err) return proxy.destroy(err)
-      this._lock(_release => {
-        release = _release
-        append()
+      this._db.get(name, (err, node, trie) => {
+        if (err) return proxy.destroy(err)
+        this._getContent(trie, (err, contentState) => {
+          if (err) return proxy.destroy(err)
+          console.log('contentState:', contentState)
+          contentState.lock(_release => {
+            release = _release
+            append(contentState)
+          })
+        })
       })
     })
 
     return proxy
 
-    function append (err) {
-      if (err) return proxy.destroy(err)
+    function append (contentState) {
       if (proxy.destroyed) return release()
 
-      const byteOffset = self.content.byteLength
-      const offset = self.content.length
+      const byteOffset = contentState.feed.byteLength
+      const offset = contentState.feed.length
 
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      const stream = self.content.createWriteStream()
+      const stream = contentState.feed.createWriteStream()
 
       proxy.on('close', ondone)
       proxy.on('finish', ondone)
@@ -418,8 +416,8 @@ class Hyperdrive extends EventEmitter {
           ...opts,
           offset,
           byteOffset,
-          size: self.content.byteLength - byteOffset,
-          blocks: self.content.length - offset
+          size: contentState.feed.byteLength - byteOffset,
+          blocks: contentState.feed.length - offset
         })
 
         try {
@@ -432,6 +430,7 @@ class Hyperdrive extends EventEmitter {
         self._db.put(name, encoded, function (err) {
           if (err) return proxy.destroy(err)
           self.emit('append', name, opts)
+          console.log('AFTER WRite FOR:', name, 'METADATA:', self.metadata)
           proxy.uncork()
         })
       })
@@ -440,8 +439,6 @@ class Hyperdrive extends EventEmitter {
     function ondone () {
       proxy.removeListener('close', ondone)
       proxy.removeListener('finish', ondone)
-      self._contentFeedLength = self.content.length
-      self._contentFeedByteLength = self.content.byteLength
       release()
     }
   }
@@ -534,20 +531,23 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    this.contentReady(err => {
+    this._db.get(name, (err, node, trie) => {
       if (err) return cb(err)
-      try {
-        var st = messages.Stat.encode(Stat.directory({
-          ...opts,
-          offset: this._contentFeedLength,
-          byteOffset: this._contentFeedByteLength
-        }))
-      } catch (err) {
-        return cb(err)
-      }
-      this._db.put(name, st, {
-        condition: ifNotExists
-      }, cb)
+      this._getContent(trie, (err, contentState) => {
+        if (err) return cb(err)
+        try {
+          var st = messages.Stat.encode(Stat.directory({
+            ...opts,
+            offset: contentState.length,
+            byteOffset: contentState.byteLength
+          }))
+        } catch (err) {
+          return cb(err)
+        }
+        this._db.put(name, st, {
+          condition: ifNotExists
+        }, cb)
+      })
     })
   }
 
@@ -583,8 +583,9 @@ class Hyperdrive extends EventEmitter {
         } catch (err) {
           return cb(err)
         }
-        if (this._writingFd && name === this._writingFd.path) {
-          st.size = this._writingFd.stat.size
+        const writingFd = this._writingFds.get(name)
+        if (writingFd) {
+          st.size = writingFd.stat.size
         }
         cb(null, new Stat(st))
       })
@@ -665,30 +666,14 @@ class Hyperdrive extends EventEmitter {
   }
 
   replicate (opts) {
-    if (!opts) opts = {}
-    opts.expectedFeeds = 2
-
-    const stream = this.metadata.replicate(opts)
-
-    this.contentReady(err => {
-      if (err) return stream.destroy(err)
-      if (stream.destroyed) return
-      this.content.replicate({
-        live: opts.live,
-        download: opts.download,
-        upload: opts.upload,
-        stream: stream
-      })
-    })
-
+    const stream = this._corestore.replicate(opts)
+    stream.on('error', err => console.error('REPLICATION ERROR:', err))
     return stream
   }
 
   checkout (version, opts) {
     opts = {
       ...opts,
-      metadata: this.metadata,
-      content: this.content,
       _db: this._db.checkout(version)
     }
     return new Hyperdrive(this.storage, this.key, opts)
@@ -719,6 +704,10 @@ class Hyperdrive extends EventEmitter {
   watch (name, onchange) {
     name = unixify(name)
     return this._db.watch(name, onchange)
+  }
+
+  mount (path, key, opts, cb) {
+    return this._db.mount(path, key, opts, cb)
   }
 }
 
