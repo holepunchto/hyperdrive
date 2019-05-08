@@ -69,6 +69,7 @@ tape.only('write and read (sparse)', function (t) {
       s1.on('data', d => console.log('S1 DATA:', d))
       s2.on('data', d => console.log('S2 DATA:', d))
       setTimeout(() => {
+        console.log('S2 METADATA LENGTH:', clone.metadata.length, 'METADATA:', clone.metadata)
         var readStream = clone.createReadStream('/hello.txt')
         readStream.on('data', function (data) {
           t.same(data.toString(), 'world')
