@@ -91,7 +91,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.log = []
 
     return new Promise((resolve, reject) => {
-      this.drive.contentReady(err => {
+      this.drive.ready(err => {
         if (err) return reject(err)
         return resolve()
       })
@@ -206,6 +206,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
         if (err) return reject(err)
         if (!st) return reject(new Error(`Directory ${dirName} should exist but does not exist.`))
         if (!st.isDirectory()) return reject(new Error(`Stat for directory ${dirName} does not have directory mode`))
+        console.log('st:', st, 'offset:', offset, 'byteOffset:', byteOffset)
         if (st.offset !== offset || st.byteOffset !== byteOffset) return reject(new Error(`Invalid offsets for ${dirName}`))
         this.debug(`  Successfully statted directory.`)
         return resolve({ type: 'stat', dirName })
@@ -457,7 +458,7 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
         if (err) throw err
         let s1 = this.remoteDrive.replicate({ live: true })
         s1.pipe(this.drive.replicate({ live: true })).pipe(s1)
-        this.remoteDrive.contentReady(err => {
+        this.remoteDrive.ready(err => {
           if (err) return reject(err)
           return resolve()
         })
@@ -471,7 +472,7 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
 
 module.exports = HyperdriveFuzzer
 
-tape('20000 mixed operations, single drive', async t => {
+tape.only('20000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({

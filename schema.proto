@@ -3,6 +3,12 @@ message Index {
   optional bytes content = 2;
 }
 
+message Mount {
+  required bytes key = 1;
+  optional uint64 version = 2;
+  optional bytes hash = 3;
+}
+
 message Stat {
   required uint32 mode = 1;
   optional uint32 uid = 2;
@@ -14,4 +20,5 @@ message Stat {
   optional uint64 mtime = 8;
   optional uint64 ctime = 9;
   optional string linkname = 10;
+  optional Mount mount = 11;
 }
