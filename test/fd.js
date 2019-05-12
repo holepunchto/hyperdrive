@@ -195,7 +195,7 @@ tape('fd basic write, creating file', function (t) {
   })
 })
 
-tape('fd basic write, appending file', function (t) {
+tape.skip('fd basic write, appending file', function (t) {
   const drive = create()
   const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
@@ -225,7 +225,7 @@ tape('fd basic write, appending file', function (t) {
   }
 })
 
-tape('fd basic write, overwrite file', function (t) {
+tape.skip('fd basic write, overwrite file', function (t) {
   const drive = create()
   const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
@@ -255,7 +255,7 @@ tape('fd basic write, overwrite file', function (t) {
   }
 })
 
-tape('fd stateful write', function (t) {
+tape.skip('fd stateful write', function (t) {
   const drive = create()
   const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)
@@ -280,7 +280,7 @@ tape('fd stateful write', function (t) {
   })
 })
 
-tape('huge stateful write + stateless read', function (t) {
+tape.skip('huge stateful write + stateless read', function (t) {
   const NUM_SLICES = 1000
   const SLICE_SIZE = 4096
   const READ_SIZE = Math.floor(4096 * 2.75)
@@ -336,7 +336,7 @@ tape('huge stateful write + stateless read', function (t) {
   }
 })
 
-tape('fd random-access write fails', function (t) {
+tape.skip('fd random-access write fails', function (t) {
   const drive = create()
   const content = Buffer.alloc(10000).fill('0123456789abcdefghijklmnopqrstuvwxyz')
   let first = content.slice(0, 2000)

@@ -18,7 +18,7 @@ const createFileDescriptor = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const messages = require('./lib/messages')
-const defaultCorestore = require('random-access-corestore')
+const defaultCorestore = require('./lib/storage')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 
 // 20 is arbitrary, just to make the fds > stdio etc
@@ -44,7 +44,7 @@ class Hyperdrive extends EventEmitter {
     this.sparse = !!opts.sparse
     this.sparseMetadata = !!opts.sparseMetadata
 
-    this._corestore = opts.corestore || defaultCorestore(path => storage(path), opts)
+    this._corestore = defaultCorestore(storage, opts)
     this.metadata = this._corestore.get({
       key,
       main: true, 
@@ -56,8 +56,8 @@ class Hyperdrive extends EventEmitter {
     })
     this._db = opts._db || new MountableHypertrie(this._corestore, key, { feed: this.metadata })
 
-    this._contentFeeds = new Map()
-    if (opts.content) this._contentFeeds.set(this._db, new ContentState(opts.content))
+    this._contentStates = new Map()
+    if (opts.content) this._contentStates.set(this._db, new ContentState(opts.content))
 
     this._fds = []
     this._writingFds = new Map()
@@ -80,6 +80,12 @@ class Hyperdrive extends EventEmitter {
 
   get writable () {
     return this.metadata.writable
+  }
+
+  get contentWritable () {
+    const contentState = this._contentStates.get(this._db)
+    if (!contentState) return false
+    return contentState.feed.writable
   }
 
   _ready (cb) {
@@ -108,7 +114,7 @@ class Hyperdrive extends EventEmitter {
        *    Initialize the db without metadata and load the content feed key from the header.
        */
       if (self.opts._db) {
-        if (!self.contentFeeds.get(self.opts._db.key)) return cb(new Error('Must provide a db and a content feed'))
+        if (!self.contentStates.get(self.opts._db.key)) return cb(new Error('Must provide a db and a content feed'))
         return done(null)
       } else if (self.metadata.writable && !self.metadata.length) {
         initialize(rootContentKeyPair)
@@ -140,7 +146,7 @@ class Hyperdrive extends EventEmitter {
       if (self.metadata.writable) {
         self._db.ready(err => {
           if (err) return done(err)
-          self._getContent(self._db, done)
+          self._getContent(self._db, { secretKey: keyPair.secretKey }, done)
         })
       } else {
         self._db.ready(done)
@@ -167,7 +173,8 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this._getContent(db, null, opts)
     const self = this
 
-    const existingContent = self._contentFeeds.get(db)
+    const existingContent = self._contentStates.get(db)
+    console.log('EXISTING CONTENT:', existingContent)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
     db.getMetadata((err, publicKey) => {
@@ -181,7 +188,7 @@ class Hyperdrive extends EventEmitter {
       feed.ready(err => {
         if (err) return cb(err)
         const state = new ContentState(feed, mutexify())
-        self._contentFeeds.set(db, state)
+        self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))
         return cb(null, state)
       })
@@ -211,9 +218,12 @@ class Hyperdrive extends EventEmitter {
   open (name, flags, cb) {
     name = unixify(name)
 
-    createFileDescriptor(this, name, flags, (err, fd) => {
+    this.ready(err => {
       if (err) return cb(err)
-      cb(null, STDIO_CAP + this._fds.push(fd) - 1)
+      createFileDescriptor(this, name, flags, (err, fd) => {
+        if (err) return cb(err)
+        cb(null, STDIO_CAP + this._fds.push(fd) - 1)
+      })
     })
   }
 
@@ -256,6 +266,7 @@ class Hyperdrive extends EventEmitter {
       if (err) return stream.destroy(err)
       this._db.get(name, (err, node, trie) => {
         if (err) return stream.destroy(err)
+        console.log('IN CREATEREADSTREAM, DB GET node:', node)
         if (!node) return stream.destroy(new errors.FileNotFound(name))
 
         this._getContent(trie, (err, contentState) => {
@@ -502,6 +513,29 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
+  _createDirectoryStat (name, opts, cb) {
+    this._db.get(name, (err, node, trie) => {
+      if (err) return cb(err)
+      this._getContent(trie, (err, contentState) => {
+        if (err) return cb(err)
+        try {
+          var st = messages.Stat.encode(Stat.directory({
+            ...opts,
+            offset: contentState.feed.length,
+            byteOffset: contentState.feed.byteLength
+          }))
+          console.log('CREATING DIR WITH OFFSET:', contentState.feed.length, 'byteOffset:', contentState.feed.byteLength)
+        } catch (err) {
+          return cb(err)
+        }
+        return cb(null, st)
+        this._db.put(name, st, {
+          condition: ifNotExists
+        }, cb)
+      })
+    })
+  }
+
   mkdir (name, opts, cb) {
     if (typeof opts === 'function') return this.mkdir(name, null, opts)
     if (typeof opts === 'number') opts = {mode: opts}
@@ -510,23 +544,11 @@ class Hyperdrive extends EventEmitter {
 
     name = unixify(name)
 
-    this._db.get(name, (err, node, trie) => {
+    this._createDirectoryStat(name, opts, (err, st) => {
       if (err) return cb(err)
-      this._getContent(trie, (err, contentState) => {
-        if (err) return cb(err)
-        try {
-          var st = messages.Stat.encode(Stat.directory({
-            ...opts,
-            offset: contentState.length,
-            byteOffset: contentState.byteLength
-          }))
-        } catch (err) {
-          return cb(err)
-        }
-        this._db.put(name, st, {
-          condition: ifNotExists
-        }, cb)
-      })
+      this._db.put(name, st, {
+        condition: ifNotExists
+      }, cb)
     })
   }
 
@@ -670,13 +692,14 @@ class Hyperdrive extends EventEmitter {
     if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
     else cb = fd
     if (!cb) cb = noop
+    const self = this
+
+    // Attempt to close all feeds, even if a subset of them fail. Return the last error.
+    var closeErr = null
 
     this.ready(err => {
       if (err) return cb(err)
-      this.metadata.close(err => {
-        if (!this.content) return cb(err)
-        this.content.close(cb)
-      })
+      return this._corestore.close(cb)
     })
   }
 
@@ -686,7 +709,20 @@ class Hyperdrive extends EventEmitter {
   }
 
   mount (path, key, opts, cb) {
-    return this._db.mount(path, key, opts, cb)
+    if (typeof opts === 'function') return this.mount(path, key, null, opts)
+    opts = opts || {}
+    opts.mount = {
+      key,
+      version: opts.version,
+      hash: opts.hash
+    }
+    this._createDirectoryStat(path, opts, (err, st) => {
+      if (err) return cb(err)
+      this._db.mount(path, key, { ...opts, value: st }, err => {
+        if (err) return cb(err)
+        return this._db.loadMount(path, cb)
+      })
+    })
   }
 }
 
