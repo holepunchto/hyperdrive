@@ -195,6 +195,19 @@ class Hyperdrive extends EventEmitter {
     }
   }
 
+  _putStat (name, stat, opts, cb) {
+    if (typeof opts === 'function') return this._putStat(name, stat, null, opts)
+    try {
+      var encoded = messages.Stat.encode(stat)
+    } catch (err) {
+      return cb(err)
+    }
+    this._db.put(name, encoded, opts, err => {
+      if (err) return cb(err)
+      return cb(null, stat)
+    })
+  }
+
   _update (name, stat, cb) {
     name = unixify(name)
 
@@ -203,15 +216,11 @@ class Hyperdrive extends EventEmitter {
       if (!st) return cb(new errors.FileNotFound(name))
       try {
         var decoded = messages.Stat.decode(st.value)
-        const newStat = Object.assign(decoded, stat)
-        var encoded = messages.Stat.encode(newStat)
       } catch (err) {
         return cb(err)
       }
-      this._db.put(name, encoded, err => {
-        if (err) return cb(err)
-        return cb(null)
-      })
+      const newStat = Object.assign(decoded, stat)
+      return this._putStat(name, newStat, cb)
     })
   }
 
@@ -264,25 +273,16 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this._db.get(name, (err, node, trie) => {
+      this.stat(name, (err, st, trie) => {
         if (err) return stream.destroy(err)
-        console.log('IN CREATEREADSTREAM, DB GET node:', node)
-        if (!node) return stream.destroy(new errors.FileNotFound(name))
-
         this._getContent(trie, (err, contentState) => {
           if (err) return stream.destroy(err)
-          return oncontent(node.value, contentState)
+          return oncontent(st, contentState)
         })
       })
     })
 
     function oncontent (st, contentState) {
-      try {
-        st = messages.Stat.decode(st)
-      } catch (err) {
-        return stream.destroy(err)
-      }
-
       const byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
       const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
 
@@ -373,8 +373,8 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return proxy.destroy(err)
-      this._db.get(name, (err, node, trie) => {
-        if (err) return proxy.destroy(err)
+      this.stat(name, { trie: true }, (err, stat, trie) => {
+        if (err && (err.errno !== 2)) return proxy.destroy(err)
         this._getContent(trie, (err, contentState) => {
           if (err) return proxy.destroy(err)
           contentState.lock(_release => {
@@ -410,15 +410,8 @@ class Hyperdrive extends EventEmitter {
           size: contentState.feed.byteLength - byteOffset,
           blocks: contentState.feed.length - offset
         })
-
-        try {
-          var encoded = messages.Stat.encode(stat)
-        } catch (err) {
-          return proxy.destroy(err)
-        }
-
         proxy.cork()
-        self._db.put(name, encoded, function (err) {
+        self._putStat(name, stat, function (err) {
           if (err) return proxy.destroy(err)
           self.emit('append', name, opts)
           proxy.uncork()
@@ -443,16 +436,8 @@ class Hyperdrive extends EventEmitter {
       this.lstat(name, { file: true }, (err, stat) => {
         if (err && err.errno !== 2) return cb(err)
         if (stat) return cb(null, stat)
-        try {
-          var st = Stat.file(opts)
-          var buf = messages.Stat.encode(st)
-        } catch (err) {
-          return cb(err)
-        }
-        this._db.put(name, buf, err => {
-          if (err) return cb(err)
-          return cb(null, st)
-        })
+        const st = Stat.file(opts)
+        return this._putStat(name, st, cb)
       })
     })
   }
@@ -518,20 +503,12 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       this._getContent(trie, (err, contentState) => {
         if (err) return cb(err)
-        try {
-          var st = messages.Stat.encode(Stat.directory({
-            ...opts,
-            offset: contentState.feed.length,
-            byteOffset: contentState.feed.byteLength
-          }))
-          console.log('CREATING DIR WITH OFFSET:', contentState.feed.length, 'byteOffset:', contentState.feed.byteLength)
-        } catch (err) {
-          return cb(err)
-        }
+        const st = Stat.directory({
+          ...opts,
+          offset: contentState.feed.length,
+          byteOffset: contentState.feed.byteLength
+        })
         return cb(null, st)
-        this._db.put(name, st, {
-          condition: ifNotExists
-        }, cb)
       })
     })
   }
@@ -546,7 +523,7 @@ class Hyperdrive extends EventEmitter {
 
     this._createDirectoryStat(name, opts, (err, st) => {
       if (err) return cb(err)
-      this._db.put(name, st, {
+      this._putStat(name, st, {
         condition: ifNotExists
       }, cb)
     })
@@ -570,34 +547,42 @@ class Hyperdrive extends EventEmitter {
   lstat (name, opts, cb) {
     if (typeof opts === 'function') return this.lstat(name, null, opts)
     if (!opts) opts = {}
+    const self = this
     name = unixify(name)
 
     this.ready(err => {
       if (err) return cb(err)
-
-      this._db.get(name, opts, (err, node) => {
-        if (err) return cb(err)
-        if (!node && opts.file) return cb(new errors.FileNotFound(name))
-        if (!node) return this._statDirectory(name, opts, cb)
-        try {
-          var st = messages.Stat.decode(node.value)
-        } catch (err) {
-          return cb(err)
-        }
-        const writingFd = this._writingFds.get(name)
-        if (writingFd) {
-          st.size = writingFd.stat.size
-        }
-        cb(null, new Stat(st))
-      })
+      this._db.get(name, opts, onstat)
     })
+
+    function onstat (err, node, trie) {
+      if (err) return cb(err)
+      if (!node && opts.trie) return cb(null, null, trie)
+      if (!node && opts.file) return cb(new errors.FileNotFound(name))
+      if (!node) return self._statDirectory(name, opts, cb)
+      try {
+        var st = messages.Stat.decode(node.value)
+      } catch (err) {
+        return cb(err)
+      }
+      const writingFd = self._writingFds.get(name)
+      if (writingFd) {
+        st.size = writingFd.stat.size
+      }
+      cb(null, new Stat(st), trie)
+    }
   }
 
   stat (name, opts, cb) {
     if (typeof opts === 'function') return this.stat(name, null, opts)
     if (!opts) opts = {}
 
-    this.lstat(name, opts, cb)
+    this.lstat(name, opts, (err, stat, trie) => {
+      if (err) return cb(err)
+      if (!stat) return cb(null, null, trie)
+      if (stat.linkname) return this.lstat(stat.linkname, opts, cb)
+      return cb(null, stat, trie)
+    })
   }
 
   access (name, opts, cb) {
@@ -710,7 +695,9 @@ class Hyperdrive extends EventEmitter {
 
   mount (path, key, opts, cb) {
     if (typeof opts === 'function') return this.mount(path, key, null, opts)
+    path = unixify(path)
     opts = opts || {}
+
     opts.mount = {
       key,
       version: opts.version,
@@ -718,10 +705,24 @@ class Hyperdrive extends EventEmitter {
     }
     this._createDirectoryStat(path, opts, (err, st) => {
       if (err) return cb(err)
-      this._db.mount(path, key, { ...opts, value: st }, err => {
+      this._db.mount(path, key, { ...opts, value: messages.Stat.encode(st) }, err => {
         if (err) return cb(err)
         return this._db.loadMount(path, cb)
       })
+    })
+  }
+
+  symlink (target, linkName, cb) {
+    target = unixify(target)
+    linkName = unixify(linkName)
+
+    this.lstat(linkName, (err, stat) => {
+      if (err && (err.errno !== 2)) return cb(err)
+      if (!err) return cb(new errors.PathAlreadyExists(linkName))
+      const st = Stat.symlink({
+        linkname: target
+      })
+      return this._putStat(linkName, st, cb)
     })
   }
 }
