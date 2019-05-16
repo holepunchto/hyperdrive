@@ -72,3 +72,33 @@ test('cross-mount watch', t => {
     })
   })
 })
+
+test('cross-mount symlink', t => {
+  const archive1 = create()
+  const archive2 = create()
+
+  const s1 = archive1.replicate({ live: true, encrypt: false })
+  s1.pipe(archive2.replicate({ live: true, encrypt: false })).pipe(s1)
+
+  archive2.ready(err => {
+    t.error(err, 'no error')
+    archive1.mount('a', archive2.key, err => {
+      t.error(err, 'no error')
+      onmount()
+    })
+  })
+
+  function onmount () {
+    archive2.writeFile('b', 'hello world', err => {
+      t.error(err, 'no error')
+      archive1.symlink('a/b', 'c', err => {
+        t.error(err, 'no error')
+        archive1.readFile('c', (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, Buffer.from('hello world'))
+          t.end()
+        })
+      })
+    })
+  }
+})
