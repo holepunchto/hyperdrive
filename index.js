@@ -174,7 +174,6 @@ class Hyperdrive extends EventEmitter {
     const self = this
 
     const existingContent = self._contentStates.get(db)
-    console.log('EXISTING CONTENT:', existingContent)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
     db.getMetadata((err, publicKey) => {
