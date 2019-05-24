@@ -102,3 +102,6 @@ test('cross-mount symlink', t => {
     })
   }
 })
+
+test('versioned mount')
+test('watch will unwatch on umount')

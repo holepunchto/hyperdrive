@@ -7,7 +7,6 @@ tape('write and read', function (t) {
 
   archive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    console.log('reading')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('world'))
@@ -56,7 +55,6 @@ tape('write and read (sparse)', function (t) {
 
   var archive = create()
   archive.on('ready', function () {
-    console.log('CREATING CLONE WITH KEY:', archive.key)
     var clone = create(archive.key, {sparse: true})
 
     archive.writeFile('/hello.txt', 'world', function (err) {
