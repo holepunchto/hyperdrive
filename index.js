@@ -17,8 +17,8 @@ const MountableHypertrie = require('mountable-hypertrie')
 const createFileDescriptor = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
-const messages = require('./lib/messages')
 const defaultCorestore = require('./lib/storage')
+const { messages } = require('hyperdrive-schema')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 
 // 20 is arbitrary, just to make the fds > stdio etc
@@ -45,9 +45,8 @@ class Hyperdrive extends EventEmitter {
     this.sparseMetadata = !!opts.sparseMetadata
 
     this._corestore = defaultCorestore(storage, opts)
-    this.metadata = this._corestore.get({
+    this.metadata = this._corestore.default({
       key,
-      main: true, 
       secretKey: opts.secretKey,
       sparse: this.sparseMetadata,
       createIfMissing: opts.createIfMissing,
@@ -261,6 +260,7 @@ class Hyperdrive extends EventEmitter {
 
   createReadStream (name, opts) {
     if (!opts) opts = {}
+    const self = this
 
     name = unixify(name)
 
@@ -282,13 +282,26 @@ class Hyperdrive extends EventEmitter {
     })
 
     function oncontent (st, contentState) {
-      const byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+      if (st.mount && st.mount.hypercore) {
+        var byteOffset = 0
+        var blockOffset = 0
+        var blockLength = st.blocks
+        var feed = self._corestore.get({
+          key: st.mount.key,
+          sparse: self.sparse
+        })
+      } else {
+        blockOffset = st.offset
+        blockLength = st.blocks
+        byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+        feed = contentState.feed
+      }
       const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
 
       stream.start({
-        feed: contentState.feed,
-        blockOffset: st.offset,
-        blockLength: st.blocks,
+        feed,
+        blockOffset,
+        blockLength,
         byteOffset,
         byteLength
       })
@@ -457,7 +470,7 @@ class Hyperdrive extends EventEmitter {
 
   writeFile (name, buf, opts, cb) {
     if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
-    if (typeof opts === 'string') opts = {encoding: opts}
+    if (typeof opts === 'string') opts = { encoding: opts }
     if (!opts) opts = {}
     if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding || 'utf-8')
     if (!cb) cb = noop
@@ -465,8 +478,17 @@ class Hyperdrive extends EventEmitter {
     name = unixify(name)
 
     let stream = this.createWriteStream(name, opts)
-    stream.on('error', cb)
-    stream.on('finish', cb)
+
+    // TODO: Do we need to maintain the error state? What's triggering 'finish' after 'error'?
+    var errored = false
+
+    stream.on('error', err => {
+      errored = true
+      return cb(err)
+    })
+    stream.on('finish', () => {
+      if (!errored) return cb(null)
+    })
     stream.end(buf)
   }
 
@@ -497,12 +519,13 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
-  _createDirectoryStat (name, opts, cb) {
+  _createStat (name, opts, cb) {
+    const statConstructor = (opts && opts.directory) ? Stat.directory : Stat.file
     this._db.get(name, (err, node, trie) => {
       if (err) return cb(err)
       this._getContent(trie, (err, contentState) => {
         if (err) return cb(err)
-        const st = Stat.directory({
+        const st = statConstructor({
           ...opts,
           offset: contentState.feed.length,
           byteOffset: contentState.feed.byteLength
@@ -519,8 +542,9 @@ class Hyperdrive extends EventEmitter {
     if (!cb) cb = noop
 
     name = unixify(name)
+    opts.directory = true
 
-    this._createDirectoryStat(name, opts, (err, st) => {
+    this._createStat(name, opts, (err, st) => {
       if (err) return cb(err)
       this._putStat(name, st, {
         condition: ifNotExists
@@ -694,21 +718,51 @@ class Hyperdrive extends EventEmitter {
 
   mount (path, key, opts, cb) {
     if (typeof opts === 'function') return this.mount(path, key, null, opts)
+    const self = this
+
     path = unixify(path)
     opts = opts || {}
 
     opts.mount = {
       key,
       version: opts.version,
-      hash: opts.hash
+      hash: opts.hash,
+      hypercore: !!opts.hypercore
     }
-    this._createDirectoryStat(path, opts, (err, st) => {
-      if (err) return cb(err)
-      this._db.mount(path, key, { ...opts, value: messages.Stat.encode(st) }, err => {
-        if (err) return cb(err)
-        return this._db.loadMount(path, cb)
+    opts.directory = !opts.hypercore
+
+    if (opts.hypercore) {
+      const core = this._corestore.get({
+        key,
+        ...opts,
+        sparse: this.sparse
       })
-    })
+      core.ready(err => {
+        if (err) return cb(err)
+        opts.size = core.byteLength
+        opts.blocks = core.length
+        return mountCore()
+      })
+    } else {
+      return process.nextTick(mountTrie, null)
+    }
+
+    function mountCore () {
+      self._createStat(path, opts, (err, st) => {
+        if (err) return cb(err)
+        return self._db.put(path, messages.Stat.encode(st), cb)
+      })
+    }
+
+    function mountTrie () {
+      self._createStat(path, opts, (err, st) => {
+        if (err) return cb(err)
+        self._db.mount(path, key, { ...opts, value: messages.Stat.encode(st) }, err => {
+          if (err) return cb(err)
+          return self._db.loadMount(path, cb)
+        })
+      })
+    }
   }
 
   symlink (target, linkName, cb) {
