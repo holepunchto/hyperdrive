@@ -35,3 +35,21 @@ tape('stat dir', function (t) {
     })
   })
 })
+
+tape('metadata', function (t) {
+  var archive = create()
+
+  var attributes = { hello: 'world' }
+  var metadata = {
+    attributes: Buffer.from(JSON.stringify(attributes))
+  }
+
+  archive.writeFile('/foo', 'bar', { metadata }, function (err) {
+    t.error(err, 'no error')
+    archive.stat('/foo', function (err, st) {
+      t.error(err, 'no error')
+      t.deepEqual(JSON.parse(metadata.attributes.toString()), { hello: 'world' })
+      t.end()
+    })
+  })
+})
