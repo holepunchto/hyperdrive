@@ -5,7 +5,7 @@ const corestore = require('random-access-corestore')
 const Megastore = require('megastore')
 var create = require('./helpers/create')
 
-test.only('basic read/write to/from a mount', t => {
+test('basic read/write to/from a mount', t => {
   const drive1 = create()
   const drive2 = create()
 
@@ -14,17 +14,14 @@ test.only('basic read/write to/from a mount', t => {
 
   drive2.ready(err => {
     t.error(err, 'no error')
-    drive2.writeFile('b', 'hello', err => {
-      t.error(err, 'no error')
+    drive2.writeFile('b', 'hello', err => {t.error(err, 'no error')
       drive1.mount('a', drive2.key, err => {
         t.error(err, 'no error')
-        setTimeout(() => {
-          drive1.readFile('a/b', (err, contents) => {
-            t.error(err, 'no error')
-            t.same(contents, Buffer.from('hello'))
-            t.end()
-          })
-        }, 5000)
+        drive1.readFile('a/b', (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, Buffer.from('hello'))
+          t.end()
+        })
       })
     })
   })
@@ -101,7 +98,6 @@ test('recursive mounts', async t => {
       t.error(err, 'no error')
       drive3.writeFile('b', 'world', err => {
         t.error(err, 'no error')
-        console.log('DRIVE 3 KEY:', drive3.key)
         onwrite()
       })
     })
@@ -121,13 +117,11 @@ test('recursive mounts', async t => {
     drive1.readFile('a/a', (err, contents) => {
       t.error(err, 'no error')
       t.same(contents, Buffer.from('hello'))
-      setTimeout(() => {
-        drive1.readFile('a/b/b', (err, contents) => {
-          t.error(err, 'no error')
-          t.same(contents, Buffer.from('world'))
-          t.end()
-        })
-      }, 2000)
+      drive1.readFile('a/b/b', (err, contents) => {
+        t.error(err, 'no error')
+        t.same(contents, Buffer.from('world'))
+        t.end()
+      })
     })
   }
 })
@@ -210,6 +204,9 @@ test('cross-mount symlink', t => {
     })
   }
 })
+
+test('dynamically resolves cross-mount symlinks')
+test('symlinks cannot break the sandbox')
 
 test('independent corestores do not share write capabilities', t => {
   const drive1 = create()
@@ -324,26 +321,27 @@ test('truncate within mount (with shared write capabilities)', async t => {
   })
 })
 
-
 test('versioned mount')
 test('watch will unwatch on umount')
 
-function replicateAll (drives) {
+function replicateAll (drives, opts) {
   const streams = []
+  const replicated = new Set()
+
   for (let i = 0; i < drives.length; i++) {
     for (let j = 0; j < drives.length; j++) {
       const source = drives[i]
       const dest = drives[j]
-      if (i === j) continue
+      if (i === j || replicated.has(j)) continue
 
-      const s1 = source.replicate({ live: true, encrypt: false})
-      const s2 = dest.replicate({ live: true, encrypt: false })
+      const s1 = source.replicate({ ...opts, live: true, encrypt: false})
+      const s2 = dest.replicate({ ...opts, live: true, encrypt: false })
       streams.push([s1, s2])
 
-      s1.on('data', d => console.log(`${i + 1} STREAM DATA:`, d))
-      s2.on('data', d => console.log(`${j + 1} STREAM DATA:`, d))
       s1.pipe(s2).pipe(s1)
     }
+    replicated.add(i)
   }
+
   return streams
 }

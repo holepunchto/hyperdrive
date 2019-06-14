@@ -57,18 +57,18 @@ tape('write and read (sparse)', function (t) {
   drive.on('ready', function () {
     var clone = create(drive.key, {sparse: true})
 
+    var s1 = clone.replicate({ live: true, encrypt: false })
+    var s2 = drive.replicate({ live: true, encrypt: false})
+    s1.pipe(s2).pipe(s1)
+
     drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      var s1 = clone.replicate({ live: true })
-      var s2 = drive.replicate({ live: true })
-      // stream.pipe(drive.replicate()).pipe(stream)
-      s1.pipe(s2).pipe(s1)
       setTimeout(() => {
         var readStream = clone.createReadStream('/hello.txt')
         readStream.on('data', function (data) {
           t.same(data.toString(), 'world')
-        })
-      }, 100)
+        }, 50)
+      })
     })
   })
 })

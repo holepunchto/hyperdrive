@@ -1,4 +1,4 @@
-const path = require('path')
+const path = require('path').posix
 const { EventEmitter } = require('events')
 
 const collect = require('stream-collector')
@@ -42,9 +42,9 @@ class Hyperdrive extends EventEmitter {
     this.discoveryKey = null
     this.live = true
     this.sparse = opts.sparse !== false
-    this.sparseMetadata = opts.sparseMetadata !== false
-
     // TODO: Add support for mixed-sparsity.
+    this.sparseMetadata = this.sparse || opts.sparseMetadata !== false
+
     this._corestore = defaultCorestore(storage, {
       sparse: this.sparse,
       valueEncoding: 'binary'
@@ -54,11 +54,12 @@ class Hyperdrive extends EventEmitter {
       secretKey: opts.secretKey,
     })
     this._db = opts._db || new MountableHypertrie(this._corestore, key, {
-      feed: this.metadata
+      feed: this.metadata,
+      sparse: this.sparse
     })
 
     this._contentStates = new Map()
-    if (opts.content) this._contentStates.set(this._db, new ContentState(opts.content))
+    if (opts._content) this._contentStates.set(this._db, new ContentState(opts._content))
 
     this._fds = []
     this._writingFds = new Map()
@@ -98,15 +99,11 @@ class Hyperdrive extends EventEmitter {
     return self.metadata.ready(err => {
       if (err) return cb(err)
 
-      if (self.sparseMetadata) {
-        self.metadata.update(function loop () {
-          self.metadata.update(loop)
-        })
-      }
-
       const rootContentKeyPair = self.metadata.secretKey ? contentKeyPair(self.metadata.secretKey) : {}
 
       /**
+       * TODO: Update comment to reflect mounts.
+       *
        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
        * If the metadata feed is writable:
        *    If the metadata feed has length 0, then the db should be initialized with the content feed key as metadata.
@@ -115,7 +112,7 @@ class Hyperdrive extends EventEmitter {
        *    Initialize the db without metadata and load the content feed key from the header.
        */
       if (self.opts._db) {
-        if (!self.contentStates.get(self.opts._db.key)) return cb(new Error('Must provide a db and a content feed'))
+        if (!self._contentStates.get(self.opts._db)) return cb(new Error('Must provide a db and a content feed'))
         return done(null)
       } else if (self.metadata.writable && !self.metadata.length) {
         initialize(rootContentKeyPair)
@@ -187,7 +184,7 @@ class Hyperdrive extends EventEmitter {
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
-        const state = new ContentState(feed, mutexify())
+        const state = new ContentState(feed)
         self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))
         return cb(null, state)
@@ -674,17 +671,17 @@ class Hyperdrive extends EventEmitter {
   }
 
   replicate (opts) {
-    const stream = this._corestore.replicate(opts)
-    stream.on('error', err => console.error('REPLICATION ERROR:', err))
-    return stream
+    return this._corestore.replicate(opts)
   }
 
   checkout (version, opts) {
+    const db = this._db.checkout(version)
     opts = {
       ...opts,
-      _db: this._db.checkout(version)
+      _db: db,
+      _content: this._contentStates.get(this._db)
     }
-    return new Hyperdrive(this.storage, this.key, opts)
+    return new Hyperdrive(this._corestore, this.key, opts)
   }
 
   _closeFile (fd, cb) {
@@ -717,7 +714,6 @@ class Hyperdrive extends EventEmitter {
 
   mount (path, key, opts, cb) {
     if (typeof opts === 'function') return this.mount(path, key, null, opts)
-    console.error('MOUNTING KEY:', key, 'AT PATH:', path, 'WITH OPTS:', opts)
     const self = this
 
     path = unixify(path)

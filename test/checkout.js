@@ -2,7 +2,7 @@ var tape = require('tape')
 var create = require('./helpers/create')
 
 tape('simple checkout', function (t) {
-  const drive = create(null)
+  const drive = create()
 
   drive.writeFile('/hello', 'world', err => {
     t.error(err, 'no error')
