@@ -18,7 +18,7 @@ const createFileDescriptor = require('./lib/fd')
 const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
-const { messages } = require('hyperdrive-schema')
+const { messages } = require('hyperdrive-schemas')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 
 // 20 is arbitrary, just to make the fds > stdio etc
@@ -41,19 +41,21 @@ class Hyperdrive extends EventEmitter {
     this.key = null
     this.discoveryKey = null
     this.live = true
-    this.sparse = !!opts.sparse
-    this.sparseMetadata = !!opts.sparseMetadata
+    this.sparse = opts.sparse !== false
+    this.sparseMetadata = opts.sparseMetadata !== false
 
-    this._corestore = defaultCorestore(storage, opts)
+    // TODO: Add support for mixed-sparsity.
+    this._corestore = defaultCorestore(storage, {
+      sparse: this.sparse,
+      valueEncoding: 'binary'
+    })
     this.metadata = this._corestore.default({
       key,
       secretKey: opts.secretKey,
-      sparse: this.sparseMetadata,
-      createIfMissing: opts.createIfMissing,
-      storageCacheSize: opts.metadataStorageCacheSize,
-      valueEncoding: 'binary'
     })
-    this._db = opts._db || new MountableHypertrie(this._corestore, key, { feed: this.metadata })
+    this._db = opts._db || new MountableHypertrie(this._corestore, key, {
+      feed: this.metadata
+    })
 
     this._contentStates = new Map()
     if (opts.content) this._contentStates.set(this._db, new ContentState(opts.content))
@@ -445,7 +447,7 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return cb(err)
-      this.lstat(name, { file: true }, (err, stat) => {
+      this.lstat(name, { file: true, trie: true }, (err, stat) => {
         if (err && err.errno !== 2) return cb(err)
         if (stat) return cb(null, stat)
         const st = Stat.file(opts)
@@ -495,27 +497,24 @@ class Hyperdrive extends EventEmitter {
   truncate (name, size, cb) {
     name = unixify(name)
 
-    this.contentReady(err => {
-      if (err) return cb(err)
-      this.lstat(name, { file: true }, (err, st) => {
-        if (err && err.errno !== 2) return cb(err)
-        if (!st) return this.create(name, cb)
-        if (size === st.size) return cb(null)
-        if (size < st.size) {
-          const readStream = this.createReadStream(name, { length: size })
-          const writeStream = this.createWriteStream(name)
-          return pump(readStream, writeStream, cb)
-        } else {
-          this.open(name, 'a', (err, fd) => {
+    this.lstat(name, { file: true, trie: true }, (err, st) => {
+      if (err && err.errno !== 2) return cb(err)
+      if (!st) return this.create(name, cb)
+      if (size === st.size) return cb(null)
+      if (size < st.size) {
+        const readStream = this.createReadStream(name, { length: size })
+        const writeStream = this.createWriteStream(name)
+        return pump(readStream, writeStream, cb)
+      } else {
+        this.open(name, 'a', (err, fd) => {
+          if (err) return cb(err)
+          const length = size - st.size
+          this.write(fd, Buffer.alloc(length), 0, length, st.size, err => {
             if (err) return cb(err)
-            const length = size - st.size
-            this.write(fd, Buffer.alloc(length), 0, length, st.size, err => {
-              if (err) return cb(err)
-              this.close(fd, cb)
-            })
+            this.close(fd, cb)
           })
-        }
-      })
+        })
+      }
     })
   }
 
@@ -718,6 +717,7 @@ class Hyperdrive extends EventEmitter {
 
   mount (path, key, opts, cb) {
     if (typeof opts === 'function') return this.mount(path, key, null, opts)
+    console.error('MOUNTING KEY:', key, 'AT PATH:', path, 'WITH OPTS:', opts)
     const self = this
 
     path = unixify(path)
