@@ -4,11 +4,11 @@ const create = require('./helpers/create')
 const hyperdrive = require('..')
 
 tape('ram storage', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.ready(function () {
-    t.ok(archive.metadata.writable, 'archive metadata is writable')
-    t.ok(archive.contentWritable, 'archive content is writable')
+  drive.ready(function () {
+    t.ok(drive.metadata.writable, 'drive metadata is writable')
+    t.ok(drive.contentWritable, 'drive content is writable')
     t.end()
   })
 })
@@ -16,20 +16,20 @@ tape('ram storage', function (t) {
 tape('dir storage with resume', function (t) {
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var archive = hyperdrive(dir)
-    archive.ready(function () {
-      t.ok(archive.metadata.writable, 'archive metadata is writable')
-      t.ok(archive.contentWritable, 'archive content is writable')
-      t.same(archive.version, 1, 'archive has version 1')
-      archive.close(function (err) {
+    var drive = hyperdrive(dir)
+    drive.ready(function () {
+      t.ok(drive.metadata.writable, 'drive metadata is writable')
+      t.ok(drive.contentWritable, 'drive content is writable')
+      t.same(drive.version, 1, 'drive has version 1')
+      drive.close(function (err) {
         t.ifError(err)
 
-        var archive2 = hyperdrive(dir)
-        archive2.ready(function (err) {
+        var drive2 = hyperdrive(dir)
+        drive2.ready(function (err) {
           t.error(err, 'no error')
-          t.ok(archive2.metadata.writable, 'archive2 metadata is writable')
-          t.ok(archive2.contentWritable, 'archive2 content is writable')
-          t.same(archive2.version, 1, 'archive has version 1')
+          t.ok(drive2.metadata.writable, 'drive2 metadata is writable')
+          t.ok(drive2.contentWritable, 'drive2 content is writable')
+          t.same(drive2.version, 1, 'drive has version 1')
 
           cleanup(function (err) {
             t.ifError(err)
@@ -41,7 +41,7 @@ tape('dir storage with resume', function (t) {
   })
 })
 
-tape('dir storage for non-writable archive', function (t) {
+tape('dir storage for non-writable drive', function (t) {
   var src = create()
   src.ready(function () {
     tmp(function (err, dir, cleanup) {
@@ -66,8 +66,8 @@ tape('dir storage for non-writable archive', function (t) {
 
 tape('dir storage without permissions emits error', function (t) {
   t.plan(1)
-  var archive = hyperdrive('/')
-  archive.on('error', function (err) {
+  var drive = hyperdrive('/')
+  drive.on('error', function (err) {
     t.ok(err, 'got error')
   })
 })
@@ -77,14 +77,14 @@ tape('write and read (sparse)', function (t) {
 
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
-    var archive = hyperdrive(dir)
-    archive.on('ready', function () {
-      var clone = create(archive.key, {sparse: true})
+    var drive = hyperdrive(dir)
+    drive.on('ready', function () {
+      var clone = create(drive.key, {sparse: true})
       clone.on('ready', function () {
-        archive.writeFile('/hello.txt', 'world', function (err) {
+        drive.writeFile('/hello.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate({ live: true })
-          stream.pipe(archive.replicate({ live: true })).pipe(stream)
+          var stream = clone.replicate({ live: true, encrypt: false })
+          stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
           setTimeout(() => {
             var readStream = clone.createReadStream('/hello.txt')
             readStream.on('error', function (err) {
@@ -101,15 +101,15 @@ tape('write and read (sparse)', function (t) {
 })
 
 tape('sparse read/write two files', function (t) {
-  var archive = create()
-  archive.on('ready', function () {
-    var clone = create(archive.key, {sparse: true})
-    archive.writeFile('/hello.txt', 'world', function (err) {
+  var drive = create()
+  drive.on('ready', function () {
+    var clone = create(drive.key, {sparse: true})
+    drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      archive.writeFile('/hello2.txt', 'world', function (err) {
+      drive.writeFile('/hello2.txt', 'world', function (err) {
         t.error(err, 'no error')
-        var stream = clone.replicate({ live: true })
-        stream.pipe(archive.replicate({ live: true })).pipe(stream)
+        var stream = clone.replicate({ live: true, encrypt: false })
+        stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
         clone.metadata.update(start)
       })
     })
