@@ -3,11 +3,11 @@ var sodium = require('sodium-universal')
 var create = require('./helpers/create')
 
 tape('write and read', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('world'))
       t.end()
@@ -16,11 +16,11 @@ tape('write and read', function (t) {
 })
 
 tape('write and read, with encoding', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.writeFile('/hello.txt', 'world', { encoding: 'utf8' }, function (err) {
+  drive.writeFile('/hello.txt', 'world', { encoding: 'utf8' }, function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', { encoding: 'utf8' }, function (err, str) {
+    drive.readFile('/hello.txt', { encoding: 'utf8' }, function (err, str) {
       t.error(err, 'no error')
       t.same(str, 'world')
       t.end()
@@ -31,19 +31,19 @@ tape('write and read, with encoding', function (t) {
 tape('write and read (2 parallel)', function (t) {
   t.plan(6)
 
-  var archive = create()
+  var drive = create()
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('world'))
     })
   })
 
-  archive.writeFile('/world.txt', 'hello', function (err) {
+  drive.writeFile('/world.txt', 'hello', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/world.txt', function (err, buf) {
+    drive.readFile('/world.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('hello'))
     })
@@ -53,15 +53,15 @@ tape('write and read (2 parallel)', function (t) {
 tape('write and read (sparse)', function (t) {
   t.plan(2)
 
-  var archive = create()
-  archive.on('ready', function () {
-    var clone = create(archive.key, {sparse: true})
+  var drive = create()
+  drive.on('ready', function () {
+    var clone = create(drive.key, {sparse: true})
 
-    archive.writeFile('/hello.txt', 'world', function (err) {
+    drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
       var s1 = clone.replicate({ live: true })
-      var s2 = archive.replicate({ live: true })
-      // stream.pipe(archive.replicate()).pipe(stream)
+      var s2 = drive.replicate({ live: true })
+      // stream.pipe(drive.replicate()).pipe(stream)
       s1.pipe(s2).pipe(s1)
       setTimeout(() => {
         var readStream = clone.createReadStream('/hello.txt')
@@ -74,11 +74,11 @@ tape('write and read (sparse)', function (t) {
 })
 
 tape('root is always there', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.access('/', function (err) {
+  drive.access('/', function (err) {
     t.error(err, 'no error')
-    archive.readdir('/', function (err, list) {
+    drive.readdir('/', function (err, list) {
       t.error(err, 'no error')
       t.same(list, [])
       t.end()
@@ -92,16 +92,16 @@ tape('provide keypair', function (t) {
 
   sodium.crypto_sign_keypair(publicKey, secretKey)
 
-  var archive = create(publicKey, {secretKey: secretKey})
+  var drive = create(publicKey, {secretKey: secretKey})
 
-  archive.on('ready', function () {
-    t.ok(archive.writable)
-    t.ok(archive.metadata.writable)
-    t.ok(publicKey.equals(archive.key))
+  drive.on('ready', function () {
+    t.ok(drive.writable)
+    t.ok(drive.metadata.writable)
+    t.ok(publicKey.equals(drive.key))
 
-    archive.writeFile('/hello.txt', 'world', function (err) {
+    drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      archive.readFile('/hello.txt', function (err, buf) {
+      drive.readFile('/hello.txt', function (err, buf) {
         t.error(err, 'no error')
         t.same(buf, Buffer.from('world'))
         t.end()
@@ -111,15 +111,15 @@ tape('provide keypair', function (t) {
 })
 
 tape('write and read, no cache', function (t) {
-  var archive = create({
+  var drive = create({
     metadataStorageCacheSize: 0,
     contentStorageCacheSize: 0,
     treeCacheSize: 0
   })
 
-  archive.writeFile('/hello.txt', 'world', function (err) {
+  drive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    archive.readFile('/hello.txt', function (err, buf) {
+    drive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('world'))
       t.end()
