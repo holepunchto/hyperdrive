@@ -492,7 +492,7 @@ tape('20000 mixed operations, single drive', async t => {
   }
 })
 
-tape.only('20000 mixed operations, replicating drives', async t => {
+tape.skip('20000 mixed operations, replicating drives', async t => {
   t.plan(1)
 
   const fuzz = new SparseHyperdriveFuzzer({

@@ -167,18 +167,22 @@ class Hyperdrive extends EventEmitter {
   }
 
   _getContent (db, opts, cb) {
+    console.log('in _getContent')
     if (typeof opts === 'function') return this._getContent(db, null, opts)
     const self = this
 
     const existingContent = self._contentStates.get(db)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
+    console.log('calling getMetadata')
     db.getMetadata((err, publicKey) => {
       if (err) return cb(err)
+      console.log('got metadata, publicKey:', publicKey)
       return onkey(publicKey)
     })
 
     function onkey (publicKey) {
+      console.log('in onkey')
       const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey), ...opts }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
@@ -186,12 +190,6 @@ class Hyperdrive extends EventEmitter {
         const state = new ContentState(feed)
         self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))
-        if (!feed.writable) {
-          return feed.update(1, err => {
-            if (err) return cb(err)
-            return cb(null, state)
-          })
-        }
         return cb(null, state)
       })
     }
@@ -305,6 +303,21 @@ class Hyperdrive extends EventEmitter {
 
       console.log('st:', st)
       console.log('byteLength:', byteLength, 'blockOffset:', blockOffset, 'byteOffset:', byteOffset, 'blockLength:', blockLength)
+
+      /*
+      if (byteOffset === 104236) {
+        return feed.get(169, (err, contents) => {
+          console.log('CONTENTS AT BLOCK 169:', contents)
+          stream.start({
+            feed,
+            blockOffset,
+            blockLength,
+            byteOffset,
+            byteLength
+          })
+        })
+      }
+      */
 
       stream.start({
         feed,
@@ -525,19 +538,29 @@ class Hyperdrive extends EventEmitter {
   }
 
   _createStat (name, opts, cb) {
+    const self = this
+
     const statConstructor = (opts && opts.directory) ? Stat.directory : Stat.file
     this._db.get(name, (err, node, trie) => {
       if (err) return cb(err)
-      this._getContent(trie, (err, contentState) => {
-        if (err) return cb(err)
-        const st = statConstructor({
-          ...opts,
-          offset: contentState.feed.length,
-          byteOffset: contentState.feed.byteLength
-        })
-        return cb(null, st)
-      })
+      onexisting(node, trie)
     })
+
+    function onexisting (node, trie) {
+      self.ready(err => {
+        if (err) return cb(err)
+        self._getContent(trie, (err, contentState) => {
+          if (err) return cb(err)
+          console.log(1)
+          const st = statConstructor({
+            ...opts,
+            offset: contentState.feed.length,
+            byteOffset: contentState.feed.byteLength
+          })
+          return cb(null, st)
+        })
+      })
+    }
   }
 
   mkdir (name, opts, cb) {
@@ -549,8 +572,10 @@ class Hyperdrive extends EventEmitter {
     name = unixify(name)
     opts.directory = true
 
+    console.log('creating stat')
     this._createStat(name, opts, (err, st) => {
       if (err) return cb(err)
+      console.log('stat created, putting stat')
       this._putStat(name, st, {
         condition: ifNotExists
       }, cb)
@@ -584,6 +609,7 @@ class Hyperdrive extends EventEmitter {
     })
 
     function onstat (err, node, trie) {
+      console.log('IN ONSTAT, NODE:', node)
       if (err) return cb(err)
       if (!node && opts.trie) return cb(null, null, trie)
       if (!node && opts.file) return cb(new errors.FileNotFound(name))
@@ -597,6 +623,7 @@ class Hyperdrive extends EventEmitter {
       if (writingFd) {
         st.size = writingFd.stat.size
       }
+      console.log('HERE!!')
       cb(null, new Stat(st), trie)
     }
   }

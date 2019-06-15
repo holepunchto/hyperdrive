@@ -4,11 +4,11 @@ var create = require('./helpers/create')
 var mask = 511 // 0b111111111
 
 tape('stat file', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.writeFile('/foo', 'bar', {mode: 438}, function (err) {
+  drive.writeFile('/foo', 'bar', {mode: 438}, function (err) {
     t.error(err, 'no error')
-    archive.stat('/foo', function (err, st) {
+    drive.stat('/foo', function (err, st) {
       t.error(err, 'no error')
       t.same(st.isDirectory(), false)
       t.same(st.isFile(), true)
@@ -21,12 +21,15 @@ tape('stat file', function (t) {
 })
 
 tape('stat dir', function (t) {
-  var archive = create()
+  var drive = create()
 
-  archive.mkdir('/foo', function (err) {
+  console.log('going into mkdir')
+  drive.mkdir('/foo', function (err) {
+    console.log('after mkdir')
     t.error(err, 'no error')
-    archive.stat('/foo', function (err, st) {
+    drive.stat('/foo', function (err, st) {
       t.error(err, 'no error')
+      console.log('right here')
       t.same(st.isDirectory(), true)
       t.same(st.isFile(), false)
       t.same(st.mode & mask, 493)
