@@ -10,7 +10,6 @@ const through = require('through2')
 const pumpify = require('pumpify')
 const pump = require('pump')
 
-const hypercore = require('hypercore')
 const coreByteStream = require('hypercore-byte-stream')
 const MountableHypertrie = require('mountable-hypertrie')
 
@@ -187,6 +186,12 @@ class Hyperdrive extends EventEmitter {
         const state = new ContentState(feed)
         self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))
+        if (!feed.writable) {
+          return feed.update(1, err => {
+            if (err) return cb(err)
+            return cb(null, state)
+          })
+        }
         return cb(null, state)
       })
     }
@@ -281,6 +286,7 @@ class Hyperdrive extends EventEmitter {
     })
 
     function oncontent (st, contentState) {
+      console.log('IN ONCONTENT, content length:', contentState.feed.length, 'byteLength:', contentState.feed.byteLength)
       if (st.mount && st.mount.hypercore) {
         var byteOffset = 0
         var blockOffset = 0
@@ -296,6 +302,9 @@ class Hyperdrive extends EventEmitter {
         feed = contentState.feed
       }
       const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
+
+      console.log('st:', st)
+      console.log('byteLength:', byteLength, 'blockOffset:', blockOffset, 'byteOffset:', byteOffset, 'blockLength:', blockLength)
 
       stream.start({
         feed,
