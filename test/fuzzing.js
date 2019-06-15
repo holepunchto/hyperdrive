@@ -21,12 +21,12 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(5, this.randomStatefulFileDescriptorRead)
     this.add(5, this.randomStatefulFileDescriptorWrite)
     this.add(3, this.statFile)
-    this.add(3, this.statDirectory)
+    //this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
     this.add(2, this.randomReadStream)
     this.add(2, this.randomStatelessFileDescriptorRead)
     this.add(1, this.createReadableFileDescriptor)
-    this.add(1, this.writeAndMkdir)
+    //this.add(1, this.writeAndMkdir)
   }
 
   // START Helper functions.
@@ -250,7 +250,11 @@ class HyperdriveFuzzer extends FuzzBuzz {
       collect(stream, (err, bufs) => {
         if (err) return reject(err)
         let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-        if (!buf.equals(content.slice(start, start + length))) return reject(new Error('Read stream does not match content slice.'))
+        
+        if (!buf.equals(content.slice(start, start + length))) {
+          console.log('buf:', buf, 'content slice:', content.slice(start, start + length))
+          return reject(new Error('Read stream does not match content slice.'))
+        }
         this.debug(`Random read stream for ${fileName} succeeded.`)
         return resolve()
       })
@@ -451,13 +455,13 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
   async _setup () {
     await super._setup()
 
-    this.remoteDrive = create(this.drive.key)
+    this.remoteDrive = create(this.drive.key, { sparse: true })
 
     return new Promise((resolve, reject) => {
       this.remoteDrive.ready(err => {
         if (err) throw err
-        let s1 = this.remoteDrive.replicate({ live: true })
-        s1.pipe(this.drive.replicate({ live: true })).pipe(s1)
+        let s1 = this.remoteDrive.replicate({ live: true, encrypt: false })
+        s1.pipe(this.drive.replicate({ live: true, encrypt: false })).pipe(s1)
         this.remoteDrive.ready(err => {
           if (err) return reject(err)
           return resolve()
@@ -472,12 +476,12 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
 
 module.exports = HyperdriveFuzzer
 
-tape.only('20000 mixed operations, single drive', async t => {
+tape('20000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({
-    seed: 'hyperdrive',
-    debugging: false
+    seed: 'hyperdrive2',
+    debugging: true
   })
 
   try {
@@ -488,12 +492,12 @@ tape.only('20000 mixed operations, single drive', async t => {
   }
 })
 
-tape('20000 mixed operations, replicating drives', async t => {
+tape.only('20000 mixed operations, replicating drives', async t => {
   t.plan(1)
 
   const fuzz = new SparseHyperdriveFuzzer({
     seed: 'hyperdrive2',
-    debugging: false
+    debugging: true
   })
 
   try {
