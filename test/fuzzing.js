@@ -480,8 +480,8 @@ tape('20000 mixed operations, single drive', async t => {
   t.plan(1)
 
   const fuzz = new HyperdriveFuzzer({
-    seed: 'hyperdrive2',
-    debugging: true
+    seed: 'hyperdrive',
+    debugging: false
   })
 
   try {
