@@ -598,11 +598,17 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.stat(name, null, opts)
     if (!opts) opts = {}
 
+    console.log('STATTING:', name)
     this.lstat(name, opts, (err, stat, trie) => {
       if (err) return cb(err)
-      if (!stat) return cb(null, null, trie)
-      if (stat.linkname) return this.lstat(stat.linkname, opts, cb)
-      return cb(null, stat, trie)
+      if (!stat) return cb(null, null, trie, name)
+      if (stat.linkname) {
+        if (path.isAbsolute(stat.linkname)) return this.stat(stat.linkname, opts, cb)
+        const relativeStat = path.resolve('/', path.dirname(name), stat.linkname)
+        console.log('RELATIVE STAT:', relativeStat, 'NAME:', name, 'LINKNAME:', stat.linkname)
+        return this.stat(relativeStat, opts, cb)
+      }
+      return cb(null, stat, trie, name)
     })
   }
 
