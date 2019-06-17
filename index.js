@@ -1,6 +1,5 @@
 const path = require('path').posix
 const { EventEmitter } = require('events')
-const { pipeline } = require('stream')
 
 const collect = require('stream-collector')
 const thunky = require('thunky')
@@ -617,7 +616,7 @@ class Hyperdrive extends EventEmitter {
 
     const recursive = !!(opts && opts.recursive)
 
-    const nameStream = pipeline(
+    const nameStream = pump(
       createStatStream(this, this._db, name, { ...opts, recursive }),
       through.obj(({ path: statPath, stat }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
