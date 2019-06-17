@@ -5,7 +5,37 @@ const collect = require('stream-collector')
 const create = require('./helpers/create')
 const { runAll } = require('./helpers/util')
 
-test('simple readdir', async t => {
+test('can read a single directory', async function (t) {
+  const drive = create(null)
+
+  let files = ['a', 'b', 'c', 'd', 'e', 'f']
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  drive.readdir('/', (err, files) => {
+    t.error(err, 'no error')
+    for (let file of files) {
+      t.true(fileSet.has(file), 'correct file was listed')
+      fileSet.delete(file)
+    }
+    t.same(fileSet.size, 0, 'all files were listed')
+    t.end()
+  })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
+
+test('another single-directory readdir', async t => {
   const drive = create()
 
   const files = createFiles([
@@ -176,6 +206,86 @@ test('readdir follows symlinks to symlinks', async t => {
 
   t.end()
 })
+
+test('can read nested directories', async function (t) {
+  const drive = create(null)
+
+  let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
+  let rootSet = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+  let bSet = new Set(['a', 'c'])
+  let dSet = new Set(['e'])
+  let eSet = new Set(['a', 'b'])
+  let deSet = new Set(['f', 'a'])
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  await checkDir('/', rootSet)
+  await checkDir('b', bSet)
+  await checkDir('d', dSet)
+  await checkDir('e', eSet)
+  await checkDir('d/e', deSet)
+
+  t.end()
+
+  function checkDir (dir, fileSet) {
+    return new Promise(resolve => {
+      drive.readdir(dir, (err, files) => {
+        t.error(err, 'no error')
+        for (let file of files) {
+          t.true(fileSet.has(file), 'correct file was listed')
+          fileSet.delete(file)
+        }
+        t.same(fileSet.size, 0, 'all files were listed')
+        return resolve()
+      })
+    })
+  }
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
+
+test('can stream a large directory', async function (t) {
+  const drive = create(null)
+
+  let files = new Array(1000).fill(0).map((_, idx) => '/' + idx)
+  let fileSet = new Set(files)
+
+  for (let file of files) {
+    await insertFile(file, 'a small file')
+  }
+
+  let stream = drive.createDirectoryStream('/')
+  stream.on('data', ({ path, stat }) => {
+    if (!fileSet.has(path)) {
+      return t.fail('an incorrect file was streamed')
+    }
+    fileSet.delete(path)
+  })
+  stream.on('end', () => {
+    t.same(fileSet.size, 0, 'all files were streamed')
+    t.end()
+  })
+
+  function insertFile (name, content) {
+    return new Promise((resolve, reject) => {
+      drive.writeFile(name, content, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+})
+
+
 
 function validateReaddir (t, drive, path, names, opts, cb) {
   if (typeof opts === 'function') return validateReaddir(t, drive, path, names, {}, opts)
