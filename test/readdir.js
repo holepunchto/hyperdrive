@@ -5,6 +5,35 @@ const collect = require('stream-collector')
 const create = require('./helpers/create')
 const { runAll } = require('./helpers/util')
 
+test('readdir on empty directory', async function (t) {
+  const drive = create()
+
+  const files = createFiles([
+    'a/a',
+    'a/b',
+    'a/c/d',
+    'a/c/e',
+    'a/e',
+    'b/e',
+    'b/f',
+    'b/d',
+    'e'
+  ])
+
+  try {
+    await runAll([
+      cb => drive.mkdir('l', cb),
+      cb => writeFiles(drive, files, cb),
+      cb => validateReaddir(t, drive, 'd', [], cb),
+      cb => validateReaddir(t, drive, 'l' ,[], cb)
+    ])
+  } catch (err) {
+    t.fail(err)
+  }
+
+  t.end()
+})
+
 test('can read a single directory', async function (t) {
   const drive = create(null)
 
