@@ -7,7 +7,6 @@ tape('write and read', function (t) {
 
   archive.writeFile('/hello.txt', 'world', function (err) {
     t.error(err, 'no error')
-    console.log('reading')
     archive.readFile('/hello.txt', function (err, buf) {
       t.error(err, 'no error')
       t.same(buf, Buffer.from('world'))
