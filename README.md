@@ -182,6 +182,7 @@ If `cached` is set to `true`, this function returns results only if they have al
 
 Write a file as a stream. Similar to fs.createWriteStream.
 If `options.cached` is set to `true`, this function returns results only if they have already been downloaded.
+`options.metadata` is optionally an object with string keys and buffer objects to set metadata on the file entry.
 
 #### `archive.writeFile(name, buffer, [options], [callback])`
 
@@ -235,6 +236,8 @@ Stat {
   ctime: 2017-04-10T18:59:00.147Z,
   linkname: undefined }
 ```
+
+The stat may include a metadata object (string keys, buffer values) with metadata that was passed into `writeFile` or `createWriteStream`.
 
 The output object includes methods similar to fs.stat:
 

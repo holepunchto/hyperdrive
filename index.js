@@ -290,10 +290,11 @@ class Hyperdrive extends EventEmitter {
       } else {
         blockOffset = st.offset
         blockLength = st.blocks
-        byteOffset = opts.start ? st.byteOffset + opts.start : st.byteOffset
+        byteOffset = opts.start ? st.byteOffset + opts.start : (length === -1 ? -1 : st.byteOffset)
         feed = contentState.feed
       }
-      const byteLength = length !== -1 ? length : (opts.start ? st.size - opts.start : st.size)
+
+      const byteLength = length
 
       stream.start({
         feed,
