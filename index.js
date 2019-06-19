@@ -654,7 +654,7 @@ class Hyperdrive extends EventEmitter {
 
     const self = this
 
-    let stream = this._db.iterator(name)
+    let stream = this._db.iterator(name, { gt: true })
     stream.next((err, val) => {
       if (err) return cb(err)
       if (val) return cb(new errors.DirectoryNotEmpty(name))
