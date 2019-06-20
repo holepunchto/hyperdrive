@@ -1,8 +1,13 @@
 var test = require('tape')
 const ram = require('random-access-memory')
+const raf = require('random-access-file')
 const memdb = require('memdb')
+const rimraf = require('rimraf')
+
 const corestore = require('random-access-corestore')
 const Megastore = require('megastore')
+const SwarmNetworker = require('megastore-swarm-networking')
+
 var create = require('./helpers/create')
 
 test('basic read/write to/from a mount', t => {
@@ -355,6 +360,72 @@ test('truncate within mount (with shared write capabilities)', async t => {
   })
 })
 
+test('megastore mount replication between hyperdrives', async t => {
+  const megastore1 = new Megastore(path => raf('store1/' + path), memdb(), new SwarmNetworker())
+  const megastore2 = new Megastore(path => raf('store2/' + path), memdb(), new SwarmNetworker())
+  await megastore1.ready()
+  await megastore2.ready()
+
+  megastore1.on('error', err => t.fail(err))
+  megastore2.on('error', err => t.fail(err))
+
+  const cs1 = megastore1.get('cs1')
+  const cs2 = megastore1.get('cs2')
+  const cs3 = megastore2.get('cs3')
+
+  const drive1 = create({ corestore: cs1 })
+  const drive2 = create({ corestore: cs2 })
+  var drive3 = null
+
+  await new Promise(resolve => {
+    drive1.ready(err => {
+      t.error(err, 'no error')
+      drive3 = create(drive1.key, { corestore: cs3 })
+      drive2.ready(err => {
+        t.error(err, 'no error')
+        drive3.ready(err => {
+          t.error(err, 'no error')
+          onready()
+        })
+      })
+    })
+
+    function onready() {
+      drive1.writeFile('hey', 'hi', err => {
+        t.error(err, 'no error')
+        drive2.writeFile('hello', 'world', err => {
+          t.error(err, 'no error')
+          drive1.mount('a', drive2.key, err => {
+            t.error(err, 'no error')
+            drive3.ready(err => {
+              return setTimeout(onmount, 100)
+            })
+          })
+        })
+      })
+    }
+
+    function onmount () {
+      drive3.readFile('hey', (err, contents) => {
+        t.error(err, 'no error')
+        t.same(contents, Buffer.from('hi'))
+        drive3.readFile('a/hello', (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, Buffer.from('world'))
+          return resolve()
+        })
+      })
+    }
+  })
+
+  await megastore1.close()
+  await megastore2.close()
+
+  await cleanup(['store1', 'store2'])
+
+  t.end()
+})
+
 test('versioned mount')
 test('watch will unwatch on umount')
 
@@ -378,4 +449,13 @@ function replicateAll (drives, opts) {
   }
 
   return streams
+}
+
+async function cleanup (dirs) {
+  return Promise.all(dirs.map(dir => new Promise((resolve, reject) => {
+    rimraf(dir, err => {
+      if (err) return reject(err)
+      return resolve()
+    })
+  })))
 }

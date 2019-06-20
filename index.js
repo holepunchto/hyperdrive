@@ -42,8 +42,6 @@ class Hyperdrive extends EventEmitter {
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
 
-    console.error('HYPERDRIVE SPARSE:', this.sparse, 'SPARSE METADATA:', this.sparseMetadata)
-
     this._corestore = defaultCorestore(storage, {
       valueEncoding: 'binary'
     })
@@ -54,6 +52,7 @@ class Hyperdrive extends EventEmitter {
     })
     this._db = opts._db || new MountableHypertrie(this._corestore, key, {
       feed: this.metadata,
+      sparse: this.sparseMetadata
     })
 
     this._contentStates = new Map()
@@ -178,11 +177,10 @@ class Hyperdrive extends EventEmitter {
     })
 
     function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey), ...opts }
+      const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey) }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
-        console.error('HYPERCORE FEED HERE:', feed)
         const state = new ContentState(feed)
         self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))

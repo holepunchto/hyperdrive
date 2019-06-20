@@ -232,3 +232,21 @@ tape('can read sparse metadata', async function (t) {
     })
   }
 })
+
+tape('unavailable drive becomes ready', function (t) {
+  var drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      drive2.readFile('blah', (err, contents) => {
+        t.true(err)
+        t.same(err.errno, 2)
+        t.end()
+      })
+    })
+  })
+})
