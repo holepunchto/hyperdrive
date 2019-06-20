@@ -41,10 +41,9 @@ class Hyperdrive extends EventEmitter {
     this.live = true
     this.sparse = opts.sparse !== false
     // TODO: Add support for mixed-sparsity.
-    this.sparseMetadata = this.sparse || opts.sparseMetadata !== false
+    this.sparseMetadata = opts.sparseMetadata !== false
 
     this._corestore = defaultCorestore(storage, {
-      sparse: this.sparse,
       valueEncoding: 'binary'
     })
     this.metadata = this._corestore.default({
@@ -53,7 +52,7 @@ class Hyperdrive extends EventEmitter {
     })
     this._db = opts._db || new MountableHypertrie(this._corestore, key, {
       feed: this.metadata,
-      sparse: this.sparse
+      sparse: this.sparseMetadata
     })
 
     this._contentStates = new Map()
@@ -179,7 +178,7 @@ class Hyperdrive extends EventEmitter {
 
     function onkey (publicKey) {
       const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey), ...opts }
-      const feed = self._corestore.get(contentOpts)
+      const feed = self._corestore.get({ ...contentOpts, sparse: self.sparse })
       feed.ready(err => {
         if (err) return cb(err)
         const state = new ContentState(feed)
