@@ -205,6 +205,40 @@ test('cross-mount symlink', t => {
   }
 })
 
+test('lists nested mounts, shared write capabilities', async t => {
+  const megastore = new Megastore(ram, memdb(), false)
+  await megastore.ready()
+
+  const cs1 = megastore.get('cs1')
+  const cs2 = megastore.get('cs2')
+  const cs3 = megastore.get('cs3')
+
+  const drive1 = create({ corestore: cs1 })
+  const drive2 = create({ corestore: cs2 })
+  const drive3 = create({ corestore: cs3 })
+
+  drive3.ready(err => {
+    t.error(err, 'no error')
+    drive1.mount('a', drive2.key, err => {
+      t.error(err, 'no error')
+      drive1.mount('a/b', drive3.key, err => {
+        t.error(err, 'no error')
+        onmount()
+      })
+    })
+  })
+
+  function onmount () {
+    drive2.lstat('b', (err, stat) => {
+      drive1.readdir('a', (err, list) => {
+        t.error(err, 'no error')
+        t.same(list, ['b'])
+        t.end()
+      })
+    })
+  }
+})
+
 test('dynamically resolves cross-mount symlinks')
 test('symlinks cannot break the sandbox')
 
