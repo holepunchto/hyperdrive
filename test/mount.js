@@ -8,6 +8,12 @@ const corestore = require('random-access-corestore')
 const Megastore = require('megastore')
 const SwarmNetworker = require('megastore-swarm-networking')
 
+function createNetworker () {
+  return new SwarmNetworker({
+    bootstrap: false
+  })
+}
+
 var create = require('./helpers/create')
 
 test('basic read/write to/from a mount', t => {
@@ -361,8 +367,8 @@ test('truncate within mount (with shared write capabilities)', async t => {
 })
 
 test('megastore mount replication between hyperdrives', async t => {
-  const megastore1 = new Megastore(path => raf('store1/' + path), memdb(), new SwarmNetworker())
-  const megastore2 = new Megastore(path => raf('store2/' + path), memdb(), new SwarmNetworker())
+  const megastore1 = new Megastore(path => raf('store1/' + path), memdb(), createNetworker())
+  const megastore2 = new Megastore(path => raf('store2/' + path), memdb(), createNetworker())
   await megastore1.ready()
   await megastore2.ready()
 
@@ -424,6 +430,95 @@ test('megastore mount replication between hyperdrives', async t => {
   await cleanup(['store1', 'store2'])
 
   t.end()
+})
+
+test('megastore mount replication between hyperdrives, multiple, nested mounts', async t => {
+  const megastore1 = new Megastore(path => ram('store1/' + path), memdb(), createNetworker())
+  const megastore2 = new Megastore(path => ram('store2/' + path), memdb(), createNetworker())
+  await megastore1.ready()
+  await megastore2.ready()
+
+  megastore1.on('error', err => t.fail(err))
+  megastore2.on('error', err => t.fail(err))
+
+  const [d1, d2] = await createMountee()
+  const drive = await createMounter(d1, d2)
+  await verify(drive)
+
+  await megastore1.close()
+  await megastore2.close()
+
+  // await cleanup(['store1', 'store2'])
+
+  t.end()
+
+  function createMountee () {
+    const cs1 = megastore1.get('cs1')
+    const cs2 = megastore1.get('cs2')
+    const cs3 = megastore1.get('cs3')
+    const drive1 = create({ corestore: cs1 })
+    const drive2 = create({ corestore: cs2 })
+    const drive3 = create({ corestore: cs3 })
+
+    return new Promise(resolve => {
+      drive2.ready(err => {
+        t.error(err, 'no error')
+        drive3.ready(err => {
+          t.error(err, 'no error')
+          return onready()
+        })
+      })
+
+      function onready () {
+        drive1.mount('a', drive2.key, err => {
+          t.error(err, 'no error')
+          drive1.mount('b', drive3.key, err => {
+            t.error(err, 'no error')
+            return onmount()
+          })
+        })
+      }
+
+      function onmount () {
+        drive1.writeFile('a/dog', 'hello', err => {
+          t.error(err, 'no error')
+          drive1.writeFile('b/cat', 'goodbye', err => {
+            t.error(err, 'no error')
+            return resolve([drive2, drive3])
+          })
+        })
+      }
+    })
+  }
+
+  function createMounter (d2, d3) {
+    const cs1 = megastore2.get('cs1')
+    const drive1 = create({ corestore: cs1 })
+
+    return new Promise(resolve => {
+      drive1.mount('a', d2.key, err => {
+        t.error(err, 'no error')
+        drive1.mount('b', d3.key, err => {
+          t.error(err, 'no error')
+          return resolve(drive1)
+        })
+      })
+    })
+  }
+
+  function verify (drive) {
+    return new Promise(resolve => {
+      drive.readFile('a/dog', (err, contents) => {
+        t.error(err, 'no error')
+        t.same(contents, Buffer.from('hello'))
+        drive.readFile('b/cat', (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, Buffer.from('goodbye'))
+          return resolve()
+        })
+      })
+    })
+  }
 })
 
 test('versioned mount')
