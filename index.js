@@ -9,6 +9,7 @@ const duplexify = require('duplexify')
 const through = require('through2')
 const pump = require('pump')
 
+const { Corestore } = require('random-access-corestore')
 const coreByteStream = require('hypercore-byte-stream')
 const MountableHypertrie = require('mountable-hypertrie')
 
@@ -42,14 +43,27 @@ class Hyperdrive extends EventEmitter {
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
 
-    this._corestore = defaultCorestore(storage, {
-      valueEncoding: 'binary'
+    this._corestore = defaultCorestore(storage, opts, {
+      valueEncoding: 'binary',
+      // TODO: Support mixed sparsity.
+      sparse: this.sparseMetadata || this.sparseMetadata
     })
-    this.metadata = this._corestore.default({
+
+    const metadataOpts = {
       key,
       sparse: this.sparseMetadata,
-      secretKey: opts.secretKey,
-    })
+      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
+    }
+
+    if (storage instanceof Corestore && storage.isDefaultSet()){
+      this.metadata = this._corestore.get({
+        ...metadataOpts,
+        discoverable: true
+      })
+    } else {
+      this.metadata = this._corestore.default(metadataOpts)
+    }
+
     this._db = opts._db || new MountableHypertrie(this._corestore, key, {
       feed: this.metadata,
       sparse: this.sparseMetadata
