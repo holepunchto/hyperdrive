@@ -5,7 +5,6 @@ const memdb = require('memdb')
 const rimraf = require('rimraf')
 
 const corestore = require('random-access-corestore')
-const Megastore = require('megastore')
 const SwarmNetworker = require('megastore-swarm-networking')
 
 function createNetworker () {
@@ -217,16 +216,11 @@ test('cross-mount symlink', t => {
 })
 
 test('lists nested mounts, shared write capabilities', async t => {
-  const megastore = new Megastore(ram, memdb(), false)
-  await megastore.ready()
+  const store = corestore(ram)
 
-  const cs1 = megastore.get('cs1')
-  const cs2 = megastore.get('cs2')
-  const cs3 = megastore.get('cs3')
-
-  const drive1 = create({ corestore: cs1 })
-  const drive2 = create({ corestore: cs2 })
-  const drive3 = create({ corestore: cs3 })
+  const drive1 = create({ corestore: store })
+  const drive2 = create({ corestore: store })
+  const drive3 = create({ corestore: store })
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -276,14 +270,10 @@ test('independent corestores do not share write capabilities', t => {
 })
 
 test('shared corestores will share write capabilities', async t => {
-  const megastore = new Megastore(ram, memdb(), false)
-  await megastore.ready()
+  const store = corestore(ram)
 
-  const cs1 = megastore.get('cs1')
-  const cs2 = megastore.get('cs2')
-
-  const drive1 = create({ corestore: cs1 })
-  const drive2 = create({ corestore: cs2 })
+  const drive1 = create({ corestore: store })
+  const drive2 = create({ corestore: store })
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -334,14 +324,10 @@ test('can mount hypercores', async t => {
 })
 
 test('truncate within mount (with shared write capabilities)', async t => {
-  const megastore = new Megastore(ram, memdb(), false)
-  await megastore.ready()
+  const store = corestore(ram)
 
-  const cs1 = megastore.get('cs1')
-  const cs2 = megastore.get('cs2')
-
-  const drive1 = create({ corestore: cs1 })
-  const drive2 = create({ corestore: cs2 })
+  const drive1 = create({ corestore: store })
+  const drive2 = create({ corestore: store })
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -366,31 +352,24 @@ test('truncate within mount (with shared write capabilities)', async t => {
   })
 })
 
-test('megastore mount replication between hyperdrives', async t => {
-  const megastore1 = new Megastore(path => raf('store1/' + path), memdb(), createNetworker())
-  const megastore2 = new Megastore(path => raf('store2/' + path), memdb(), createNetworker())
-  await megastore1.ready()
-  await megastore2.ready()
+test('mount replication between hyperdrives', async t => {
+  const store1 = corestore(path => ram('cs1/' + path))
+  const store2 = corestore(path => ram('cs2/' + path))
+  const store3 = corestore(path => ram('cs3/' + path))
 
-  megastore1.on('error', err => t.fail(err))
-  megastore2.on('error', err => t.fail(err))
-
-  const cs1 = megastore1.get('cs1')
-  const cs2 = megastore1.get('cs2')
-  const cs3 = megastore2.get('cs3')
-
-  const drive1 = create({ corestore: cs1 })
-  const drive2 = create({ corestore: cs2 })
+  const drive1 = create({ corestore: store1 })
+  const drive2 = create({ corestore: store2 })
   var drive3 = null
 
   await new Promise(resolve => {
     drive1.ready(err => {
       t.error(err, 'no error')
-      drive3 = create(drive1.key, { corestore: cs3 })
+      drive3 = create(drive1.key, { corestore: store3 })
       drive2.ready(err => {
         t.error(err, 'no error')
         drive3.ready(err => {
           t.error(err, 'no error')
+          replicateAll([drive1, drive2, drive3])
           onready()
         })
       })
@@ -424,48 +403,32 @@ test('megastore mount replication between hyperdrives', async t => {
     }
   })
 
-  await megastore1.close()
-  await megastore2.close()
-
-  await cleanup(['store1', 'store2'])
-
   t.end()
 })
 
-test('megastore mount replication between hyperdrives, multiple, nested mounts', async t => {
-  const megastore1 = new Megastore(path => ram('store1/' + path), memdb(), createNetworker())
-  const megastore2 = new Megastore(path => ram('store2/' + path), memdb(), createNetworker())
-  await megastore1.ready()
-  await megastore2.ready()
-
-  megastore1.on('error', err => t.fail(err))
-  megastore2.on('error', err => t.fail(err))
-
+test('mount replication between hyperdrives, multiple, nested mounts', async t => {
   const [d1, d2] = await createMountee()
   const drive = await createMounter(d1, d2)
   await verify(drive)
 
-  await megastore1.close()
-  await megastore2.close()
-
-  // await cleanup(['store1', 'store2'])
-
   t.end()
 
   function createMountee () {
-    const cs1 = megastore1.get('cs1')
-    const cs2 = megastore1.get('cs2')
-    const cs3 = megastore1.get('cs3')
-    const drive1 = create({ corestore: cs1 })
-    const drive2 = create({ corestore: cs2 })
-    const drive3 = create({ corestore: cs3 })
+    const store = corestore(path => ram('cs1/' + path))
+    const drive1 = create({ corestore: store })
+    var drive2, drive3
 
     return new Promise(resolve => {
-      drive2.ready(err => {
+      drive1.ready(err => {
         t.error(err, 'no error')
-        drive3.ready(err => {
+        drive2 = create({ corestore: store })
+        drive3 = create({ corestore: store })
+        drive2.ready(err => {
           t.error(err, 'no error')
-          return onready()
+          drive3.ready(err => {
+            t.error(err, 'no error')
+            return onready()
+          })
         })
       })
 
@@ -492,15 +455,18 @@ test('megastore mount replication between hyperdrives, multiple, nested mounts',
   }
 
   function createMounter (d2, d3) {
-    const cs1 = megastore2.get('cs1')
-    const drive1 = create({ corestore: cs1 })
+    const drive1 = create({ corestore: corestore(path => ram('cs4/' + path)) })
 
     return new Promise(resolve => {
-      drive1.mount('a', d2.key, err => {
+      drive1.ready(err => {
         t.error(err, 'no error')
-        drive1.mount('b', d3.key, err => {
+        replicateAll([drive1, d2, d3])
+        drive1.mount('a', d2.key, err => {
           t.error(err, 'no error')
-          return resolve(drive1)
+          drive1.mount('b', d3.key, err => {
+            t.error(err, 'no error')
+            setTimeout(() => resolve(drive1), 1000)
+          })
         })
       })
     })
