@@ -1,18 +1,8 @@
 var test = require('tape')
 const ram = require('random-access-memory')
 const raf = require('random-access-file')
-const memdb = require('memdb')
-const rimraf = require('rimraf')
 
 const corestore = require('random-access-corestore')
-const SwarmNetworker = require('megastore-swarm-networking')
-
-function createNetworker () {
-  return new SwarmNetworker({
-    bootstrap: false
-  })
-}
-
 var create = require('./helpers/create')
 
 test('basic read/write to/from a mount', t => {
@@ -510,13 +500,4 @@ function replicateAll (drives, opts) {
   }
 
   return streams
-}
-
-async function cleanup (dirs) {
-  return Promise.all(dirs.map(dir => new Promise((resolve, reject) => {
-    rimraf(dir, err => {
-      if (err) return reject(err)
-      return resolve()
-    })
-  })))
 }
