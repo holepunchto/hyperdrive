@@ -723,8 +723,11 @@ class Hyperdrive extends EventEmitter {
 
     path = fixName(path)
     opts = opts || {}
-    const statOpts = {}
 
+    const statOpts = {
+      uid: opts.uid,
+      gid: opts.gid
+    }
     statOpts.mount = {
       key,
       version: opts.version,
