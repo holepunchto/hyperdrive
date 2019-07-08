@@ -282,7 +282,7 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this.stat(name, (err, st, trie) => {
+      this.stat(name, { file: true }, (err, st, trie) => {
         if (err) return stream.destroy(err)
         this._getContent(trie, (err, contentState) => {
           if (err) return stream.destroy(err)
@@ -723,14 +723,15 @@ class Hyperdrive extends EventEmitter {
 
     path = fixName(path)
     opts = opts || {}
+    const statOpts = {}
 
-    opts.mount = {
+    statOpts.mount = {
       key,
       version: opts.version,
       hash: opts.hash,
       hypercore: !!opts.hypercore
     }
-    opts.directory = !opts.hypercore
+    statOpts.directory = !opts.hypercore
 
     if (opts.hypercore) {
       const core = this._corestore.get({
@@ -740,8 +741,8 @@ class Hyperdrive extends EventEmitter {
       })
       core.ready(err => {
         if (err) return cb(err)
-        opts.size = core.byteLength
-        opts.blocks = core.length
+        statOpts.size = core.byteLength
+        statOpts.blocks = core.length
         return mountCore()
       })
     } else {
@@ -749,14 +750,14 @@ class Hyperdrive extends EventEmitter {
     }
 
     function mountCore () {
-      self._createStat(path, opts, (err, st) => {
+      self._createStat(path, statOpts, (err, st) => {
         if (err) return cb(err)
         return self._db.put(path, st.encode(), cb)
       })
     }
 
     function mountTrie () {
-      self._createStat(path, opts, (err, st) => {
+      self._createStat(path, statOpts, (err, st) => {
         if (err) return cb(err)
         self._db.mount(path, key, { ...opts, value: st.encode() }, err => {
           if (err) return cb(err)
