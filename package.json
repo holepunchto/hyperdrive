@@ -7,7 +7,7 @@
     "append-tree": "^2.3.5",
     "duplexify": "^3.5.0",
     "from2": "^2.3.0",
-    "hypercore": "github:mafintosh/hypercore",
+    "hypercore": "^7.5.0",
     "inherits": "^2.0.3",
     "mutexify": "^1.1.0",
     "protocol-buffers-encodings": "^1.1.0",
