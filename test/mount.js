@@ -2,7 +2,7 @@ var test = require('tape')
 const ram = require('random-access-memory')
 const raf = require('random-access-file')
 
-const corestore = require('random-access-corestore')
+const corestore = require('corestore')
 var create = require('./helpers/create')
 
 test('basic read/write to/from a mount', t => {
