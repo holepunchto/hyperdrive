@@ -9,7 +9,7 @@ const duplexify = require('duplexify')
 const through = require('through2')
 const pump = require('pump')
 
-const { Corestore } = require('random-access-corestore')
+const { Corestore } = require('corestore')
 const coreByteStream = require('hypercore-byte-stream')
 const MountableHypertrie = require('mountable-hypertrie')
 
