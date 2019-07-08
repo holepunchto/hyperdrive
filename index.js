@@ -45,7 +45,7 @@ function Hyperdrive (storage, key, opts) {
     sparse: opts.sparseMetadata,
     createIfMissing: opts.createIfMissing,
     storageCacheSize: opts.metadataStorageCacheSize,
-    extensions: opts.extensions,
+    extensions: opts.extensions
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
