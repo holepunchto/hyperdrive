@@ -228,7 +228,7 @@ class Hyperdrive extends EventEmitter {
         return cb(err)
       }
       const newStat = Object.assign(decoded, stat)
-      return this._putStat(name, newStat, cb)
+      return this._putStat(name, newStat, { flags: st.flags }, cb)
     })
   }
 
@@ -768,6 +768,18 @@ class Hyperdrive extends EventEmitter {
         })
       })
     }
+  }
+
+  unmount (path, cb) {
+    this.stat(path, (err, st) => {
+      if (err) return cb(err)
+      if (!st.mount) return cb(new Error('Can only unmount mounts.'))
+      if (st.mount.hypercore) {
+        return this.unlink(path, cb)
+      } else {
+        return this._db.unmount(path, cb)
+      }
+    })
   }
 
   symlink (target, linkName, cb) {
