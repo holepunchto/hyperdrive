@@ -14,7 +14,8 @@ test('basic read/write to/from a mount', t => {
 
   drive2.ready(err => {
     t.error(err, 'no error')
-    drive2.writeFile('b', 'hello', err => {t.error(err, 'no error')
+    drive2.writeFile('b', 'hello', err => {
+      t.error(err, 'no error')
       drive1.mount('a', drive2.key, err => {
         t.error(err, 'no error')
         drive1.readFile('a/b', (err, contents) => {
@@ -25,6 +26,40 @@ test('basic read/write to/from a mount', t => {
       })
     })
   })
+})
+
+test('can delete a mount', t => {
+  const drive1 = create()
+  const drive2 = create()
+
+  const s1 = drive1.replicate({ live: true, encrypt: false })
+  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+
+  drive2.ready(err => {
+    t.error(err, 'no error')
+    drive2.writeFile('b', 'hello', err => {
+      t.error(err, 'no error')
+      drive1.mount('a', drive2.key, err => {
+        t.error(err, 'no error')
+        drive1.readFile('a/b', (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, Buffer.from('hello'))
+          return deleteMount()
+        })
+      })
+    })
+  })
+
+  function deleteMount () {
+    drive1.unmount('a', err => {
+      t.error(err, 'no error')
+      drive1.readFile('a/b', (err, contents) => {
+        t.true(err)
+        t.same(err.errno, 2)
+        t.end()
+      })
+    })
+  }
 })
 
 test('multiple flat mounts', t => {
