@@ -78,6 +78,7 @@ Options include:
 {
   sparse: true, // only download data on content feed when it is specifically requested
   sparseMetadata: true // only download data on metadata feed when requested
+  extensions: [] // Optionally specify which extensions to use when replicating
   metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
   contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
   treeCacheSize: 65536 // how many entries to use in the append-tree's LRU cache
@@ -122,6 +123,11 @@ Emitted when the archive is fully ready and all properties has been populated.
 
 Emitted when a critical error during load happened.
 
+#### `archive.on('extension', name, message, peer)`
+
+Emitted when a peer sends you an extension message with `archive.extension()`.
+You can respond with `peer.extension(name, message)`.
+
 #### `var oldDrive = archive.checkout(version, [opts])`
 
 Checkout a readonly copy of the archive at an old version. Options are used to configure the `oldDrive`:
@@ -148,6 +154,10 @@ archive.checkout(version).download()
 #### `var stream = archive.history([options])`
 
 Get a stream of all changes and their versions from this archive.
+
+### `archive.extension(name, message)`
+
+Send an extension message to connected peers. [Read more in the hypercore docs](https://github.com/mafintosh/hypercore#feedextensionname-message).
 
 #### `var stream = archive.createReadStream(name, [options])`
 

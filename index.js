@@ -44,7 +44,8 @@ function Hyperdrive (storage, key, opts) {
     secretKey: opts.secretKey,
     sparse: opts.sparseMetadata,
     createIfMissing: opts.createIfMissing,
-    storageCacheSize: opts.metadataStorageCacheSize
+    storageCacheSize: opts.metadataStorageCacheSize,
+    extensions: opts.extensions
   })
   this.content = opts.content || null
   this.maxRequests = opts.maxRequests || 16
@@ -76,6 +77,7 @@ function Hyperdrive (storage, key, opts) {
   var self = this
 
   this.metadata.on('append', update)
+  this.metadata.on('extension', extension)
   this.metadata.on('error', onerror)
   this.ready = thunky(open)
   this.ready(onready)
@@ -98,6 +100,10 @@ function Hyperdrive (storage, key, opts) {
 
   function update () {
     self.emit('update')
+  }
+
+  function extension (name, message, peer) {
+    self.emit('extension', name, message, peer)
   }
 
   function open (cb) {
@@ -873,6 +879,10 @@ Hyperdrive.prototype._open = function (cb) {
       self.metadata.append(messages.Index.encode({type: 'hyperdrive', content: self.content.key}), cb)
     })
   }
+}
+
+Hyperdrive.prototype.extension = function (name, message) {
+  this.metadata.extension(name, message)
 }
 
 function contentOptions (self, secretKey) {
