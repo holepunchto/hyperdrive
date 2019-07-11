@@ -86,4 +86,3 @@ tape.skip('closing a read-only, latest clone', function (t) {
     t.end()
   })
 })
-

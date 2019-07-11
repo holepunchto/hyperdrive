@@ -27,4 +27,3 @@ tape('simple watch', function (t) {
     })
   }
 })
-

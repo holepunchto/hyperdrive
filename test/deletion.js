@@ -15,4 +15,3 @@ tape('write and unlink', function (t) {
     })
   })
 })
-

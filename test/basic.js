@@ -55,10 +55,10 @@ tape('write and read (sparse)', function (t) {
 
   var drive = create()
   drive.on('ready', function () {
-    var clone = create(drive.key, {sparse: true})
+    var clone = create(drive.key, { sparse: true })
 
     var s1 = clone.replicate({ live: true, encrypt: false })
-    var s2 = drive.replicate({ live: true, encrypt: false})
+    var s2 = drive.replicate({ live: true, encrypt: false })
     s1.pipe(s2).pipe(s1)
 
     drive.writeFile('/hello.txt', 'world', function (err) {
@@ -92,7 +92,7 @@ tape('provide keypair', function (t) {
 
   sodium.crypto_sign_keypair(publicKey, secretKey)
 
-  var drive = create(publicKey, {secretKey: secretKey})
+  var drive = create(publicKey, { secretKey: secretKey })
 
   drive.on('ready', function () {
     t.ok(drive.writable)

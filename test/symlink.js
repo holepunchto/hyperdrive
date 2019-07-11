@@ -90,7 +90,7 @@ test('symlinks appear in readdir', t => {
     })
   })
 
-  function  onlink () {
+  function onlink () {
     archive.readdir('/', (err, files) => {
       t.error(err, 'no errors')
       t.same(files, ['hello.txt', 'link.txt'])
