@@ -79,7 +79,7 @@ tape('write and read (sparse)', function (t) {
     t.ifError(err)
     var drive = hyperdrive(dir)
     drive.on('ready', function () {
-      var clone = create(drive.key, {sparse: true})
+      var clone = create(drive.key, { sparse: true })
       clone.on('ready', function () {
         drive.writeFile('/hello.txt', 'world', function (err) {
           t.error(err, 'no error')
@@ -103,7 +103,7 @@ tape('write and read (sparse)', function (t) {
 tape('sparse read/write two files', function (t) {
   var drive = create()
   drive.on('ready', function () {
-    var clone = create(drive.key, {sparse: true})
+    var clone = create(drive.key, { sparse: true })
     drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
       drive.writeFile('/hello2.txt', 'world', function (err) {

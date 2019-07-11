@@ -1,6 +1,5 @@
 const crypto = require('crypto')
 const test = require('tape')
-const collect = require('stream-collector')
 
 const create = require('./helpers/create')
 const { runAll } = require('./helpers/util')
@@ -25,7 +24,7 @@ test('readdir on empty directory', async function (t) {
       cb => drive.mkdir('l', cb),
       cb => writeFiles(drive, files, cb),
       cb => validateReaddir(t, drive, 'd', [], cb),
-      cb => validateReaddir(t, drive, 'l' ,[], cb)
+      cb => validateReaddir(t, drive, 'l', [], cb)
     ])
   } catch (err) {
     t.fail(err)
@@ -313,8 +312,6 @@ test('can stream a large directory', async function (t) {
     })
   }
 })
-
-
 
 function validateReaddir (t, drive, path, names, opts, cb) {
   if (typeof opts === 'function') return validateReaddir(t, drive, path, names, {}, opts)

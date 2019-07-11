@@ -4,7 +4,6 @@ const { EventEmitter } = require('events')
 const collect = require('stream-collector')
 const thunky = require('thunky')
 const unixify = require('unixify')
-const mutexify = require('mutexify')
 const duplexify = require('duplexify')
 const through = require('through2')
 const pump = require('pump')
@@ -18,7 +17,7 @@ const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
-const { createStatStream } = require('./lib/iterator')
+const { createStatStream, createMountStream } = require('./lib/iterator')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
@@ -43,19 +42,20 @@ class Hyperdrive extends EventEmitter {
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
 
-    this._corestore = defaultCorestore(storage, opts, {
+    this._corestore = defaultCorestore(storage, {
+      ...opts,
       valueEncoding: 'binary',
       // TODO: Support mixed sparsity.
-      sparse: this.sparseMetadata || this.sparseMetadata
+      sparse: this.sparse || this.sparseMetadata
     })
 
     const metadataOpts = {
       key,
       sparse: this.sparseMetadata,
-      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
+      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey
     }
 
-    if (storage instanceof Corestore && storage.isDefaultSet()){
+    if (storage instanceof Corestore && storage.isDefaultSet()) {
       this.metadata = this._corestore.get({
         ...metadataOpts,
         discoverable: true
@@ -443,7 +443,7 @@ class Hyperdrive extends EventEmitter {
 
   readFile (name, opts, cb) {
     if (typeof opts === 'function') return this.readFile(name, null, opts)
-    if (typeof opts === 'string') opts = {encoding: opts}
+    if (typeof opts === 'string') opts = { encoding: opts }
     if (!opts) opts = {}
 
     name = fixName(name)
@@ -530,7 +530,7 @@ class Hyperdrive extends EventEmitter {
 
   mkdir (name, opts, cb) {
     if (typeof opts === 'function') return this.mkdir(name, null, opts)
-    if (typeof opts === 'number') opts = {mode: opts}
+    if (typeof opts === 'number') opts = { mode: opts }
     if (!opts) opts = {}
     if (!cb) cb = noop
 
@@ -701,10 +701,6 @@ class Hyperdrive extends EventEmitter {
     if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
     else cb = fd
     if (!cb) cb = noop
-    const self = this
-
-    // Attempt to close all feeds, even if a subset of them fail. Return the last error.
-    var closeErr = null
 
     this.ready(err => {
       if (err) return cb(err)
@@ -793,6 +789,23 @@ class Hyperdrive extends EventEmitter {
         linkname: target
       })
       return this._putStat(linkName, st, cb)
+    })
+  }
+
+  createMountStream (opts) {
+    return createMountStream(this, this._db, opts)
+  }
+
+  getAllMounts (opts, cb) {
+    if (typeof opts === 'function') return this.getAllMounts(null, opts)
+    const mounts = new Map()
+
+    collect(this.createMountStream(opts), (err, mountList) => {
+      if (err) return cb(err)
+      for (const { path, metadata, content } of mountList) {
+        mounts.set(path, { metadata, content })
+      }
+      return cb(null, mounts)
     })
   }
 }

@@ -1,6 +1,5 @@
 var test = require('tape')
 const ram = require('random-access-memory')
-const raf = require('random-access-file')
 
 const corestore = require('corestore')
 var create = require('./helpers/create')
@@ -72,7 +71,9 @@ test('multiple flat mounts', t => {
   replicateAll([drive1, drive2, drive3])
 
   drive3.ready(err => {
+    t.error(err, 'no error')
     drive2.ready(err => {
+      t.error(err, 'no error')
       key1 = drive2.key
       key2 = drive3.key
       onready()
@@ -121,7 +122,9 @@ test('recursive mounts', async t => {
   replicateAll([drive1, drive2, drive3])
 
   drive3.ready(err => {
+    t.error(err, 'no error')
     drive2.ready(err => {
+      t.error(err, 'no error')
       key1 = drive2.key
       key2 = drive3.key
       onready()
@@ -260,6 +263,7 @@ test('lists nested mounts, shared write capabilities', async t => {
 
   function onmount () {
     drive2.lstat('b', (err, stat) => {
+      t.error(err, 'no error')
       drive1.readdir('a', (err, list) => {
         t.error(err, 'no error')
         t.same(list, ['b'])
@@ -268,9 +272,6 @@ test('lists nested mounts, shared write capabilities', async t => {
     })
   }
 })
-
-test('dynamically resolves cross-mount symlinks')
-test('symlinks cannot break the sandbox')
 
 test('independent corestores do not share write capabilities', t => {
   const drive1 = create()
@@ -400,7 +401,7 @@ test('mount replication between hyperdrives', async t => {
       })
     })
 
-    function onready() {
+    function onready () {
       drive1.writeFile('hey', 'hi', err => {
         t.error(err, 'no error')
         drive2.writeFile('hello', 'world', err => {
@@ -408,6 +409,7 @@ test('mount replication between hyperdrives', async t => {
           drive1.mount('a', drive2.key, err => {
             t.error(err, 'no error')
             drive3.ready(err => {
+              t.error(err, 'no error')
               return setTimeout(onmount, 100)
             })
           })
@@ -512,6 +514,115 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
   }
 })
 
+test('can list in-memory mounts', async t => {
+  const drive1 = create()
+  const drive2 = create()
+  const drive3 = create()
+
+  var key1, key2
+
+  replicateAll([drive1, drive2, drive3])
+
+
+  drive3.ready(err => {
+    t.error(err, 'no error')
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      key1 = drive2.key
+      key2 = drive3.key
+      onready()
+    })
+  })
+
+  function onready () {
+    drive2.writeFile('a', 'hello', err => {
+      t.error(err, 'no error')
+      drive3.writeFile('b', 'world', err => {
+        t.error(err, 'no error')
+        onwrite()
+      })
+    })
+  }
+
+  function onwrite () {
+    drive1.mount('a', key1, err => {
+      t.error(err, 'no error')
+      drive1.mount('b', key2, err => {
+        t.error(err, 'no error')
+        onmount()
+      })
+    })
+  }
+
+  function onmount () {
+    drive1.readFile('a/a', (err, contents) => {
+      t.error(err, 'no error')
+      t.true(contents)
+      drive1.getAllMounts({ memory: true }, (err, mounts) => {
+        t.error(err, 'no error')
+        t.same(mounts.size, 2)
+        t.true(mounts.get('/'))
+        t.true(mounts.get('/a'))
+        t.end()
+      })
+    })
+  }
+})
+
+test('can list all mounts (including those not in memory)', async t => {
+  const drive1 = create()
+  const drive2 = create()
+  const drive3 = create()
+
+  var key1, key2
+
+  replicateAll([drive1, drive2, drive3])
+
+  drive3.ready(err => {
+    t.error(err, 'no error')
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      key1 = drive2.key
+      key2 = drive3.key
+      onready()
+    })
+  })
+
+  function onready () {
+    drive2.writeFile('a', 'hello', err => {
+      t.error(err, 'no error')
+      drive3.writeFile('b', 'world', err => {
+        t.error(err, 'no error')
+        onwrite()
+      })
+    })
+  }
+
+  function onwrite () {
+    drive1.mount('a', key1, err => {
+      t.error(err, 'no error')
+      drive1.mount('b', key2, err => {
+        t.error(err, 'no error')
+        onmount()
+      })
+    })
+  }
+
+  function onmount () {
+    drive1.getAllMounts((err, mounts) => {
+      t.error(err, 'no error')
+      t.same(mounts.size, 3)
+      t.true(mounts.get('/'))
+      t.true(mounts.get('/a'))
+      t.true(mounts.get('/b'))
+      t.end()
+    })
+  }
+})
+
+test('can list in-memory mounts recursively')
+test('dynamically resolves cross-mount symlinks')
+test('symlinks cannot break the sandbox')
 test('versioned mount')
 test('watch will unwatch on umount')
 
@@ -525,7 +636,7 @@ function replicateAll (drives, opts) {
       const dest = drives[j]
       if (i === j || replicated.has(j)) continue
 
-      const s1 = source.replicate({ ...opts, live: true, encrypt: false})
+      const s1 = source.replicate({ ...opts, live: true, encrypt: false })
       const s2 = dest.replicate({ ...opts, live: true, encrypt: false })
       streams.push([s1, s2])
 

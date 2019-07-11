@@ -21,12 +21,12 @@ class HyperdriveFuzzer extends FuzzBuzz {
     this.add(5, this.randomStatefulFileDescriptorRead)
     this.add(5, this.randomStatefulFileDescriptorWrite)
     this.add(3, this.statFile)
-    //this.add(3, this.statDirectory)
+    // this.add(3, this.statDirectory)
     this.add(2, this.deleteInvalidFile)
     this.add(2, this.randomReadStream)
     this.add(2, this.randomStatelessFileDescriptorRead)
     this.add(1, this.createReadableFileDescriptor)
-    //this.add(1, this.writeAndMkdir)
+    // this.add(1, this.writeAndMkdir)
   }
 
   // START Helper functions.
@@ -250,7 +250,7 @@ class HyperdriveFuzzer extends FuzzBuzz {
       collect(stream, (err, bufs) => {
         if (err) return reject(err)
         let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-        
+
         if (!buf.equals(content.slice(start, start + length))) {
           console.log('buf:', buf, 'content slice:', content.slice(start, start + length))
           return reject(new Error('Read stream does not match content slice.'))

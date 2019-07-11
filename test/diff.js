@@ -6,13 +6,13 @@ tape('simple diff stream', async function (t) {
 
   var v1, v2, v3
   let v3Diff = ['del-hello']
-  let v2Diff = [...v3Diff,  'put-other']
+  let v2Diff = [...v3Diff, 'put-other']
   let v1Diff = [...v2Diff, 'put-hello']
 
   await writeVersions()
   console.log('drive.version:', drive.version, 'v1:', v1)
-  // await verifyDiffStream(v1, v1Diff)
-  // await verifyDiffStream(v2, v2Diff)
+  await verifyDiffStream(v1, v1Diff)
+  await verifyDiffStream(v2, v2Diff)
   await verifyDiffStream(v3, v3Diff)
   t.end()
 

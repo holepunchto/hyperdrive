@@ -6,7 +6,7 @@ var mask = 511 // 0b111111111
 tape('stat file', function (t) {
   var drive = create()
 
-  drive.writeFile('/foo', 'bar', {mode: 438}, function (err) {
+  drive.writeFile('/foo', 'bar', { mode: 438 }, function (err) {
     t.error(err, 'no error')
     drive.stat('/foo', function (err, st) {
       t.error(err, 'no error')
