@@ -185,13 +185,17 @@ class Hyperdrive extends EventEmitter {
     const existingContent = self._contentStates.get(db)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
+    // This should be a getter.
+    const mountMetadata = db._trie.feed
+    const mountContentKeyPair = mountMetadata.secretKey ? contentKeyPair(mountMetadata.secretKey) : {}
+
     db.getMetadata((err, publicKey) => {
       if (err) return cb(err)
       return onkey(publicKey)
     })
 
     function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self, opts && opts.secretKey) }
+      const contentOpts = { key: publicKey, ...contentOptions(self, (opts && opts.secretKey) || mountContentKeyPair.secretKey) }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
