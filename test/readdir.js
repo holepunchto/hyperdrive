@@ -159,7 +159,7 @@ test('readdir follows symlink', async t => {
   t.end()
 })
 
-test('readdir follows symlink', async t => {
+test('readdir works with broken links', async t => {
   const drive = create()
 
   const files = createFiles([
@@ -175,22 +175,17 @@ test('readdir follows symlink', async t => {
   ])
   const links = new Map([
     ['f', 'a'],
-    ['p', 'a/c'],
+    ['p', 'nothing_here'],
     ['g', 'e']
   ])
-
-  const fExpected = ['f/b', 'f/c/d', 'f/c/e', 'f/e', 'f/a']
-  const pExpected = ['p/e', 'p/d']
-  const rootExpected = ['a/a', 'a/b', 'a/c/d', 'a/c/e', 'a/e', 'b/e', 'b/f', 'b/d', 'e', 'g']
 
   try {
     await runAll([
       cb => writeFiles(drive, files, cb),
       cb => writeLinks(drive, links, cb),
-      cb => validateReaddir(t, drive, 'f', ['a', 'b', 'c/d', 'c/e', 'e'], { recursive: true }, cb),
-      cb => validateReaddir(t, drive, 'p', ['d', 'e'], { recursive: true }, cb),
-      cb => validateReaddir(t, drive, 'b', ['e', 'f', 'd'], { recursive: true }, cb),
-      cb => validateReaddir(t, drive, '', [...rootExpected, ...fExpected, ...pExpected], { recursive: true }, cb)
+      cb => validateReaddir(t, drive, 'f', ['a', 'b', 'c', 'e'], cb),
+      cb => validateReaddir(t, drive, 'b', ['e', 'f', 'd'], cb),
+      cb => validateReaddir(t, drive, '', ['a', 'b', 'e', 'f', 'p', 'g'], cb)
     ])
   } catch (err) {
     t.fail(err)
