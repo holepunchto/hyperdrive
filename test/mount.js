@@ -569,6 +569,19 @@ test('can list in-memory mounts', async t => {
   }
 })
 
+test('getAllMounts with no mounts returns only the root mount', async t => {
+  const drive1 = create()
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive1.getAllMounts({ memory: true}, (err, mounts) => {
+      t.error(err, 'no error')
+      t.true(mounts)
+      t.same(mounts.size, 1)
+      t.end()
+    })
+  })
+})
+
 test('can list all mounts (including those not in memory)', async t => {
   const drive1 = create()
   const drive2 = create()
