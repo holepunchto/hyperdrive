@@ -204,3 +204,13 @@ tape('no .. entries', function (t) {
     })
   })
 })
+
+tape('closing emits event', function (t) {
+  var archive = create()
+
+  archive.on('close', function () {
+    t.end()
+  })
+
+  archive.close()
+})

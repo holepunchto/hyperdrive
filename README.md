@@ -123,6 +123,10 @@ Emitted when the archive is fully ready and all properties has been populated.
 
 Emitted when a critical error during load happened.
 
+#### `archive.on('close')`
+
+Emitted when the archive has been closed
+
 #### `archive.on('extension', name, message, peer)`
 
 Emitted when a peer sends you an extension message with `archive.extension()`.
