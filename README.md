@@ -119,6 +119,16 @@ A boolean indicating whether the archive is writable.
 
 Emitted when the archive is fully ready and all properties has been populated.
 
+#### `archive.on('update')`
+
+Emitted when new file changes are detected.
+
+#### `archive.on('sync-metadata')`
+
+Emitted when the archive has fully synced it's metadata with a remote peer.
+
+You should listen on this if you're trying to use `readdir` on a new archive.
+
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.

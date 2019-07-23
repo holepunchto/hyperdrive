@@ -57,6 +57,27 @@ tape('write and read (sparse)', function (t) {
   })
 })
 
+tape('update and sync', function (t) {
+  t.plan(2)
+
+  var archive = create()
+
+  archive.ready(function () {
+    var clone = create(archive.key)
+
+    clone.on('update', function () {
+      t.pass('updated')
+    })
+
+    clone.on('sync-metadata', function () {
+      t.pass('synced')
+    })
+
+    var stream = clone.replicate()
+    stream.pipe(archive.replicate()).pipe(stream)
+  })
+})
+
 tape('write and unlink', function (t) {
   var archive = create()
 
