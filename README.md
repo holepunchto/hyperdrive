@@ -1,7 +1,7 @@
 # Hyperdrive
 
 #### *Note*: This is a prerelease version of Hyperdrive that's backed by [Hypertrie](https://github.com/mafintosh/hypertrie)
-#### This version is not yet API-complete. 
+#### This version is not yet API-complete.
 
 Hyperdrive is a secure, real time distributed file system
 
@@ -120,9 +120,26 @@ A boolean indicating whether the archive is writable.
 
 Emitted when the archive is fully ready and all properties has been populated.
 
+#### `archive.on('update')`
+
+Emitted when the archive has got a new change.
+
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
+
+#### `archive.on('close')`
+
+Emitted when the archive has been closed.
+
+#### `archive.on('extension', name, message, peer)`
+
+Emitted when a peer sends you an extension message with `archive.extension()`.
+You can respond with `peer.extension(name, message)`.
+
+#### `archive.extension(name, message)`
+
+Send an extension message to connected peers. [Read more in the hypercore docs](https://github.com/mafintosh/hypercore#feedextensionname-message).
 
 #### `var oldDrive = archive.checkout(version, [opts])`
 

@@ -52,7 +52,8 @@ class Hyperdrive extends EventEmitter {
       sparse: this.sparseMetadata,
       createIfMissing: opts.createIfMissing,
       storageCacheSize: opts.metadataStorageCacheSize,
-      valueEncoding: 'binary'
+      valueEncoding: 'binary',
+      extensions: opts.extensions
     })
     this._db = opts._db
     this.content = opts.content || null
@@ -104,6 +105,7 @@ class Hyperdrive extends EventEmitter {
 
     this.metadata.on('error', onerror)
     this.metadata.on('append', update)
+    this.metadata.on('extension', extension)
 
     this.metadata.ready(err => {
       if (err) return cb(err)
@@ -186,6 +188,10 @@ class Hyperdrive extends EventEmitter {
 
     function update () {
       self.emit('update')
+    }
+
+    function extension (name, message, peer) {
+      self.emit('extension', name, message, peer)
     }
   }
 
@@ -712,7 +718,10 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       this.metadata.close(err => {
         if (!this.content) return cb(err)
-        this.content.close(cb)
+        this.content.close((err) => {
+          this.emit('close')
+          cb(err)
+        })
       })
     })
   }
