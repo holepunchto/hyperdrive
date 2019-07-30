@@ -119,9 +119,17 @@ A boolean indicating whether the archive is writable.
 
 Emitted when the archive is fully ready and all properties has been populated.
 
+#### `archive.on('update')'
+
+Emitted when the archive has got a new change.
+
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
+
+#### `archive.on('close')`
+
+Emitted when the archive has been closed
 
 #### `archive.on('extension', name, message, peer)`
 

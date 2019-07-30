@@ -79,6 +79,7 @@ function Hyperdrive (storage, key, opts) {
   this.metadata.on('append', update)
   this.metadata.on('extension', extension)
   this.metadata.on('error', onerror)
+  this.metadata.once('close', onclose)
   this.ready = thunky(open)
   this.ready(onready)
 
@@ -96,6 +97,10 @@ function Hyperdrive (storage, key, opts) {
 
   function onerror (err) {
     if (err) self.emit('error', err)
+  }
+
+  function onclose () {
+    self.emit('close')
   }
 
   function update () {
