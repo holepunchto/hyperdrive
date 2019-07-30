@@ -6,7 +6,7 @@
 Hyperdrive is a secure, real time distributed file system
 
 ``` js
-npm install hyperdrive
+npm install hyperdrive@prerelease
 ```
 
 [![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
