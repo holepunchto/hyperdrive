@@ -701,6 +701,10 @@ class Hyperdrive extends EventEmitter {
     return new Hyperdrive(this.storage, this.key, opts)
   }
 
+  extension (type, message) {
+    this.metadata.extension(type, message)
+  }
+
   _closeFile (fd, cb) {
     const desc = this._fds[fd - STDIO_CAP]
     if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
