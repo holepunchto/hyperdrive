@@ -380,6 +380,7 @@ class Hyperdrive extends EventEmitter {
         if (err && (err.errno !== 2)) return proxy.destroy(err)
         this._getContent(trie, (err, contentState) => {
           if (err) return proxy.destroy(err)
+          if (opts.wait === false && contentState.isLocked()) return cb(new Error('Content is locked.'))
           contentState.lock(_release => {
             release = _release
             append(contentState)
