@@ -296,6 +296,45 @@ Read from a file descriptor into a buffer. Similar to fs.read.
 
 Write from a buffer into a file descriptor. Similar to fs.write.
 
+#### `archive.mount(name, key, opts, cb)`
+
+Mounts another Hyperdrive at the specified mountpoint.
+
+If a `version` is specified in the options, then the mountpoint will reference a static checkout (it will never update).
+
+Options include:
+```js
+{
+  version: (drive version) // The drive version to checkout.
+}
+```
+
+#### `archive.unmount(name, cb)`
+
+Unmount a previously-mounted Hyperdrive.
+
+#### `archive.createMountStream(opts)`
+
+Create a stream containing content/metadata feeds for all mounted Hyperdrives. Each entry in the stream has the form:
+```js
+{
+  path: '/',                // The mountpoint
+  metadata: Hypercore(...), // The mounted metadata feed
+  content: Hypercore(...)   // The mounted content feed  
+}
+```
+
+#### `archive.getAllMounts(opts, cb)`
+
+Returns a Map of the content/metadata feeds for all mounted Hyperdrives, keyed by their mountpoints. The results will always include the top-level feeds (with key '/').
+
+Options include:
+```js
+{
+  memory: true|false // Only list drives currently cached in memory (default: false).
+}
+```
+
 #### `archive.close(fd, [callback])`
 
 Close a file. Similar to fs.close.
