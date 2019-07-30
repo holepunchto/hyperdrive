@@ -296,6 +296,10 @@ Read from a file descriptor into a buffer. Similar to fs.read.
 
 Write from a buffer into a file descriptor. Similar to fs.write.
 
+#### `archive.symlink(target, linkname, cb)`
+
+Create a symlink from `linkname` to `target`.
+
 #### `archive.mount(name, key, opts, cb)`
 
 Mounts another Hyperdrive at the specified mountpoint.
