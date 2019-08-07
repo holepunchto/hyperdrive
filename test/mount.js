@@ -27,6 +27,45 @@ test('basic read/write to/from a mount', t => {
   })
 })
 
+test('should emit metadata-feed and content-feed events for all mounts', t => {
+  const drive1 = create()
+  const drive2 = create()
+
+  const s1 = drive1.replicate({ live: true, encrypt: false })
+  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+
+  var metadataCount = 0
+  var contentCount = 0
+
+  drive1.on('metadata-feed', () => {
+    metadataCount++
+  })
+  drive1.on('content-feed', () => {
+    contentCount++
+  })
+
+  drive2.ready(err => {
+    t.error(err, 'no error')
+    drive2.writeFile('hello', 'world', err => {
+      t.error(err, 'no error')
+      drive1.mount('a', drive2.key, err => {
+        t.error(err, 'no error')
+        drive1.readFile('a/hello', (err, content) => {
+          t.error(err, 'no error')
+          t.same(content, Buffer.from('world'))
+          checkEvents()
+        })
+      })
+    })
+  })
+
+  function checkEvents () {
+    t.same(contentCount, 2)
+    t.same(metadataCount, 2)
+    t.end()
+  }
+})
+
 test('can delete a mount', t => {
   const drive1 = create()
   const drive2 = create()

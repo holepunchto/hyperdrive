@@ -68,6 +68,7 @@ class Hyperdrive extends EventEmitter {
       feed: this.metadata,
       sparse: this.sparseMetadata
     })
+    this._db.on('feed', feed => this.emit('metadata-feed', feed))
 
     this._contentStates = new Map()
     if (opts._content) this._contentStates.set(this._db, new ContentState(opts._content))
@@ -199,6 +200,7 @@ class Hyperdrive extends EventEmitter {
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
+        self.emit('content-feed', feed)
         const state = new ContentState(feed)
         self._contentStates.set(db, state)
         feed.on('error', err => self.emit('error', err))
@@ -286,9 +288,9 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this.stat(name, { file: true }, (err, st, trie) => {
+      return this.stat(name, { file: true }, (err, st, trie) => {
         if (err) return stream.destroy(err)
-        this._getContent(trie, (err, contentState) => {
+        return this._getContent(trie, (err, contentState) => {
           if (err) return stream.destroy(err)
           return oncontent(st, contentState)
         })
@@ -304,6 +306,7 @@ class Hyperdrive extends EventEmitter {
           key: st.mount.key,
           sparse: self.sparse
         })
+        feed.once('ready', () => self.emit('content-feed', feed))
       } else {
         blockOffset = st.offset
         blockLength = st.blocks
@@ -745,6 +748,7 @@ class Hyperdrive extends EventEmitter {
       })
       core.ready(err => {
         if (err) return cb(err)
+        this.emit('content-feed', core)
         statOpts.size = core.byteLength
         statOpts.blocks = core.length
         return mountCore()
