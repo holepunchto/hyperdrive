@@ -98,3 +98,32 @@ test('symlinks appear in readdir', t => {
     })
   }
 })
+
+test('symlinks with nested symlinks appear in non-recursive readdir', t => {
+  const drive = create()
+
+  drive.mkdir('a', err => {
+    t.error(err)
+    drive.writeFile('a/1', '1', err => {
+      t.error(err, 'no error')
+      drive.writeFile('a/2', '2', err => {
+        t.error(err, 'no error')
+        drive.symlink('a/2', 'a/3', err => {
+          t.error(err, 'no error')
+          drive.symlink('a', 'b', err => {
+            t.error(err, 'no error')
+            onlink()
+          })
+        })
+      })
+    })
+  })
+
+  function onlink () {
+    drive.readdir('b', (err, files) => {
+      t.error(err, 'no error')
+      t.same(files, ['3', '1', '2'])
+      t.end()
+    })
+  }
+})
