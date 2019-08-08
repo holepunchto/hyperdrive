@@ -46,13 +46,15 @@ class Hyperdrive extends EventEmitter {
       ...opts,
       valueEncoding: 'binary',
       // TODO: Support mixed sparsity.
-      sparse: this.sparse || this.sparseMetadata
+      sparse: this.sparse || this.sparseMetadata,
+      extensions: optis.extensions,
     })
 
     const metadataOpts = {
       key,
       sparse: this.sparseMetadata,
-      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey
+      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
+      extensions: optis.extensions,
     }
 
     if (storage instanceof Corestore && storage.isDefaultSet()) {
@@ -107,6 +109,9 @@ class Hyperdrive extends EventEmitter {
 
     self.metadata.on('error', onerror)
     self.metadata.on('append', update)
+    self.metadata.on('extension', extension)
+    self.metadata.on('peer-add', peeradd)
+    self.metadata.on('peer-remove', peerremove)
 
     return self.metadata.ready(err => {
       if (err) return cb(err)
@@ -176,6 +181,18 @@ class Hyperdrive extends EventEmitter {
 
     function update () {
       self.emit('update')
+    }
+
+    function extension(name, message, peer) {
+      self.emit('extension', name, message, peer)
+    }
+
+    function peeradd(peer) {
+      self.emit('peer-add', peer)
+    }
+
+    function peerremove(peer) {
+      self.emit('peer-remove', peer)
     }
   }
 
@@ -712,7 +729,10 @@ class Hyperdrive extends EventEmitter {
 
     this.ready(err => {
       if (err) return cb(err)
-      return this._corestore.close(cb)
+      return this._corestore.close((err) => {
+        this.emit('close')
+        cb(err)
+      })
     })
   }
 
@@ -816,6 +836,14 @@ class Hyperdrive extends EventEmitter {
       }
       return cb(null, mounts)
     })
+  }
+
+  extension (name, message) {
+    this.metadata.extension(name, message)
+  }
+
+  get peers () {
+    return this.metadata.peers
   }
 }
 
