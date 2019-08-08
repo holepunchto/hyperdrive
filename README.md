@@ -1,7 +1,7 @@
 # Hyperdrive
 
 #### *Note*: This is a prerelease version of Hyperdrive that's backed by [Hypertrie](https://github.com/mafintosh/hypertrie)
-#### This version is not yet API-complete. 
+#### This version is not yet API-complete.
 
 Hyperdrive is a secure, real time distributed file system
 
@@ -83,6 +83,7 @@ Options include:
   sparseMetadata: true // only download data on metadata feed when requested
   metadataStorageCacheSize: 65536 // how many entries to use in the metadata hypercore's LRU cache
   contentStorageCacheSize: 65536 // how many entries to use in the content hypercore's LRU cache
+  extensions: [], // The list of extension message types to use
 }
 ```
 
@@ -116,6 +117,10 @@ A key derived from the public key that can be used to discovery other peers shar
 
 A boolean indicating whether the archive is writable.
 
+#### `archive.peers`
+
+A list of peers currently replicating with this archive
+
 #### `archive.on('ready')`
 
 Emitted when the archive is fully ready and all properties has been populated.
@@ -123,6 +128,44 @@ Emitted when the archive is fully ready and all properties has been populated.
 #### `archive.on('error', err)`
 
 Emitted when a critical error during load happened.
+
+#### `archive.on('update')`
+
+Emitted when there is a new update to the archive.
+
+#### `archive.on('extension', name, message, peer)`
+
+Emitted when a peer has sent you an extension message. The `name` is a string from one of the extension types in the constructor, `message` is a buffer containing the message contents, and `peer` is a reference to the peer that sent the extension. You can send an extension back with `peer.extension(name, message)`.
+
+#### `archive.on('peer-add', peer)`
+
+Emitted when a new peer has been added.
+
+```js
+const archive = Hyperdrive({
+  extension: ['example']
+})
+
+archive.on('extension', (name, message, peer) => {
+  console.log(name, message.toString('utf8'))
+})
+
+archive.on('peer-add', (peer) => {
+  peer.extension('example', Buffer.from('Hello World!', 'utf8'))
+})
+```
+
+#### `archive.on('peer-remove', peer)`
+
+Emitted when a peer has been removed.
+
+#### `archive.on('close')`
+
+Emitted when the archive has been closed.
+
+#### `archive.extension(name, message)`
+
+Broadcasts an extension message to all connected peers. The `name` must be a string for an extension passed in the constructor and the message must be a buffer.
 
 #### `var oldDrive = archive.checkout(version, [opts])`
 
