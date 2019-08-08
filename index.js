@@ -47,14 +47,14 @@ class Hyperdrive extends EventEmitter {
       valueEncoding: 'binary',
       // TODO: Support mixed sparsity.
       sparse: this.sparse || this.sparseMetadata,
-      extensions: optis.extensions,
+      extensions: opts.extensions
     })
 
     const metadataOpts = {
       key,
       sparse: this.sparseMetadata,
       secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
-      extensions: optis.extensions,
+      extensions: opts.extensions
     }
 
     if (storage instanceof Corestore && storage.isDefaultSet()) {
