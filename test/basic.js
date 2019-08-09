@@ -2,6 +2,21 @@ var tape = require('tape')
 var sodium = require('sodium-universal')
 var create = require('./helpers/create')
 
+tape('close event', function (t) {
+  t.plan(1)
+
+  var drive = create()
+
+  drive.on('close', function () {
+    t.pass('close event')
+    t.end()
+  })
+
+  drive.ready(function () {
+    drive.close()
+  })
+})
+
 tape('write and read', function (t) {
   var drive = create()
 
