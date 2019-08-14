@@ -6,6 +6,7 @@ const thunky = require('thunky')
 const unixify = require('unixify')
 const duplexify = require('duplexify')
 const through = require('through2')
+const pumpify = require('pumpify')
 const pump = require('pump')
 
 const { Corestore } = require('corestore')
@@ -204,7 +205,7 @@ class Hyperdrive extends EventEmitter {
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
     // This should be a getter.
-    const mountMetadata = db._trie.feed
+    const mountMetadata = db.trie.feed
     const mountContentKeyPair = mountMetadata.secretKey ? contentKeyPair(mountMetadata.secretKey) : {}
 
     db.getMetadata((err, publicKey) => {
@@ -345,36 +346,27 @@ class Hyperdrive extends EventEmitter {
     return stream
   }
 
-  // TODO: Update when support is added to MountableHypertrie
-  /*
   createDiffStream (other, prefix, opts) {
     if (other instanceof Hyperdrive) other = other.version
     if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
     prefix = prefix || '/'
 
-    const proxy = duplexify.obj()
-    proxy.setWritable(false)
-
-    this.ready(err => {
-      if (err) return proxy.destroy(err)
-
-      const decoder = through.obj((chunk, enc, cb) => {
-        let obj = { type: !chunk.left ? 'del' : 'put', name: chunk.key }
-        if (chunk.left) {
+    const diffStream = this._db.createDiffStream(other, prefix, opts)
+    return pumpify.obj(
+      diffStream,
+      through.obj((chunk, enc, cb) => {
+        let entry = { type: chunk.type, name: chunk.key }
+        if (chunk.left && entry.type !== 'mount' && entry.type !== 'unmount') {
           try {
-            obj.stat = messages.Stat.decode(chunk.left.value)
+            entry.value = Stat.decode(chunk.left.value)
           } catch (err) {
             return cb(err)
           }
         }
-        return cb(null, obj)
+        return cb(null, entry)
       })
-      proxy.setReadable(pumpify.obj(this._db.createDiffStream(other, prefix, opts), decoder))
-    })
-
-    return proxy
+    )
   }
-  */
 
   createDirectoryStream (name, opts) {
     if (!opts) opts = {}
