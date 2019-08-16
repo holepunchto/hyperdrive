@@ -25,7 +25,7 @@ test('single-file download', t => {
           t.error(err, 'no error')
           t.same(totals.blocks, 1)
           t.same(totals.downloadedBlocks, 0)
-          const handle = drive2.download('hello')
+          const handle = drive2.download('hello', { detailed: true })
           ondownloading(handle)
         })
       })
@@ -33,10 +33,13 @@ test('single-file download', t => {
   }
 
   function ondownloading (handle) {
-    console.log('HANDLE:', handle)
-    handle.on('start', (...args) => console.log('start', ...args))
-    handle.on('progress', (...args) => console.log('progress', ...args))
-    handle.on('cancel', (...args) => console.log('cancel', ...args))
-    handle.on('finish', (...args) => console.log('finish', ...args))
+    handle.on('finish', (total, byFile) => {
+      t.same(total.downloadedBlocks, 1)
+      t.same(total.downloadedBytes, 5)
+      t.same(byFile.get('hello').downloadedBlocks, 1)
+      t.end()
+    })
+    handle.on('error', t.fail.bind(t))
+    handle.on('cancel', t.fail.bind(t))
   }
 })

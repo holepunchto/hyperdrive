@@ -776,6 +776,7 @@ class Hyperdrive extends EventEmitter {
 
     function start () {
       timer = setInterval(collectStats, (opts && opts.statsInterval) || 2000)
+      setImmediate(collectStats)
       snapshot.stat(path, (err, stat, trie) => {
         if (err) return cancel(err)
         if (stat.isFile()) {
@@ -823,7 +824,7 @@ class Hyperdrive extends EventEmitter {
     function progress (err) {
       if (err) return cancel(err)
       collecting = false
-      handle.emit('progress', overall, fileTotals)
+      if (!overall.completed) handle.emit('progress', overall, fileTotals)
     }
 
     function cancel (err) {
@@ -842,6 +843,7 @@ class Hyperdrive extends EventEmitter {
 
     function onAllDownloading () {
       allDownloading = true
+      handle.emit('start', overall)
     }
 
     function onFinish (err, name, stat) {
@@ -850,9 +852,15 @@ class Hyperdrive extends EventEmitter {
       overall.downloadedBytes += stat.size
       const total = fileTotals.get(name)
       if(!--overall.remaining && allDownloading) {
-        overall.completed = true
-        handle.emit('finish', total, fileTotals)
-      }
+        collectStats()
+        handle.once('progress', finish)
+       }
+    }
+
+    function finish () {
+      overall.completed = true
+      handle.emit('finish', overall, fileTotals)
+      cleanup()
     }
 
     function collectStats () {
