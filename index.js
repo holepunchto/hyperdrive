@@ -130,14 +130,27 @@ class Hyperdrive extends EventEmitter {
        *    Initialize the db without metadata and load the content feed key from the header.
        */
       if (self.opts._db) {
-        if (!self._contentStates.get(self.opts._db)) return cb(new Error('Must provide a db and a content feed'))
-        return done(null)
+        checkout()
       } else if (self.metadata.writable && !self.metadata.length) {
         initialize(rootContentKeyPair)
       } else {
         restore(rootContentKeyPair)
       }
     })
+
+    /**
+    * If a content feed was not passed in with the checkout, create it. Otherwise, the checkout is complete.
+    */
+    function checkout () {
+      if (!self._contentStates.get(self._db)) {
+        self._getContent(self._db, err => {
+          if (err) return done(err)
+          return done(null)
+        })
+      } else {
+        return done(null)
+      }
+    }
 
     /**
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
@@ -566,13 +579,15 @@ class Hyperdrive extends EventEmitter {
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      if (name === '/') return cb(null, Stat.directory())
+      if (name === '/') return cb(null, Stat.directory(), this._db)
+      const trie = st[MountableHypertrie.Symbols.TRIE]
       try {
         st = Stat.decode(st.value)
       } catch (err) {
         return cb(err)
       }
-      return cb(null, Stat.directory(st))
+      const noMode = Object.assign({}, st, { mode: 0 })
+      return cb(null, Stat.directory(noMode), trie)
     })
   }
 
@@ -780,7 +795,7 @@ class Hyperdrive extends EventEmitter {
       snapshot.stat(path, (err, stat, trie) => {
         if (err) return cancel(err)
         if (stat.isFile()) {
-          startFile({ path, stat, trie }) 
+          startFile({ path, stat, trie })
           onAllDownloading()
         } else {
           const ite = statIterator(snapshot, snapshot._db, path, { recursive: true })
