@@ -9,16 +9,16 @@ const through = require('through2')
 const pumpify = require('pumpify')
 const pump = require('pump')
 
-const { Corestore } = require('corestore')
 const coreByteStream = require('hypercore-byte-stream')
 const MountableHypertrie = require('mountable-hypertrie')
+const { Corestore } = require('corestore')
+const { Stat } = require('hyperdrive-schemas')
 
 const createFileDescriptor = require('./lib/fd')
-const Stat = require('./lib/stat')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
-const { createStatStream, createMountStream } = require('./lib/iterator')
+const { statIterator, createStatStream, createMountStream } = require('./lib/iterator')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
@@ -73,7 +73,7 @@ class Hyperdrive extends EventEmitter {
     })
     this._db.on('feed', feed => this.emit('metadata-feed', feed))
 
-    this._contentStates = new Map()
+    this._contentStates = opts.contentStates || new Map()
     if (opts._content) this._contentStates.set(this._db, new ContentState(opts._content))
 
     this._fds = []
@@ -204,8 +204,7 @@ class Hyperdrive extends EventEmitter {
     const existingContent = self._contentStates.get(db)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
-    // This should be a getter.
-    const mountMetadata = db.trie.feed
+    const mountMetadata = db.feed
     const mountContentKeyPair = mountMetadata.secretKey ? contentKeyPair(mountMetadata.secretKey) : {}
 
     db.getMetadata((err, publicKey) => {
@@ -701,7 +700,8 @@ class Hyperdrive extends EventEmitter {
     opts = {
       ...opts,
       _db: db,
-      _content: this._contentStates.get(this._db)
+      _content: this._contentStates.get(this._db),
+      contentStates: this._contentStates,
     }
     return new Hyperdrive(this._corestore, this.key, opts)
   }
@@ -726,6 +726,157 @@ class Hyperdrive extends EventEmitter {
         cb(err)
       })
     })
+  }
+
+  fileStats (path, opts, cb) {
+    if (typeof opts === 'function') return this.fileStats(path, null, opts)
+
+    const total = (opts && opts.total) || emptyDownloadTotal()
+
+    return this.stat(path, (err, stat, trie) => {
+      if (err) return cb(err)
+      this._getContent(trie, (err, contentState) => {
+        if (err) return cb(err)
+        const downloadedBlocks = contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks)
+        if (!stat.totalBlocks) total.blocks = stat.blocks
+        if (!stat.totalBytes) total.size = stat.size
+
+        total.downloadedBlocks = downloadedBlocks
+        // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
+        total.downloadedBytes = 0
+
+        return cb(null, total)
+      })
+    })
+  }
+
+  download (path, opts) {
+    const self = this
+    const handle = new EventEmitter()
+    const snapshot = this.checkout(this.version)
+    const fileInfos = new Map()
+    const fileTotals = new Map()
+
+    const overall = emptyDownloadTotal()
+    overall.remaining = 0
+    overall.completed = false
+    overall.cancelled = false
+
+    var allDownloading = false
+    var collecting = false
+    var timer = null
+
+    // Start all downloads.
+    start()
+
+    Object.assign(handle, {
+      cancel
+    })
+    return handle
+
+    function start () {
+      timer = setInterval(collectStats, (opts && opts.statsInterval) || 2000)
+      snapshot.stat(path, (err, stat, trie) => {
+        if (err) return cancel(err)
+        if (stat.isFile()) {
+          startFile({ path, stat, trie }) 
+          onAllDownloading()
+        } else {
+          const ite = statIterator(snapshot, snapshot._db, path, { recursive: true })
+          ite.next(function loop (err, info) {
+            if (err || overall.cancelled) return cancel(err)
+            if (!info) return onAllDownloading()
+            startFile(info)
+            ite.next(loop)
+          })
+        }
+      })
+    }
+
+    function startFile (info) {
+      const { stat, path, trie } = info
+
+      // Symlinks might mean that the same file is referenced multiple times. Skip in that case
+      if (fileInfos.get(path)) return
+
+      const dlInfo = { stat }
+      fileInfos.set(path, dlInfo)
+
+      const total = emptyDownloadTotal()
+      total.blocks = stat.blocks
+      total.size = stat.size
+      fileTotals.set(path, total)
+
+      self._getContent(trie, (err, contentState) => {
+        if (err) return cancel(err)
+        dlInfo.feed = contentState.feed
+        overall.blocks += stat.blocks
+        overall.size += stat.size
+        dlInfo.range = dlInfo.feed.download({
+          start: stat.offset,
+          end: stat.offset + stat.blocks
+        }, err => onFinish(err, path, stat))
+        overall.remaining++
+      })
+    }
+
+    function progress (err) {
+      if (err) return cancel(err)
+      collecting = false
+      handle.emit('progress', overall, fileTotals)
+    }
+
+    function cancel (err) {
+      if (overall.cancelled) return
+      overall.cancelled = true
+      for (const [path, { feed, range }] of fileInfos) {
+        feed.undownload(range)
+      }
+      cleanup()
+      handle.emit('cancel', err, overall)
+    }
+
+    function cleanup () {
+      if (timer) clearInterval(timer)
+    }
+
+    function onAllDownloading () {
+      allDownloading = true
+    }
+
+    function onFinish (err, name, stat) {
+      if (err) return cancel(err)
+      overall.downloadedBlocks += stat.blocks
+      overall.downloadedBytes += stat.size
+      const total = fileTotals.get(name)
+      if(!--overall.remaining && allDownloading) {
+        overall.completed = true
+        handle.emit('finish', total, fileTotals)
+      }
+    }
+
+    function collectStats () {
+      if (collecting) return
+      collecting = true
+      if (opts && opts.detailed) {
+        collectFileStats(progress)
+      } else {
+        process.nextTick(progress, null)
+      }
+    }
+
+    function collectFileStats (cb) {
+      var remaining = fileInfos.size
+      for (let [name, info] of fileInfos) {
+        const total = fileTotals.get(name)
+        const existing = !!total
+        snapshot.fileStats(name, { total }, (err, total) => {
+          if (err) return cb(err)
+          if (!existing) fileTotals.set(name, total)
+          if (!--remaining) return cb(null)
+        })
+      }
+    }
   }
 
   watch (name, onchange) {
@@ -852,6 +1003,15 @@ function fixName (name) {
   name = unixify(name)
   if (!name.startsWith('/')) name = '/' + name
   return name
+}
+
+function emptyDownloadTotal () {
+  return {
+    blocks: 0,
+    size: 0,
+    downloadedBlocks: 0,
+    downloadedBytes: 0,
+  }
 }
 
 function noop () {}
