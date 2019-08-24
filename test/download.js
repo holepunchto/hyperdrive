@@ -89,7 +89,56 @@ test('directory download', t => {
 })
 
 test('download cancellation', t => {
-  t.end()
+  const drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      replicateAll([drive1, drive2], { throttle: 50 })
+      onready()
+    })
+  })
+
+  function onready () {
+    const writeStream = drive1.createWriteStream('a')
+    var chunks = 100
+    return write()
+
+    function write () {
+      writeStream.write(Buffer.alloc(1024 * 1024).fill('abcdefg'), err => {
+        if (err) return t.fail(err)
+        if (--chunks) return write()
+        return writeStream.end(() => {
+          return onwritten()
+        })
+      })
+    }
+  }
+
+  function onwritten () {
+    setTimeout(() => {
+      const handle = drive2.download('a', { detailed: true, statsInterval: 50 })
+      ondownloading(handle)
+    }, 500)
+  }
+
+  function ondownloading (handle) {
+    setTimeout(() => {
+      handle.cancel()
+    }, 1000)
+    handle.on('cancel', (err, total, byFile) => {
+      if (err) t.fail(err)
+      t.true(total.downloadedBlocks > 0)
+      t.true(total.downloadedBlocks < 100)
+      t.true(byFile.get('a').downloadedBlocks > 0)
+      t.true(byFile.get('a').downloadedBlocks < 100)
+      t.end()
+    })
+    handle.on('error', t.fail.bind(t))
+  }
 })
 
 function printHandle (handle) {

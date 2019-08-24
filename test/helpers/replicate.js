@@ -1,3 +1,6 @@
+const pumpify = require('pumpify')
+const through = require('through2')
+
 function replicateAll (drives, opts) {
   const streams = []
   const replicated = new Set()
@@ -8,8 +11,14 @@ function replicateAll (drives, opts) {
       const dest = drives[j]
       if (i === j || replicated.has(j)) continue
 
-      const s1 = source.replicate({ ...opts, live: true, encrypt: false })
-      const s2 = dest.replicate({ ...opts, live: true, encrypt: false })
+      var s1 = source.replicate({ ...opts, live: true, encrypt: false })
+      var s2 = dest.replicate({ ...opts, live: true, encrypt: false })
+
+      if (opts && opts.throttle) {
+        s1 = pumpify(s1, throttler(opts.throttle))
+        s2 = pumpify(s2, throttler(opts.throttle))
+      }
+
       streams.push([s1, s2])
 
       s1.pipe(s2).pipe(s1)
@@ -18,6 +27,14 @@ function replicateAll (drives, opts) {
   }
 
   return streams
+}
+
+function throttler (ms) {
+  return through.obj((chunk, enc, cb) => {
+    setTimeout(() => {
+      return cb(null, chunk)
+    }, ms)
+  })
 }
 
 module.exports = replicateAll

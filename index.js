@@ -849,7 +849,7 @@ class Hyperdrive extends EventEmitter {
         feed.undownload(range)
       }
       cleanup()
-      handle.emit('cancel', err, overall)
+      handle.emit('cancel', err, overall, fileTotals)
     }
 
     function cleanup () {
@@ -890,11 +890,14 @@ class Hyperdrive extends EventEmitter {
 
     function collectFileStats (cb) {
       var remaining = fileInfos.size
+      if (!fileInfos.size) return process.nextTick(cb, null)
+      overall.downloadedBlocks = 0
       for (let [name, info] of fileInfos) {
         const total = fileTotals.get(name)
         const existing = !!total
         snapshot.fileStats(name, { total }, (err, total) => {
           if (err) return cb(err)
+          overall.downloadedBlocks += total.downloadedBlocks
           if (!existing) fileTotals.set(name, total)
           if (!--remaining) return cb(null)
         })
