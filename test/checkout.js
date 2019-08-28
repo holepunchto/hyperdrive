@@ -31,6 +31,27 @@ tape('simple checkout', function (t) {
   }
 })
 
+tape('close checkout', function (t) {
+  const drive = create()
+
+  drive.writeFile('/hello', 'world', err => {
+    t.error(err, 'no error')
+    let version = drive.version
+    drive.readFile('/hello', (err, data) => {
+      t.error(err, 'no error')
+      t.same(data, Buffer.from('world'))
+
+      let listenerCount = drive.metadata.listeners('peer-add').length
+      for (let i = 0; i < 20; i++) {
+        let old = drive.checkout(version)
+        old.closeCheckout()
+      }
+      t.same(drive.metadata.listeners('peer-add').length, listenerCount, 'listeners added by checkout should be released')
+      t.end()
+    })
+  })
+})
+
 // TODO: Re-enable the following tests once the `download` and `fetchLatest` APIs are reimplemented.
 
 tape.skip('download a version', function (t) {

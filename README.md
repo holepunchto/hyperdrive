@@ -179,6 +179,10 @@ Checkout a readonly copy of the archive at an old version. Options are used to c
 }
 ```
 
+#### `oldDrive.closeCheckout()`
+
+Close a checked-out `oldDrive`. Remove event listeners of `oldDrive` on the metadata feed.
+
 #### `archive.download([path], [callback])`
 
 Download all files in path of current version.
@@ -367,7 +371,7 @@ Create a stream containing content/metadata feeds for all mounted Hyperdrives. E
 {
   path: '/',                // The mountpoint
   metadata: Hypercore(...), // The mounted metadata feed
-  content: Hypercore(...)   // The mounted content feed  
+  content: Hypercore(...)   // The mounted content feed
 }
 ```
 

@@ -42,6 +42,7 @@ class Hyperdrive extends EventEmitter {
     this.live = true
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
+    this.listenersOnMetadata = {}
 
     this._corestore = defaultCorestore(storage, {
       ...opts,
@@ -108,11 +109,17 @@ class Hyperdrive extends EventEmitter {
   _ready (cb) {
     const self = this
 
-    self.metadata.on('error', onerror)
-    self.metadata.on('append', update)
-    self.metadata.on('extension', extension)
-    self.metadata.on('peer-add', peeradd)
-    self.metadata.on('peer-remove', peerremove)
+    let listeners = {
+      'error': onerror,
+      'append': update,
+      'extension': extension,
+      'peer-add': peeradd,
+      'peer-remove': peerremove
+    }
+    for (let ev in listeners) {
+      self.metadata.on(ev, listeners[ev])
+      self.listenersOnMetadata[ev] = listeners[ev]
+    }
 
     return self.metadata.ready(err => {
       if (err) return cb(err)
@@ -727,6 +734,13 @@ class Hyperdrive extends EventEmitter {
     this._fds[fd - STDIO_CAP] = null
     while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
     desc.close(cb)
+  }
+
+  closeCheckout () {
+    for (let ev in this.listenersOnMetadata) {
+      this.metadata.removeListener(ev, this.listenersOnMetadata[ev])
+      delete this.listenersOnMetadata[ev]
+    }
   }
 
   close (fd, cb) {
