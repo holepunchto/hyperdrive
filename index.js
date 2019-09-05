@@ -50,6 +50,8 @@ class Hyperdrive extends EventEmitter {
       sparse: this.sparse || this.sparseMetadata,
       extensions: opts.extensions
     })
+    if (this._corestore !== storage) this._corestore.on('error', err => this.emit('error', err))
+
 
     const metadataOpts = {
       key,
@@ -72,6 +74,7 @@ class Hyperdrive extends EventEmitter {
       sparse: this.sparseMetadata
     })
     this._db.on('feed', feed => this.emit('metadata-feed', feed))
+    this._db.on('error', err => this.emit('error', err))
 
     this._contentStates = opts.contentStates || new Map()
     if (opts._content) this._contentStates.set(this._db, new ContentState(opts._content))
