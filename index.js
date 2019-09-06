@@ -746,165 +746,173 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
-  fileStats (path, opts, cb) {
-    if (typeof opts === 'function') return this.fileStats(path, null, opts)
+  stats (path, opts, cb) {
+    if (typeof opts === 'function') return this.stats(path, null, opts)
+    const self = this
+    const total = emptyStats()
+    const stats = new Map()
+    var remaining = 0
 
-    const total = (opts && opts.total) || emptyDownloadTotal()
-
-    return this.stat(path, (err, stat, trie) => {
+    this.stat(path, (err, stat, trie) => {
       if (err) return cb(err)
-      this._getContent(trie, (err, contentState) => {
-        if (err) return cb(err)
-        const downloadedBlocks = contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks)
-        if (!stat.totalBlocks) total.blocks = stat.blocks
-        if (!stat.totalBytes) total.size = stat.size
-
-        total.downloadedBlocks = downloadedBlocks
-        // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
-        total.downloadedBytes = 0
-
-        return cb(null, total)
-      })
+      if (stat.isFile()) {
+        remaining = 1
+        return fileStats(path, (err, fileStats) => {
+          return onstats(err, path, fileStats)
+        })
+      } else {
+        const recursive = opts && (opts.recursive !== false)
+        const ite = statIterator(self, self._db, path, { recursive })
+        return ite.next(function loop (err, info) {
+          if (err) return cb(err)
+          if (!info && !remaining) return cb(null, stats)
+          if (!info) return
+          remaining++
+          fileStats(info.path, (err, fileStats) => {
+            onstats(err, info.path, fileStats)
+            return ite.next(loop)
+          })
+        })
+      }
     })
+
+    function onstats (err, path, fileStats) {
+      if (err) return cb(err)
+      stats.set(path, fileStats)
+      if (!--remaining) cb(null, stats)
+    }
+
+    function fileStats (path, cb) {
+      return self.stat(path, (err, stat, trie) => {
+        if (err) return cb(err)
+        return self._getContent(trie, (err, contentState) => {
+          if (err) return cb(err)
+          const downloadedBlocks = contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks)
+          total.blocks = stat.blocks
+          total.size = stat.size
+          total.downloadedBlocks = downloadedBlocks
+          // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
+          // total.downloadedBytes = 0
+          return cb(null, total)
+        })
+      })
+    }
+
+    function emptyStats () {
+      return {
+        blocks: 0,
+        size: 0,
+        downloadedBlocks: 0,
+      }
+    }
   }
 
-  download (path, opts) {
+  watchStats (path, opts) {
     const self = this
-    const handle = new EventEmitter()
-    const snapshot = this.checkout(this.version)
-    const fileInfos = new Map()
-    const fileTotals = new Map()
-
-    const overall = emptyDownloadTotal()
-    overall.remaining = 0
-    overall.completed = false
-    overall.cancelled = false
-
-    var allDownloading = false
+    var timer = setInterval(collectStats, (opts && opts.statsInveral) || 2000)
     var collecting = false
-    var timer = null
+    var destroyed = false
 
-    // Start all downloads.
-    start()
-
+    const handle = new EventEmitter()
     Object.assign(handle, {
-      cancel
+      destroy
     })
     return handle
-
-    function start () {
-      timer = setInterval(collectStats, (opts && opts.statsInterval) || 2000)
-      setImmediate(collectStats)
-      snapshot.stat(path, (err, stat, trie) => {
-        if (err) return cancel(err)
-        if (stat.isFile()) {
-          startFile({ path, stat, trie })
-          onAllDownloading()
-        } else {
-          const ite = statIterator(snapshot, snapshot._db, path, { recursive: true })
-          ite.next(function loop (err, info) {
-            if (err || overall.cancelled) return cancel(err)
-            if (!info) return onAllDownloading()
-            startFile(info)
-            ite.next(loop)
-          })
-        }
-      })
-    }
-
-    function startFile (info) {
-      const { stat, path, trie } = info
-
-      // Symlinks might mean that the same file is referenced multiple times. Skip in that case
-      if (fileInfos.get(path)) return
-
-      const dlInfo = { stat }
-      fileInfos.set(path, dlInfo)
-
-      const total = emptyDownloadTotal()
-      total.blocks = stat.blocks
-      total.size = stat.size
-      fileTotals.set(path, total)
-
-      self._getContent(trie, (err, contentState) => {
-        if (err) return cancel(err)
-        dlInfo.feed = contentState.feed
-        overall.blocks += stat.blocks
-        overall.size += stat.size
-        dlInfo.range = dlInfo.feed.download({
-          start: stat.offset,
-          end: stat.offset + stat.blocks
-        }, err => onFinish(err, path, stat))
-        overall.remaining++
-      })
-    }
-
-    function progress (err) {
-      if (err) return cancel(err)
-      collecting = false
-      if (!overall.completed) handle.emit('progress', overall, fileTotals)
-    }
-
-    function cancel (err) {
-      if (overall.cancelled) return
-      overall.cancelled = true
-      for (const [path, { feed, range }] of fileInfos) {
-        feed.undownload(range)
-      }
-      cleanup()
-      handle.emit('cancel', err, overall, fileTotals)
-    }
-
-    function cleanup () {
-      if (timer) clearInterval(timer)
-    }
-
-    function onAllDownloading () {
-      allDownloading = true
-      handle.emit('start', overall)
-    }
-
-    function onFinish (err, name, stat) {
-      if (err) return cancel(err)
-      overall.downloadedBlocks += stat.blocks
-      overall.downloadedBytes += stat.size
-      const total = fileTotals.get(name)
-      if(!--overall.remaining && allDownloading) {
-        collectStats()
-        handle.once('progress', finish)
-       }
-    }
-
-    function finish () {
-      overall.completed = true
-      handle.emit('finish', overall, fileTotals)
-      cleanup()
-    }
 
     function collectStats () {
       if (collecting) return
       collecting = true
-      if (opts && opts.detailed) {
-        collectFileStats(progress)
-      } else {
-        process.nextTick(progress, null)
-      }
+      self.stats(path, opts, (err, stats) => {
+        if (err) return destroy(err)
+        collecting = false
+        handle.stats = stats
+        handle.emit('update')
+      })
     }
 
-    function collectFileStats (cb) {
-      var remaining = fileInfos.size
-      if (!fileInfos.size) return process.nextTick(cb, null)
-      overall.downloadedBlocks = 0
-      for (let [name, info] of fileInfos) {
-        const total = fileTotals.get(name)
-        const existing = !!total
-        snapshot.fileStats(name, { total }, (err, total) => {
-          if (err) return cb(err)
-          overall.downloadedBlocks += total.downloadedBlocks
-          if (!existing) fileTotals.set(name, total)
-          if (!--remaining) return cb(null)
-        })
+    function destroy (err) {
+      handle.emit('destroy', err)
+      clearInterval(timer)
+      destroyed = true
+    }
+  }
+
+  download (path, opts) {
+    const self = this
+    const ranges = new Map()
+    var pending = 0
+    var destroyed = false
+
+    const handle = new EventEmitter()
+    Object.assign(handle, {
+      destroy
+    })
+
+    self.stat(path, (err, stat, trie) => {
+      if (err) return destroy(err)
+      if (stat.isFile()) {
+        downloadFile(path, stat, trie, destroy)
+      } else {
+        const recursive = opts && (opts.recursive !== false)
+        const ite = statIterator(self, self._db, path, { recursive, random: true })
+        downloadNext(ite)
       }
+    })
+
+    return handle
+
+    function downloadNext (ite) {
+      if (destroyed) return
+      ite.next((err, info) => {
+        if (err) return destroy(err)
+        if (!info) {
+          if (!ranges.size) return destroy(null)
+          else return
+        }
+        const { path, stat, trie } = info
+        downloadFile(path, stat, trie, err => {
+          if (err) return destroy(err)
+          console.log('DOWNLOADED FILE:', path)
+          return downloadNext(ite)
+        })
+        if (pending < ((opts && opts.maxConcurrent) || 50)) {
+          console.log('CONCURRENT DOWNLOAD')
+          return downloadNext(ite)
+        }
+      })
+    }
+
+    function downloadFile (path, stat, trie, cb) {
+      console.log('DOWNLOADING FILE:', path)
+      pending++
+      self._getContent(trie, (err, contentState) => {
+        if (err) return destroy(err)
+        const feed = contentState.feed
+        console.log('calling download, start:', stat.offset, 'end:', stat.offset + stat.blocks)
+        const range = feed.download({
+          start: stat.offset,
+          end: stat.offset + stat.blocks
+        }, err => {
+          console.log('after download, err:', err, 'path:', path, 'feed:', feed)
+          pending--
+          if (err) return cb(err)
+          console.log('in callback, ranges.size:', ranges.size)
+          ranges.delete(path)
+          return cb(null)
+        })
+        ranges.set(path, { range, feed })
+      })
+    }
+
+    function destroy (err) {
+      console.log('IN DESTROY, ERR:', err)
+      if (destroyed) return
+      destroyed = true
+      for (const [path, { feed, range }] of ranges) {
+        feed.undownload(range)
+      }
+      if (err) handle.emit('error', err)
+      else handle.emit('finish')
     }
   }
 
@@ -1032,15 +1040,6 @@ function fixName (name) {
   name = unixify(name)
   if (!name.startsWith('/')) name = '/' + name
   return name
-}
-
-function emptyDownloadTotal () {
-  return {
-    blocks: 0,
-    size: 0,
-    downloadedBlocks: 0,
-    downloadedBytes: 0,
-  }
 }
 
 function noop () {}
