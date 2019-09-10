@@ -11,7 +11,7 @@ const pump = require('pump')
 
 const coreByteStream = require('hypercore-byte-stream')
 const MountableHypertrie = require('mountable-hypertrie')
-const { Corestore } = require('corestore')
+const Corestore = require('corestore')
 const { Stat } = require('hyperdrive-schemas')
 
 const createFileDescriptor = require('./lib/fd')
@@ -37,7 +37,7 @@ class Hyperdrive extends EventEmitter {
     if (!opts) opts = {}
 
     this.opts = opts
-    this.key = null
+    this.key = key
     this.discoveryKey = null
     this.live = true
     this.sparse = opts.sparse !== false
@@ -52,35 +52,22 @@ class Hyperdrive extends EventEmitter {
     })
     if (this._corestore !== storage) this._corestore.on('error', err => this.emit('error', err))
 
+    // Set in ready.
+    this.metadata = null
+    this._db = opts._db
 
-    const metadataOpts = {
+    this._contentStates = opts.contentStates || new Map()
+    this._fds = []
+    this._writingFds = new Map()
+
+    this._metadataOpts = {
       key,
       sparse: this.sparseMetadata,
       secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
       extensions: opts.extensions
     }
+    this._checkoutContent = opts._content
 
-    if (storage instanceof Corestore && storage.isDefaultSet()) {
-      this.metadata = this._corestore.get({
-        ...metadataOpts,
-        discoverable: true
-      })
-    } else {
-      this.metadata = this._corestore.default(metadataOpts)
-    }
-
-    this._db = opts._db || new MountableHypertrie(this._corestore, key, {
-      feed: this.metadata,
-      sparse: this.sparseMetadata
-    })
-    this._db.on('feed', feed => this.emit('metadata-feed', feed))
-    this._db.on('error', err => this.emit('error', err))
-
-    this._contentStates = opts.contentStates || new Map()
-    if (opts._content) this._contentStates.set(this._db, new ContentState(opts._content))
-
-    this._fds = []
-    this._writingFds = new Map()
 
     this.ready = thunky(this._ready.bind(this))
     this.ready(onReady)
@@ -110,35 +97,53 @@ class Hyperdrive extends EventEmitter {
 
   _ready (cb) {
     const self = this
-
-    self.metadata.on('error', onerror)
-    self.metadata.on('append', update)
-    self.metadata.on('extension', extension)
-    self.metadata.on('peer-add', peeradd)
-    self.metadata.on('peer-remove', peerremove)
-
-    return self.metadata.ready(err => {
+    return this._corestore.ready(err => {
       if (err) return cb(err)
-
-      const rootContentKeyPair = self.metadata.secretKey ? contentKeyPair(self.metadata.secretKey) : {}
-
-      /**
-       * TODO: Update comment to reflect mounts.
-       *
-       * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
-       * If the metadata feed is writable:
-       *    If the metadata feed has length 0, then the db should be initialized with the content feed key as metadata.
-       *    Else, initialize the db without metadata and load the content feed key from the header.
-       * If the metadata feed is readable:
-       *    Initialize the db without metadata and load the content feed key from the header.
-       */
-      if (self.opts._db) {
-        checkout()
-      } else if (self.metadata.writable && !self.metadata.length) {
-        initialize(rootContentKeyPair)
+      if (this._corestore.isDefaultSet()) {
+        this.metadata = this._corestore.get({
+          ...this._metadataOpts,
+          discoverable: true
+        })
       } else {
-        restore(rootContentKeyPair)
+        this.metadata = this._corestore.default(this._metadataOpts)
       }
+
+      this._db = this._db || new MountableHypertrie(this._corestore, this.key, {
+        feed: this.metadata,
+        sparse: this.sparseMetadata
+      })
+      this._db.on('feed', feed => this.emit('metadata-feed', feed))
+      this._db.on('error', err => this.emit('error', err))
+
+      if (this._checkoutContent) this._contentStates.set(this._db, new ContentState(this._checkoutContent))
+
+      self.metadata.on('error', onerror)
+      self.metadata.on('append', update)
+      self.metadata.on('extension', extension)
+      self.metadata.on('peer-add', peeradd)
+      self.metadata.on('peer-remove', peerremove)
+
+      return self.metadata.ready(err => {
+        if (err) return cb(err)
+
+        /**
+        * TODO: Update comment to reflect mounts.
+        *
+        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
+        * If the metadata feed is writable:
+        *    If the metadata feed has length 0, then the db should be initialized with the content feed key as metadata.
+        *    Else, initialize the db without metadata and load the content feed key from the header.
+        * If the metadata feed is readable:
+        *    Initialize the db without metadata and load the content feed key from the header.
+        */
+        if (self.opts._db) {
+          checkout()
+        } else if (self.metadata.writable && !self.metadata.length) {
+          initialize()
+        } else {
+          restore()
+        }
+      })
     })
 
     /**
@@ -158,11 +163,11 @@ class Hyperdrive extends EventEmitter {
     /**
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
-    function initialize (keyPair) {
-      self._db.setMetadata(keyPair.publicKey)
-      self._db.ready(err => {
+    function initialize () {
+      self._getContent(self._db, { initialize: true }, (err, contentState) => {
         if (err) return cb(err)
-        self._getContent(self._db, { secretKey: keyPair.secretKey }, err => {
+        self._db.setMetadata(contentState.feed.key)
+        self._db.ready(err => {
           if (err) return cb(err)
           return done(null)
         })
@@ -178,7 +183,7 @@ class Hyperdrive extends EventEmitter {
       if (self.metadata.writable) {
         self._db.ready(err => {
           if (err) return done(err)
-          self._getContent(self._db, { secretKey: keyPair.secretKey }, done)
+          self._getContent(self._db, done)
         })
       } else {
         self._db.ready(done)
@@ -220,16 +225,16 @@ class Hyperdrive extends EventEmitter {
     const existingContent = self._contentStates.get(db)
     if (existingContent) return process.nextTick(cb, null, existingContent)
 
-    const mountMetadata = db.feed
-    const mountContentKeyPair = mountMetadata.secretKey ? contentKeyPair(mountMetadata.secretKey) : {}
+    if (opts && opts.initialize) return onkey(null)
 
+    const mountMetadata = db.feed
     db.getMetadata((err, publicKey) => {
       if (err) return cb(err)
       return onkey(publicKey)
     })
 
     function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self, (opts && opts.secretKey) || mountContentKeyPair.secretKey) }
+      const contentOpts = { key: publicKey, ...contentOptions(self), parents: [self.key] }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
@@ -539,9 +544,12 @@ class Hyperdrive extends EventEmitter {
     const self = this
 
     const statConstructor = (opts && opts.directory) ? Stat.directory : Stat.file
-    this._db.get(name, (err, node, trie) => {
+    this.ready(err => {
       if (err) return cb(err)
-      onexisting(node, trie)
+      this._db.get(name, (err, node, trie) => {
+        if (err) return cb(err)
+        onexisting(node, trie)
+      })
     })
 
     function onexisting (node, trie) {
@@ -710,7 +718,13 @@ class Hyperdrive extends EventEmitter {
   }
 
   replicate (opts) {
-    return this._corestore.replicate(opts)
+    const proxy = duplexify()
+    this.ready(err => {
+      const stream = this._corestore.replicate(opts)
+      proxy.setWritable(stream)
+      proxy.setReadable(stream)
+    })
+    return proxy
   }
 
   checkout (version, opts) {
@@ -751,25 +765,20 @@ class Hyperdrive extends EventEmitter {
     const self = this
     const total = emptyStats()
     const stats = new Map()
-    var remaining = 0
 
     this.stat(path, (err, stat, trie) => {
       if (err) return cb(err)
       if (stat.isFile()) {
-        remaining = 1
-        return fileStats(path, (err, fileStats) => {
-          return onstats(err, path, fileStats)
-        })
+        return fileStats(path, cb)
       } else {
         const recursive = opts && (opts.recursive !== false)
         const ite = statIterator(self, self._db, path, { recursive })
         return ite.next(function loop (err, info) {
           if (err) return cb(err)
-          if (!info && !remaining) return cb(null, stats)
-          if (!info) return
-          remaining++
+          if (!info) return cb(null, stats)
           fileStats(info.path, (err, fileStats) => {
-            onstats(err, info.path, fileStats)
+            if (err) return cb(err)
+            stats.set(info.path, fileStats)
             return ite.next(loop)
           })
         })
@@ -779,7 +788,6 @@ class Hyperdrive extends EventEmitter {
     function onstats (err, path, fileStats) {
       if (err) return cb(err)
       stats.set(path, fileStats)
-      if (!--remaining) cb(null, stats)
     }
 
     function fileStats (path, cb) {
@@ -872,31 +880,25 @@ class Hyperdrive extends EventEmitter {
         const { path, stat, trie } = info
         downloadFile(path, stat, trie, err => {
           if (err) return destroy(err)
-          console.log('DOWNLOADED FILE:', path)
           return downloadNext(ite)
         })
         if (pending < ((opts && opts.maxConcurrent) || 50)) {
-          console.log('CONCURRENT DOWNLOAD')
           return downloadNext(ite)
         }
       })
     }
 
     function downloadFile (path, stat, trie, cb) {
-      console.log('DOWNLOADING FILE:', path)
       pending++
       self._getContent(trie, (err, contentState) => {
         if (err) return destroy(err)
         const feed = contentState.feed
-        console.log('calling download, start:', stat.offset, 'end:', stat.offset + stat.blocks)
         const range = feed.download({
           start: stat.offset,
           end: stat.offset + stat.blocks
         }, err => {
-          console.log('after download, err:', err, 'path:', path, 'feed:', feed)
           pending--
           if (err) return cb(err)
-          console.log('in callback, ranges.size:', ranges.size)
           ranges.delete(path)
           return cb(null)
         })
@@ -905,7 +907,6 @@ class Hyperdrive extends EventEmitter {
     }
 
     function destroy (err) {
-      console.log('IN DESTROY, ERR:', err)
       if (destroyed) return
       destroyed = true
       for (const [path, { feed, range }] of ranges) {
@@ -944,6 +945,7 @@ class Hyperdrive extends EventEmitter {
       const core = this._corestore.get({
         key,
         ...opts,
+        parents: [this.key],
         sparse: this.sparse
       })
       core.ready(err => {

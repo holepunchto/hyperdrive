@@ -104,13 +104,16 @@ tape('sparse read/write two files', function (t) {
   var drive = create()
   drive.on('ready', function () {
     var clone = create(drive.key, { sparse: true })
-    drive.writeFile('/hello.txt', 'world', function (err) {
+    clone.ready(err => {
       t.error(err, 'no error')
-      drive.writeFile('/hello2.txt', 'world', function (err) {
+      drive.writeFile('/hello.txt', 'world', function (err) {
         t.error(err, 'no error')
-        var stream = clone.replicate({ live: true, encrypt: false })
-        stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
-        clone.metadata.update(start)
+        drive.writeFile('/hello2.txt', 'world', function (err) {
+          t.error(err, 'no error')
+          var stream = clone.replicate({ live: true, encrypt: false })
+          stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
+          clone.metadata.update(start)
+        })
       })
     })
 
