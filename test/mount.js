@@ -1,7 +1,7 @@
 const test = require('tape')
 const ram = require('random-access-memory')
 
-const corestore = require('corestore')
+const Corestore = require('corestore')
 const replicateAll = require('./helpers/replicate')
 const create = require('./helpers/create')
 
@@ -284,24 +284,27 @@ test('cross-mount symlink', t => {
 })
 
 test('lists nested mounts, shared write capabilities', async t => {
-  const store = corestore(ram)
+  const store = new Corestore(ram)
+  store.ready(onready)
 
-  const drive1 = create({ corestore: store })
-  const drive2 = create({ corestore: store })
-  const drive3 = create({ corestore: store })
+  function onready () {
+    const drive1 = create({ corestore: store })
+    const drive2 = create({ corestore: store })
+    const drive3 = create({ corestore: store })
 
-  drive3.ready(err => {
-    t.error(err, 'no error')
-    drive1.mount('a', drive2.key, err => {
+    drive3.ready(err => {
       t.error(err, 'no error')
-      drive1.mount('a/b', drive3.key, err => {
+      drive1.mount('a', drive2.key, err => {
         t.error(err, 'no error')
-        onmount()
+        drive1.mount('a/b', drive3.key, err => {
+          t.error(err, 'no error')
+          onmount(drive1, drive2, drive3)
+        })
       })
     })
-  })
+  }
 
-  function onmount () {
+  function onmount (drive1, drive2, drive3) {
     drive2.lstat('b', (err, stat) => {
       t.error(err, 'no error')
       drive1.readdir('a', (err, list) => {
@@ -336,48 +339,55 @@ test('independent corestores do not share write capabilities', t => {
 })
 
 test('shared corestores will share write capabilities', async t => {
-  const store = corestore(ram)
+  const store = new Corestore(ram)
+  store.ready(onready)
 
-  const drive1 = create({ corestore: store })
-  const drive2 = create({ corestore: store })
+  function onready () {
+    const drive1 = create({ corestore: store })
+    const drive2 = create({ corestore: store })
 
-  drive2.ready(err => {
-    t.error(err, 'no error')
-    drive1.mount('a', drive2.key, err => {
+    drive2.ready(err => {
       t.error(err, 'no error')
-      drive1.writeFile('a/b', 'hello', err => {
+      drive1.mount('a', drive2.key, err => {
         t.error(err, 'no error')
-        drive1.readFile('a/b', (err, contents) => {
+        drive1.writeFile('a/b', 'hello', err => {
           t.error(err, 'no error')
-          t.same(contents, Buffer.from('hello'))
-          drive2.readFile('b', (err, contents) => {
+          drive1.readFile('a/b', (err, contents) => {
             t.error(err, 'no error')
             t.same(contents, Buffer.from('hello'))
-            t.end()
+            drive2.readFile('b', (err, contents) => {
+              t.error(err, 'no error')
+              t.same(contents, Buffer.from('hello'))
+              t.end()
+            })
           })
         })
       })
     })
-  })
+  }
 })
 
 test('can mount hypercores', async t => {
-  const store = corestore(ram)
-  const drive = create({ corestore: store })
-  var core = store.get()
+  const store = new Corestore(ram)
+  store.ready(onready)
 
-  drive.ready(err => {
-    t.error(err, 'no error')
-    core.ready(err => {
+  function onready () {
+    const drive = create({ corestore: store })
+    var core = store.get()
+
+    drive.ready(err => {
       t.error(err, 'no error')
-      core.append('hello', err => {
+      core.ready(err => {
         t.error(err, 'no error')
-        return onappend()
+        core.append('hello', err => {
+          t.error(err, 'no error')
+          return onappend(drive, core)
+        })
       })
     })
-  })
+  }
 
-  function onappend () {
+  function onappend (drive, core) {
     drive.mount('/a', core.key, { hypercore: true }, err => {
       t.error(err, 'no error')
       drive.readFile('/a', (err, contents) => {
@@ -390,38 +400,50 @@ test('can mount hypercores', async t => {
 })
 
 test('truncate within mount (with shared write capabilities)', async t => {
-  const store = corestore(ram)
+  const store = new Corestore(ram)
+  store.ready(onready)
 
-  const drive1 = create({ corestore: store })
-  const drive2 = create({ corestore: store })
+  function onready () {
 
-  drive2.ready(err => {
-    t.error(err, 'no error')
-    drive1.mount('a', drive2.key, err => {
+    const drive1 = create({ corestore: store })
+    const drive2 = create({ corestore: store })
+
+    drive2.ready(err => {
       t.error(err, 'no error')
-      drive1.writeFile('a/b', 'hello', err => {
+      drive1.mount('a', drive2.key, err => {
         t.error(err, 'no error')
-        drive1.truncate('a/b', 1, err => {
+        drive1.writeFile('a/b', 'hello', err => {
           t.error(err, 'no error')
-          drive1.readFile('a/b', (err, contents) => {
+          drive1.truncate('a/b', 1, err => {
             t.error(err, 'no error')
-            t.same(contents, Buffer.from('h'))
-            drive2.readFile('b', (err, contents) => {
+            drive1.readFile('a/b', (err, contents) => {
               t.error(err, 'no error')
               t.same(contents, Buffer.from('h'))
-              t.end()
+              drive2.readFile('b', (err, contents) => {
+                t.error(err, 'no error')
+                t.same(contents, Buffer.from('h'))
+                t.end()
+              })
             })
           })
         })
       })
     })
-  })
+  }
 })
 
 test('mount replication between hyperdrives', async t => {
-  const store1 = corestore(path => ram('cs1/' + path))
-  const store2 = corestore(path => ram('cs2/' + path))
-  const store3 = corestore(path => ram('cs3/' + path))
+  const store1 = new Corestore(path => ram('cs1/' + path))
+  const store2 = new Corestore(path => ram('cs2/' + path))
+  const store3 = new Corestore(path => ram('cs3/' + path))
+
+  await new Promise(resolve => {
+    store1.ready(() => {
+      store2.ready(() => {
+        store3.ready(resolve)
+      })
+    })
+  })
 
   const drive1 = create({ corestore: store1 })
   const drive2 = create({ corestore: store2 })
@@ -481,7 +503,7 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
   t.end()
 
   function createMountee () {
-    const store = corestore(path => ram('cs1/' + path))
+    const store = new Corestore(path => ram('cs1/' + path))
     const drive1 = create({ corestore: store })
     var drive2, drive3
 
@@ -522,17 +544,20 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
   }
 
   function createMounter (d2, d3) {
-    const drive1 = create({ corestore: corestore(path => ram('cs4/' + path)) })
+    const store = new Corestore(path => ram('cs4/' + path))
 
     return new Promise(resolve => {
-      drive1.ready(err => {
-        t.error(err, 'no error')
-        replicateAll([drive1, d2, d3])
-        drive1.mount('a', d2.key, err => {
+      store.ready(() => {
+        const drive1 = create({ corestore: store  })
+        drive1.ready(err => {
           t.error(err, 'no error')
-          drive1.mount('b', d3.key, err => {
+          replicateAll([drive1, d2, d3])
+          drive1.mount('a', d2.key, err => {
             t.error(err, 'no error')
-            setTimeout(() => resolve(drive1), 1000)
+            drive1.mount('b', d3.key, err => {
+              t.error(err, 'no error')
+              setTimeout(() => resolve(drive1), 1000)
+            })
           })
         })
       })

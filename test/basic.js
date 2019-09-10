@@ -12,6 +12,7 @@ tape('close event', function (t) {
     t.end()
   })
 
+  console.log('calling ready')
   drive.ready(function () {
     drive.close()
   })
@@ -101,7 +102,7 @@ tape('root is always there', function (t) {
   })
 })
 
-tape('provide keypair', function (t) {
+tape.skip('provide keypair', function (t) {
   var publicKey = Buffer.allocUnsafe(sodium.crypto_sign_PUBLICKEYBYTES)
   var secretKey = Buffer.allocUnsafe(sodium.crypto_sign_SECRETKEYBYTES)
 

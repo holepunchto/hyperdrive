@@ -23,9 +23,8 @@ test('single-file download', t => {
       setImmediate(() => {
         drive2.stats('hello', (err, totals) => {
           t.error(err, 'no error')
-          const fileTotals = totals.get('hello')
-          t.same(fileTotals.blocks, 1)
-          t.same(fileTotals.downloadedBlocks, 0)
+          t.same(totals.blocks, 1)
+          t.same(totals.downloadedBlocks, 0)
           const handle = drive2.download('hello')
           ondownloading(handle)
         })
@@ -36,8 +35,7 @@ test('single-file download', t => {
   function ondownloading (handle) {
     handle.on('finish', () => {
       drive2.stats('hello', (err, totals) => {
-        const fileTotals = totals.get('hello')
-        t.same(fileTotals.downloadedBlocks, 1)
+        t.same(totals.downloadedBlocks, 1)
         t.end()
       })
     })
@@ -46,7 +44,7 @@ test('single-file download', t => {
   }
 })
 
-test.only('directory download', t => {
+test('directory download', t => {
   const drive1 = create()
   var drive2 = null
 
@@ -68,7 +66,7 @@ test.only('directory download', t => {
         drive1.writeFile('a/3', '3', err => {
           t.error(err, 'no error')
           setImmediate(() => {
-            const handle = drive2.download('a', { maxConcurrent: 2 })
+            const handle = drive2.download('a', { maxConcurrent: 1 })
             ondownloading(handle)
           })
         })
@@ -80,7 +78,6 @@ test.only('directory download', t => {
     handle.on('finish', () => {
       drive2.stats('a', (err, totals) => {
         t.error(err, 'no error')
-        console.log('totals:', totals)
         t.same(totals.get('/a/1').downloadedBlocks, 1)
         t.same(totals.get('/a/2').downloadedBlocks, 1)
         t.same(totals.get('/a/3').downloadedBlocks, 1)
@@ -88,7 +85,6 @@ test.only('directory download', t => {
       })
     })
     handle.on('error', t.fail.bind(t))
-    setTimeout(console.log, 1000)
   }
 })
 
@@ -131,15 +127,15 @@ test('download cancellation', t => {
 
   function ondownloading (handle) {
     setTimeout(() => {
-      handle.cancel()
+      handle.destroy()
     }, 1000)
-    handle.on('cancel', (err, total, byFile) => {
+    handle.on('finish', (err, total, byFile) => {
       if (err) t.fail(err)
-      t.true(total.downloadedBlocks > 0)
-      t.true(total.downloadedBlocks < 100)
-      t.true(byFile.get('a').downloadedBlocks > 0)
-      t.true(byFile.get('a').downloadedBlocks < 100)
-      t.end()
+      drive2.stats('a', (err, totals) => {
+        t.error(err, 'no error')
+        t.true(totals.downloadedBlocks > 0 && totals.downloadedBlocks < 100)
+        t.end()
+      })
     })
     handle.on('error', t.fail.bind(t))
   }

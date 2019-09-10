@@ -23,7 +23,6 @@ tape('stat file', function (t) {
 tape('stat dir', function (t) {
   var drive = create()
 
-  console.log('going into mkdir')
   drive.mkdir('/foo', function (err) {
     console.log('after mkdir')
     t.error(err, 'no error')
