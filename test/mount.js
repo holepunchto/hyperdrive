@@ -9,8 +9,8 @@ test('basic read/write to/from a mount', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -32,8 +32,8 @@ test('should emit metadata-feed and content-feed events for all mounts', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   var metadataCount = 0
   var contentCount = 0
@@ -71,8 +71,8 @@ test('can delete a mount', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -208,8 +208,8 @@ test('readdir returns mounts', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -234,8 +234,8 @@ test('cross-mount watch', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   var watchEvents = 0
 
@@ -257,8 +257,8 @@ test('cross-mount symlink', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -320,8 +320,8 @@ test('independent corestores do not share write capabilities', t => {
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate({ live: true, encrypt: false })
-  s1.pipe(drive2.replicate({ live: true, encrypt: false })).pipe(s1)
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -627,7 +627,7 @@ test('can list in-memory mounts', async t => {
         t.error(err, 'no error')
         t.same(mounts.size, 2)
         t.true(mounts.get('/'))
-        t.true(mounts.get('/a'))
+        t.true(mounts.get('a'))
         t.end()
       })
     })
@@ -691,8 +691,8 @@ test('can list all mounts (including those not in memory)', async t => {
       t.error(err, 'no error')
       t.same(mounts.size, 3)
       t.true(mounts.get('/'))
-      t.true(mounts.get('/a'))
-      t.true(mounts.get('/b'))
+      t.true(mounts.get('a'))
+      t.true(mounts.get('b'))
       t.end()
     })
   }

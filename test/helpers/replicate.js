@@ -11,8 +11,8 @@ function replicateAll (drives, opts) {
       const dest = drives[j]
       if (i === j || replicated.has(j)) continue
 
-      var s1 = source.replicate({ ...opts, live: true, encrypt: false })
-      var s2 = dest.replicate({ ...opts, live: true, encrypt: false })
+      var s1 = source.replicate(true, { ...opts, live: true })
+      var s2 = dest.replicate(false, { ...opts, live: true })
 
       if (opts && opts.throttle) {
         s1 = pumpify(s1, throttler(opts.throttle))

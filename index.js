@@ -10,6 +10,7 @@ const pumpify = require('pumpify')
 const pump = require('pump')
 
 const coreByteStream = require('hypercore-byte-stream')
+const HypercoreProtocol = require('hypercore-protocol')
 const MountableHypertrie = require('mountable-hypertrie')
 const Corestore = require('corestore')
 const { Stat } = require('hyperdrive-schemas')
@@ -43,6 +44,7 @@ class Hyperdrive extends EventEmitter {
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
 
+    this._namespace = opts.namespace
     this._corestore = defaultCorestore(storage, {
       ...opts,
       valueEncoding: 'binary',
@@ -51,6 +53,9 @@ class Hyperdrive extends EventEmitter {
       extensions: opts.extensions
     })
     if (this._corestore !== storage) this._corestore.on('error', err => this.emit('error', err))
+    if (opts.namespace) {
+      this._corestore = this._corestore.namespace(opts.namespace)
+    }
 
     // Set in ready.
     this.metadata = null
@@ -63,11 +68,10 @@ class Hyperdrive extends EventEmitter {
     this._metadataOpts = {
       key,
       sparse: this.sparseMetadata,
-      secretKey: (opts.keyPair) ? opts.keyPair.secretKey : opts.secretKey,
+      keyPair: opts.keyPair,
       extensions: opts.extensions
     }
     this._checkoutContent = opts._content
-
 
     this.ready = thunky(this._ready.bind(this))
     this.ready(onReady)
@@ -99,15 +103,7 @@ class Hyperdrive extends EventEmitter {
     const self = this
     return this._corestore.ready(err => {
       if (err) return cb(err)
-      if (this._corestore.isDefaultSet()) {
-        this.metadata = this._corestore.get({
-          ...this._metadataOpts,
-          discoverable: true
-        })
-      } else {
-        this.metadata = this._corestore.default(this._metadataOpts)
-      }
-
+      this.metadata = this._corestore.default(this._metadataOpts)
       this._db = this._db || new MountableHypertrie(this._corestore, this.key, {
         feed: this.metadata,
         sparse: this.sparseMetadata
@@ -227,14 +223,13 @@ class Hyperdrive extends EventEmitter {
 
     if (opts && opts.initialize) return onkey(null)
 
-    const mountMetadata = db.feed
     db.getMetadata((err, publicKey) => {
       if (err) return cb(err)
       return onkey(publicKey)
     })
 
     function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self), parents: [self.key] }
+      const contentOpts = { key: publicKey, ...contentOptions(self), parents: [db.feed.key] }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
@@ -675,7 +670,7 @@ class Hyperdrive extends EventEmitter {
     const recursive = !!(opts && opts.recursive)
 
     const nameStream = pump(
-      createStatStream(this, this._db, name, { ...opts, recursive }),
+      createStatStream(this, this._db, name, { ...opts, recursive, gt: true }),
       through.obj(({ path: statPath, stat }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
         if (relativePath === name) return cb(null)
@@ -719,14 +714,14 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
-  replicate (opts) {
-    const proxy = duplexify()
+  replicate (isInitiator, opts) {
+    // TODO: Enable encryption when the protocol supports it.
+    const stream = new HypercoreProtocol(isInitiator, { ...opts, encrypt: false })
     this.ready(err => {
-      const stream = this._corestore.replicate(opts)
-      proxy.setWritable(stream)
-      proxy.setReadable(stream)
+      if (err) return stream.destroy(err)
+      this._corestore.replicate(isInitiator, this.discoveryKey, { ...opts, stream })
     })
-    return proxy
+    return stream
   }
 
   checkout (version, opts) {

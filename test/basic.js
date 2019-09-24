@@ -1,5 +1,7 @@
 var tape = require('tape')
-var sodium = require('sodium-universal')
+const hypercoreCrypto = require('hypercore-crypto')
+const Corestore = require('corestore')
+const ram = require('random-access-memory')
 var create = require('./helpers/create')
 
 tape('close event', function (t) {
@@ -67,23 +69,21 @@ tape('write and read (2 parallel)', function (t) {
 })
 
 tape('write and read (sparse)', function (t) {
-  t.plan(2)
-
   var drive = create()
   drive.on('ready', function () {
-    var clone = create(drive.key, { sparse: true })
+    var clone = create(drive.key)
 
-    var s1 = clone.replicate({ live: true, encrypt: false })
-    var s2 = drive.replicate({ live: true, encrypt: false })
+    var s1 = clone.replicate(true, { live: true })
+    var s2 = drive.replicate(false, { live: true })
     s1.pipe(s2).pipe(s1)
 
     drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
-      setTimeout(() => {
-        var readStream = clone.createReadStream('/hello.txt')
-        readStream.on('data', function (data) {
-          t.same(data.toString(), 'world')
-        }, 50)
+      var readStream = clone.createReadStream('/hello.txt')
+      readStream.on('data', function (data) {
+        console.log('data:', data)
+        t.same(data.toString(), 'world')
+        t.end()
       })
     })
   })
@@ -102,18 +102,14 @@ tape('root is always there', function (t) {
   })
 })
 
-tape.skip('provide keypair', function (t) {
-  var publicKey = Buffer.allocUnsafe(sodium.crypto_sign_PUBLICKEYBYTES)
-  var secretKey = Buffer.allocUnsafe(sodium.crypto_sign_SECRETKEYBYTES)
-
-  sodium.crypto_sign_keypair(publicKey, secretKey)
-
-  var drive = create(publicKey, { secretKey: secretKey })
+tape('provide keypair', function (t) {
+  const keyPair = hypercoreCrypto.keyPair()
+  var drive = create(keyPair.publicKey, { keyPair })
 
   drive.on('ready', function () {
     t.ok(drive.writable)
     t.ok(drive.metadata.writable)
-    t.ok(publicKey.equals(drive.key))
+    t.ok(keyPair.publicKey.equals(drive.key))
 
     drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
@@ -121,6 +117,40 @@ tape.skip('provide keypair', function (t) {
         t.error(err, 'no error')
         t.same(buf, Buffer.from('world'))
         t.end()
+      })
+    })
+  })
+})
+
+tape.skip('can reopen when providing a keypair', function (t) {
+  const keyPair = hypercoreCrypto.keyPair()
+  const store = new Corestore(ram)
+  var drive = create(keyPair.publicKey, { keyPair, corestore: store })
+
+  drive.on('ready', function () {
+    t.ok(drive.writable)
+    t.ok(drive.metadata.writable)
+    t.ok(keyPair.publicKey.equals(drive.key))
+
+    drive.writeFile('/hello.txt', 'world', function (err) {
+      t.error(err, 'no error')
+      console.log('CORE LENGTH BEFORE CLOSE:', drive.metadata.length)
+      drive.close(err => {
+        t.error(err, 'no error')
+        drive = create(keyPair.publicKey, { keyPair, corestore: store })
+
+        drive.on('ready', function () {
+          console.log('CORE LENGTH:', drive.metadata.length)
+          t.ok(drive.writable)
+          t.ok(drive.metadata.writable)
+          t.ok(keyPair.publicKey.equals(drive.key))
+
+          drive.readFile('/hello.txt', function (err, buf) {
+            t.error(err, 'no error')
+            t.same(buf, Buffer.from('world'))
+            t.end()
+          })
+        })
       })
     })
   })
@@ -241,8 +271,8 @@ tape('can read sparse metadata', async function (t) {
       let drive = create()
       drive.on('ready', () => {
         let clone = create(drive.key, { sparseMetadata: true, sparse: true })
-        let s1 = clone.replicate({ live: true })
-        s1.pipe(drive.replicate({ live: true })).pipe(s1)
+        let s1 = clone.replicate(true, { live: true })
+        s1.pipe(drive.replicate(false, { live: true })).pipe(s1)
         return resolve({ read: clone, write: drive })
       })
     })
