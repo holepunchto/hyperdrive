@@ -460,8 +460,8 @@ class SparseHyperdriveFuzzer extends HyperdriveFuzzer {
     return new Promise((resolve, reject) => {
       this.remoteDrive.ready(err => {
         if (err) throw err
-        let s1 = this.remoteDrive.replicate({ live: true, encrypt: false })
-        s1.pipe(this.drive.replicate({ live: true, encrypt: false })).pipe(s1)
+        let s1 = this.remoteDrive.replicate(true, { live: true })
+        s1.pipe(this.drive.replicate(false, { live: true })).pipe(s1)
         this.remoteDrive.ready(err => {
           if (err) return reject(err)
           return resolve()

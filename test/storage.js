@@ -58,8 +58,8 @@ tape('dir storage for non-writable drive', function (t) {
         })
       })
 
-      var stream = clone.replicate()
-      stream.pipe(src.replicate()).pipe(stream)
+      var stream = clone.replicate(true)
+      stream.pipe(src.replicate(false)).pipe(stream)
     })
   })
 })
@@ -83,8 +83,8 @@ tape('write and read (sparse)', function (t) {
       clone.on('ready', function () {
         drive.writeFile('/hello.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate({ live: true, encrypt: false })
-          stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
+          var stream = clone.replicate(true, { live: true })
+          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
           setTimeout(() => {
             var readStream = clone.createReadStream('/hello.txt')
             readStream.on('error', function (err) {
@@ -110,8 +110,8 @@ tape('sparse read/write two files', function (t) {
         t.error(err, 'no error')
         drive.writeFile('/hello2.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate({ live: true, encrypt: false })
-          stream.pipe(drive.replicate({ live: true, encrypt: false })).pipe(stream)
+          var stream = clone.replicate(true, { live: true })
+          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
           clone.metadata.update(start)
         })
       })

@@ -312,6 +312,7 @@ function validateReaddir (t, drive, path, names, opts, cb) {
   if (typeof opts === 'function') return validateReaddir(t, drive, path, names, {}, opts)
   drive.readdir(path, opts, (err, list) => {
     if (err) return cb(err)
+    console.log('list:', list, 'names:', names)
     t.same(list.length, names.length)
     for (const name of list) {
       t.notEqual(names.indexOf(name), -1)

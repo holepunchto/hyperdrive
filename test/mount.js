@@ -288,9 +288,9 @@ test('lists nested mounts, shared write capabilities', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store })
-    const drive2 = create({ corestore: store })
-    const drive3 = create({ corestore: store })
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
 
     drive3.ready(err => {
       t.error(err, 'no error')
@@ -627,7 +627,7 @@ test('can list in-memory mounts', async t => {
         t.error(err, 'no error')
         t.same(mounts.size, 2)
         t.true(mounts.get('/'))
-        t.true(mounts.get('a'))
+        t.true(mounts.get('/a'))
         t.end()
       })
     })
@@ -691,8 +691,8 @@ test('can list all mounts (including those not in memory)', async t => {
       t.error(err, 'no error')
       t.same(mounts.size, 3)
       t.true(mounts.get('/'))
-      t.true(mounts.get('a'))
-      t.true(mounts.get('b'))
+      t.true(mounts.get('/a'))
+      t.true(mounts.get('/b'))
       t.end()
     })
   }
