@@ -43,7 +43,7 @@ tape('simple diff stream', async function (t) {
   }
 })
 
-tape('diff stream with mounts', async function (t) {
+tape.skip('diff stream with mounts', async function (t) {
   let drive1 = create()
   let drive2 = create()
   let drive3 = create()
