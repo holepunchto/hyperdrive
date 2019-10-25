@@ -370,7 +370,9 @@ class Hyperdrive extends EventEmitter {
     return pumpify.obj(
       diffStream,
       through.obj((chunk, enc, cb) => {
-        let entry = { type: chunk.type, name: chunk.key }
+        const entry = { type: chunk.type, name: chunk.key }
+        if (chunk.left) entry.seq = chunk.left.seq
+        if (chunk.right) entry.previous = { seq: chunk.right.seq }
         if (chunk.left && entry.type !== 'mount' && entry.type !== 'unmount') {
           try {
             entry.value = Stat.decode(chunk.left.value)
