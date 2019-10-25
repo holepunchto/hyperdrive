@@ -1,5 +1,7 @@
 var tape = require('tape')
 var create = require('./helpers/create')
+var { runAll } = require('./helpers/util')
+var collect = require('stream-collector')
 
 tape('simple diff stream', async function (t) {
   let drive = create()
@@ -93,6 +95,45 @@ tape('diff stream with mounts', async function (t) {
         })
       })
     })
+  }
+})
+
+tape.only('diff stream returns seqs', t => {
+  const drive = create()
+  runAll([
+    cb => drive.writeFile('one', Buffer.from('one'), cb),
+    cb => drive.writeFile('two', Buffer.from('two'), cb),
+    cb => drive.writeFile('one', Buffer.from('mod'), cb),
+    cb => {
+      const diff = drive.createDiffStream(0)
+      collect(diff, (err, res) => {
+        t.error(err)
+        res = res.map(map)
+        t.deepEqual(res, [
+          'put one 3 x',
+          'put two 2 x'
+        ], 'seqs are correct')
+        cb()
+      })
+    },
+    cb => drive.writeFile('three', Buffer.from('three'), cb),
+    cb => drive.unlink('one', cb),
+    cb => {
+      const diff = drive.createDiffStream(3)
+      collect(diff, (err, res) => {
+        t.error(err)
+        res = res.map(map)
+        t.deepEqual(res, [
+          'del one x 1',
+          'put three 5 x'
+        ], 'seqs are correct')
+        t.end()
+      })
+    }
+  ])
+
+  function map (row) {
+    return `${row.type} ${row.name} ${row.seq || 'x'} ${row.previous ? row.previous.seq : 'x'}`
   }
 })
 
