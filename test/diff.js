@@ -98,7 +98,7 @@ tape('diff stream with mounts', async function (t) {
   }
 })
 
-tape.only('diff stream returns seqs', t => {
+tape('diff stream returns seqs', t => {
   const drive = create()
   runAll([
     cb => drive.writeFile('one', Buffer.from('one'), cb),
@@ -119,12 +119,12 @@ tape.only('diff stream returns seqs', t => {
     cb => drive.writeFile('three', Buffer.from('three'), cb),
     cb => drive.unlink('one', cb),
     cb => {
-      const diff = drive.createDiffStream(3)
+      const diff = drive.createDiffStream(4)
       collect(diff, (err, res) => {
         t.error(err)
         res = res.map(map)
         t.deepEqual(res, [
-          'del one x 1',
+          'del one x 3',
           'put three 5 x'
         ], 'seqs are correct')
         t.end()
