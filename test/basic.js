@@ -14,7 +14,6 @@ tape('close event', function (t) {
     t.end()
   })
 
-  console.log('calling ready')
   drive.ready(function () {
     drive.close()
   })
@@ -81,7 +80,6 @@ tape('write and read (sparse)', function (t) {
       t.error(err, 'no error')
       var readStream = clone.createReadStream('/hello.txt')
       readStream.on('data', function (data) {
-        console.log('data:', data)
         t.same(data.toString(), 'world')
         t.end()
       })

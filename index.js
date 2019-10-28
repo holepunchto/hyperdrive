@@ -104,6 +104,7 @@ class Hyperdrive extends EventEmitter {
     return this._corestore.ready(err => {
       if (err) return cb(err)
       this.metadata = this._corestore.default(this._metadataOpts)
+      this.metadata.ifAvailable.wait()
       this._db = this._db || new MountableHypertrie(this._corestore, this.key, {
         feed: this.metadata,
         sparse: this.sparseMetadata
@@ -120,7 +121,7 @@ class Hyperdrive extends EventEmitter {
       self.metadata.on('peer-remove', peerremove)
 
       return self.metadata.ready(err => {
-        if (err) return cb(err)
+        if (err) return done(err)
 
         /**
         * TODO: Update comment to reflect mounts.
@@ -161,10 +162,10 @@ class Hyperdrive extends EventEmitter {
      */
     function initialize () {
       self._getContent(self._db, { initialize: true }, (err, contentState) => {
-        if (err) return cb(err)
+        if (err) return done(err)
         self._db.setMetadata(contentState.feed.key)
         self._db.ready(err => {
-          if (err) return cb(err)
+          if (err) return done(err)
           return done(null)
         })
       })
@@ -187,6 +188,7 @@ class Hyperdrive extends EventEmitter {
     }
 
     function done (err) {
+      self.metadata.ifAvailable.continue()
       if (err) return cb(err)
       self.key = self.metadata.key
       self.discoveryKey = self.metadata.discoveryKey
@@ -714,8 +716,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   replicate (isInitiator, opts) {
-    // TODO: Enable encryption when the protocol supports it.
-    const stream = new HypercoreProtocol(isInitiator, { ...opts, encrypt: false })
+    const stream = new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
       this._corestore.replicate(isInitiator, this.discoveryKey, { ...opts, stream })
