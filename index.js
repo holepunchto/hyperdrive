@@ -268,7 +268,11 @@ class Hyperdrive extends EventEmitter {
       } catch (err) {
         return cb(err)
       }
+      const oldMetadata = decoded.metadata
       const newStat = Object.assign(decoded, stat)
+      if (stat.metadata) {
+        newStat.metadata = Object.assign({}, oldMetadata || {}, stat.metadata)
+      }
       return this._putStat(name, newStat, { flags: st.flags }, cb)
     })
   }
