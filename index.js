@@ -971,7 +971,6 @@ class Hyperdrive extends EventEmitter {
       self._createStat(path, statOpts, (err, st) => {
         if (err) return cb(err)
         self._db.mount(path, key, { ...opts, value: st.encode() }, err => {
-          if (err) return cb(err)
           return self._db.loadMount(path, cb)
         })
       })
