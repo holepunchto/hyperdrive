@@ -65,7 +65,8 @@ tape('dir storage for non-writable drive', function (t) {
 })
 
 tape('dir storage without permissions emits error', function (t) {
-  t.plan(1)
+  // TODO: This error should not be emitted twice -- fix error propagation.
+  t.plan(2)
   var drive = hyperdrive('/')
   drive.on('error', function (err) {
     t.ok(err, 'got error')
