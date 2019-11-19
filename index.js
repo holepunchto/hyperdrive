@@ -197,6 +197,7 @@ class Hyperdrive extends EventEmitter {
 
     function onerror (err) {
       if (err) self.emit('error', err)
+      return cb(err)
     }
 
     function update () {
