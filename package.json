@@ -29,7 +29,7 @@
     "hypercore-byte-stream": "^1.0.2",
     "hypercore-protocol": "^7.2.0",
     "hyperdrive-schemas": "^0.13.0",
-    "mountable-hypertrie": "git+https://github.com/andrewosh/mountable-hypertrie#hypercore-8",
+    "mountable-hypertrie": "^2.0.0",
     "mutexify": "^1.2.0",
     "nanoiterator": "^1.2.0",
     "pump": "^3.0.0",
