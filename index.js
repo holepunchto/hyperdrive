@@ -285,7 +285,7 @@ class Hyperdrive extends EventEmitter {
       if (err) return cb(err)
       createFileDescriptor(this, name, flags, (err, fd) => {
         if (err) return cb(err)
-        cb(null, STDIO_CAP + this._fds.push(fd) - 1)
+        cb(null, STDIO_CAP + (this._fds.push(fd) - 1) * 2)
       })
     })
   }
@@ -296,7 +296,7 @@ class Hyperdrive extends EventEmitter {
       pos = null
     }
 
-    const desc = this._fds[fd - STDIO_CAP]
+    const desc = this._fds[(fd - STDIO_CAP) / 2]
     if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
     if (pos == null) pos = desc.position
     desc.read(buf, offset, len, pos, cb)
@@ -308,7 +308,7 @@ class Hyperdrive extends EventEmitter {
       pos = null
     }
 
-    const desc = this._fds[fd - STDIO_CAP]
+    const desc = this._fds[(fd - STDIO_CAP) / 2]
     if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
     if (pos == null) pos = desc.position
     desc.write(buf, offset, len, pos, cb)
@@ -741,9 +741,10 @@ class Hyperdrive extends EventEmitter {
   }
 
   _closeFile (fd, cb) {
-    const desc = this._fds[fd - STDIO_CAP]
+    const idx = (fd - STDIO_CAP) / 2
+    const desc = this._fds[idx]
     if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
-    this._fds[fd - STDIO_CAP] = null
+    this._fds[idx] = null
     while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
     desc.close(cb)
   }

@@ -798,6 +798,55 @@ test('can watch nested mounts', async t => {
   }
 })
 
+test('can watch cyclic mounts', async t => {
+  const drive1 = create()
+  const drive2 = create()
+
+  var key1, key2
+
+  replicateAll([drive1, drive2])
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      key1 = drive1.key
+      key2 = drive2.key
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.mount('a', key2, err => {
+      t.error(err, 'no error')
+      drive2.mount('b', key1, err => {
+        t.error(err, 'no error')
+        onmount()
+      })
+    })
+  }
+
+  function onmount () {
+    var changes = 0
+    const watcher = drive1.watch('', () => {
+      changes++
+    })
+    watcher.on('ready', watchers => {
+      t.same(watchers.length, 2)
+      drive2.writeFile('c', 'hello', err => {
+        t.error(err, 'no error')
+        drive1.writeFile('c', 'world', err => {
+          t.error(err, 'no error')
+          setImmediate(() => {
+            t.same(changes, 4)
+            t.end()
+          })
+        })
+      })
+    })
+  }
+})
+
 test('can list in-memory mounts recursively')
 test('dynamically resolves cross-mount symlinks')
 test('symlinks cannot break the sandbox')
