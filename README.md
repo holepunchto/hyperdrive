@@ -89,9 +89,17 @@ Options include:
 
 Note that a cloned hyperdrive archive can be "sparse". Usually (by setting `sparse: true`) this means that the content is not downloaded until you ask for it, but the entire metadata feed is still downloaded. If you want a _very_ sparse archive, where even the metadata feed is not downloaded until you request it, then you should _also_ set `sparseMetadata: true`.
 
-#### `var stream = archive.replicate([options])`
+#### `var stream = archive.replicate(isInitiator, [options])`
 
-Replicate this archive. Options include
+The `isInitiator` argument is a boolean indicating whether you are the iniatior of the connection (ie the client)
+or if you are the passive part (ie the server).
+
+If you are using a P2P swarm like [Hyperswarm](https://github.com/hyperswarm/hyperswarm) you can know this by checking if the swarm connection is a client socket or server socket. In Hyperswarm you can check that using [client property on the peer details object](https://github.com/hyperswarm/hyperswarm#swarmonconnection-socket-details--)
+
+If you want to multiplex the replication over an existing hypercore replication stream you can pass
+another stream instance instead of the `isInitiator` boolean.
+
+Options include
 
 ``` js
 {
