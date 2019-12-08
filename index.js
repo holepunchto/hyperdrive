@@ -1,4 +1,5 @@
-const path = require('path').posix
+const pathRoot = require('path')
+const path = pathRoot.posix || pathRoot
 const { EventEmitter } = require('events')
 
 const collect = require('stream-collector')
