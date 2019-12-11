@@ -723,6 +723,11 @@ class Hyperdrive extends EventEmitter {
   }
 
   replicate (isInitiator, opts) {
+    // support replicate({ initiator: bool }) also
+    if (typeof isInitiator === 'object' && isInitiator && !opts) {
+      opts = isInitiator
+      isInitiator = !!opts.initiator
+    }
     const stream = new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
