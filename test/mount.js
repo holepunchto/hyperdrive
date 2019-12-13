@@ -832,7 +832,7 @@ test('can read replicated mount', async t => {
           t.error(err, 'no error')
           drive4.readdir('mount2', (err, list) => {
             t.error(err, 'no error')
-            t.same(list, ['mount1'])
+            t.same(list, ['mount1', '1'])
             drive4.readFile('mount2/mount1/2', (err, data) => {
               t.error(err, 'no error')
               t.same(data.toString(), 'hello')
