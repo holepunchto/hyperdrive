@@ -798,6 +798,53 @@ test('can watch nested mounts', async t => {
   }
 })
 
+test('can read replicated mount', async t => {
+  const drive1 = create()
+  const drive2 = create()
+  const drive3 = create(drive1.key)
+  const drive4 = create()
+
+  drive1.ready(() => {
+    drive1.writeFile('1', 'hello', err => {
+      t.error(err, 'no error')
+      replicateAll([drive1, drive2])
+      drive2.ready(() => {
+        drive2.writeFile('2', 'hello', err => {
+          t.error(err, 'no error')
+          drive1.mount('mount1', drive2.key, err => {
+            t.error(err, 'no error')
+            drive1.readFile('mount1/2', (err, data) => {
+              t.error(err, 'no error')
+              t.same(data.toString(), 'hello')
+              second_drive()
+            })
+          })
+        })
+      })
+    })
+  })
+
+  function second_drive(){
+    drive3.ready(() => {
+      drive4.ready(() => {
+        replicateAll([drive4, drive1])
+        drive4.mount('mount2', drive3.key, err => {
+          t.error(err, 'no error')
+          drive4.readdir('mount2', (err, list) => {
+            t.error(err, 'no error')
+            t.same(list, ['mount1'])
+            drive4.readFile('mount2/mount1/2', (err, data) => {
+              t.error(err, 'no error')
+              t.same(data.toString(), 'hello')
+              t.end()
+            })
+          })
+        })
+      })
+    })
+  }
+})
+
 test('can list in-memory mounts recursively')
 test('dynamically resolves cross-mount symlinks')
 test('symlinks cannot break the sandbox')
