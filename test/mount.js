@@ -847,6 +847,35 @@ test('can watch cyclic mounts', async t => {
   }
 })
 
+test('readdir with noMounts will not traverse mounts', async t => {
+  const drive1 = create()
+  const drive2 = create()
+
+  const s1 = drive1.replicate(true, { live: true })
+  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+
+  drive2.ready(err => {
+    t.error(err, 'no error')
+    drive1.mkdir('b', err => {
+      t.error(err, 'no error')
+      drive1.mkdir('b/a', err => {
+        t.error(err, 'no error')
+        drive2.mkdir('c', err => {
+          t.error(err, 'no error')
+          drive1.mount('a', drive2.key, err => {
+            t.error(err, 'no error')
+            drive1.readdir('/', { recursive: true, noMounts: true}, (err, dirs) => {
+              t.error(err, 'no error')
+              t.same(dirs, ['b', 'b/a', 'a'])
+              t.end()
+            })
+          })
+        })
+      })
+    })
+  })
+})
+
 test('can list in-memory mounts recursively')
 test('dynamically resolves cross-mount symlinks')
 test('symlinks cannot break the sandbox')
