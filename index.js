@@ -676,9 +676,10 @@ class Hyperdrive extends EventEmitter {
     name = fixName(name)
 
     const recursive = !!(opts && opts.recursive)
+    const noMounts = !!(opts && opts.noMounts)
 
     const nameStream = pump(
-      createStatStream(this, this._db, name, { ...opts, recursive, gt: false }),
+      createStatStream(this, this._db, name, { ...opts, recursive, noMounts, gt: false }),
       through.obj(({ path: statPath, stat }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
         if (relativePath === name) return cb(null)
