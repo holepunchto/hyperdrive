@@ -251,11 +251,10 @@ Options include:
 
 ``` js
 {
-    cached: true|false, // default: false
+    recursive: false, // Recurse into subdirectories and mounts
+    noMount: false // Do not recurse into mounts when recursive: true
 }
 ```
-
-If `cached` is set to `true`, this function returns results from the local version of the archive’s append-tree. Default behavior is to fetch the latest remote version of the archive before returning list of directories.
 
 #### `archive.stat(name, [options], callback)`
 
