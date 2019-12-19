@@ -233,7 +233,7 @@ class Hyperdrive extends EventEmitter {
     })
 
     function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self), parents: [db.feed.key] }
+      const contentOpts = { key: publicKey, ...contentOptions(self) }
       const feed = self._corestore.get(contentOpts)
       feed.ready(err => {
         if (err) return cb(err)
@@ -732,7 +732,7 @@ class Hyperdrive extends EventEmitter {
     const stream = new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this._corestore.replicate(isInitiator, this.discoveryKey, { ...opts, stream })
+      this._corestore.replicate(isInitiator, { ...opts, stream })
     })
     return stream
   }
