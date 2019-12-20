@@ -28,7 +28,7 @@
     "filesystem-constants": "^1.0.0",
     "hypercore-byte-stream": "^1.0.2",
     "hypercore-protocol": "^7.2.0",
-    "hyperdrive-schemas": "^0.13.0",
+    "hyperdrive-schemas": "beta",
     "mountable-hypertrie": "^2.2.0",
     "mutexify": "^1.2.0",
     "nanoiterator": "^1.2.0",
