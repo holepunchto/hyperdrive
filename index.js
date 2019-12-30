@@ -597,13 +597,14 @@ class Hyperdrive extends EventEmitter {
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
       if (name === '/') return cb(null, Stat.directory(), this._db)
       const trie = st[MountableHypertrie.Symbols.TRIE]
+      const mount = st[MountableHypertrie.Symbols.MOUNT]
       try {
         st = Stat.decode(st.value)
       } catch (err) {
         return cb(err)
       }
       const noMode = Object.assign({}, st, { mode: 0 })
-      return cb(null, Stat.directory(noMode), trie)
+      return cb(null, Stat.directory(noMode), trie, mount)
     })
   }
 
@@ -618,9 +619,9 @@ class Hyperdrive extends EventEmitter {
       this._db.get(name, opts, onstat)
     })
 
-    function onstat (err, node, trie) {
+    function onstat (err, node, trie, mount) {
       if (err) return cb(err)
-      if (!node && opts.trie) return cb(null, null, trie)
+      if (!node && opts.trie) return cb(null, null, trie, mount)
       if (!node && opts.file) return cb(new errors.FileNotFound(name))
       if (!node) return self._statDirectory(name, opts, cb)
       try {
@@ -632,7 +633,7 @@ class Hyperdrive extends EventEmitter {
       if (writingFd) {
         st.size = writingFd.stat.size
       }
-      cb(null, st, trie)
+      cb(null, st, trie, mount)
     }
   }
 
@@ -640,15 +641,15 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.stat(name, null, opts)
     if (!opts) opts = {}
 
-    this.lstat(name, opts, (err, stat, trie) => {
+    this.lstat(name, opts, (err, stat, trie, mount) => {
       if (err) return cb(err)
-      if (!stat) return cb(null, null, trie, name)
+      if (!stat) return cb(null, null, trie, name, mount)
       if (stat.linkname) {
         if (path.isAbsolute(stat.linkname)) return this.stat(stat.linkname, opts, cb)
         const relativeStat = path.resolve('/', path.dirname(name), stat.linkname)
         return this.stat(relativeStat, opts, cb)
       }
-      return cb(null, stat, trie, name)
+      return cb(null, stat, trie, name, mount)
     })
   }
 
@@ -677,14 +678,16 @@ class Hyperdrive extends EventEmitter {
 
     const recursive = !!(opts && opts.recursive)
     const noMounts = !!(opts && opts.noMounts)
+    const includeStats = !!(opts && opts.includeStats)
 
     const nameStream = pump(
       createStatStream(this, this._db, name, { ...opts, recursive, noMounts, gt: false }),
-      through.obj(({ path: statPath, stat }, enc, cb) => {
+      through.obj(({ path: statPath, stat, mount }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
         if (relativePath === name) return cb(null)
         if (recursive) return cb(null, relativePath)
         const split = relativePath.split('/')
+        if (includeStats) return cb(null, { name: split[0], stat, mount })
         return cb(null, split[0])
       })
     )
