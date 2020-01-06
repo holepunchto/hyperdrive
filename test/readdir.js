@@ -93,6 +93,36 @@ test('another single-directory readdir', async t => {
   t.end()
 })
 
+test.only('readdir can include stats/mounts', async t => {
+  const drive = create()
+
+  const files = createFiles([
+    'a/a',
+    'a/b',
+    'a/c/d',
+    'a/c/e',
+    'a/e',
+    'b/e',
+    'b/f',
+    'b/d',
+    'e'
+  ])
+
+  try {
+    await runAll([
+      cb => writeFiles(drive, files, cb),
+      cb => validateReaddir(t, drive, 'a', ['a', 'b', 'c', 'e'], { includeStats: true }, cb),
+      cb => validateReaddir(t, drive, 'a/c', ['d', 'e'], { includeStats: true }, cb),
+      cb => validateReaddir(t, drive, 'b', ['e', 'f', 'd'], { includeStats: true }, cb),
+      cb => validateReaddir(t, drive, '', ['a', 'b', 'e'], { includeStats: true }, cb)
+    ])
+  } catch (err) {
+    t.fail(err)
+  }
+
+  t.end()
+})
+
 test('recursive readdir', async t => {
   const drive = create()
 
@@ -313,8 +343,18 @@ function validateReaddir (t, drive, path, names, opts, cb) {
   drive.readdir(path, opts, (err, list) => {
     if (err) return cb(err)
     t.same(list.length, names.length)
-    for (const name of list) {
-      t.notEqual(names.indexOf(name), -1)
+    if (opts && opts.includeStats) {
+      for (const { name, stat, mount } of list) {
+        t.notEqual(names.indexOf(name), -1)
+        // TODO: Support more detailed validation of stat/mount here.
+        console.log('stat:', stat, 'mount:', mount)
+        t.true(stat)
+        t.true(mount)
+      }
+    } else {
+      for (const name of list) {
+        t.notEqual(names.indexOf(name), -1)
+      }
     }
     return cb(null)
   })

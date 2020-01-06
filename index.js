@@ -685,7 +685,10 @@ class Hyperdrive extends EventEmitter {
       through.obj(({ path: statPath, stat, mount }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
         if (relativePath === name) return cb(null)
-        if (recursive) return cb(null, relativePath)
+        if (recursive) {
+          if (includeStats) return cb(null, { name: relativePath, stat, mount })
+          return cb(null, relativePath)
+        }
         const split = relativePath.split('/')
         if (includeStats) return cb(null, { name: split[0], stat, mount })
         return cb(null, split[0])
