@@ -493,6 +493,95 @@ test('nested mount readdir returns correct stat modes, non-recursive', async t =
   }
 })
 
+test('nested mount readdir returns correct inner paths, non-recursive', async t => {
+  const store = new Corestore(ram)
+  let expected = {}
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive1.writeFile('b/c', 'hello', err => {
+        t.error(err, 'no error')
+        drive1.mount('a', drive2.key, err => {
+          t.error(err, 'no error')
+          drive1.mount('a/b', drive3.key, err => {
+            t.error(err, 'no error')
+            drive1.writeFile('a/b/c', 'hello', err => {
+              t.error(err, 'no error')
+              expected['c'] = 'c'
+              onmount(drive1, drive2, drive3)
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    drive1.readdir('/a/b', { recursive: false, includeStats: true }, (err, list) => {
+      t.error(err, 'no error')
+      let seen = 0
+      for (let { name, stat, mount, innerPath } of list) {
+        t.true(expected[name] && expected[name] === innerPath, 'correct stat mode')
+        seen++
+      }
+      t.same(seen, 1)
+      t.end()
+    })
+  }
+})
+
+test('nested mount readdir returns correct inner paths, recursive', async t => {
+  const store = new Corestore(ram)
+  let expected = {}
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive1.writeFile('b/c', 'hello', err => {
+        t.error(err, 'no error')
+        drive1.mount('a', drive2.key, err => {
+          t.error(err, 'no error')
+          drive1.mount('a/b', drive3.key, err => {
+            t.error(err, 'no error')
+            drive1.writeFile('a/b/c', 'hello', err => {
+              t.error(err, 'no error')
+              expected['a'] = 'a'
+              expected['a/b'] = 'b'
+              expected['b/c'] = 'b/c'
+              expected['a/b/c'] = 'c'
+              onmount(drive1, drive2, drive3)
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    drive1.readdir('/', { recursive: true, includeStats: true }, (err, list) => {
+      t.error(err, 'no error')
+      let seen = 0
+      for (let { name, stat, mount, innerPath } of list) {
+        t.true(expected[name] && expected[name] === innerPath, 'correct stat mode')
+        seen++
+      }
+      t.same(seen, 4)
+      t.end()
+    })
+  }
+})
+
 test('independent corestores do not share write capabilities', t => {
   const drive1 = create()
   const drive2 = create()

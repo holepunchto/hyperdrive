@@ -682,17 +682,17 @@ class Hyperdrive extends EventEmitter {
 
     const nameStream = pump(
       createStatStream(this, this._db, name, { ...opts, recursive, noMounts, gt: false }),
-      through.obj(({ path: statPath, stat, mount }, enc, cb) => {
+      through.obj(({ path: statPath, stat, mount, innerPath }, enc, cb) => {
         const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
         if (relativePath === name) return cb(null)
         if (recursive) {
-          if (includeStats) return cb(null, { name: relativePath, stat, mount })
+          if (includeStats) return cb(null, { name: relativePath, stat, mount, innerPath })
           return cb(null, relativePath)
         }
         const split = relativePath.split('/')
         // Note: When doing a non-recursive readdir, we need to create a fake directory Stat (since the returned Stat might be a child file here)
         // If this is a problem, one should follow the readdir with the appropriate stat() calls.
-        if (includeStats) return cb(null, { name: split[0], stat: split.length > 1 ? Stat.directory() : stat, mount })
+        if (includeStats) return cb(null, { name: split[0], stat: split.length > 1 ? Stat.directory() : stat, mount, innerPath })
         return cb(null, split[0])
       })
     )
