@@ -347,7 +347,6 @@ function validateReaddir (t, drive, path, names, opts, cb) {
       for (const { name, stat, mount } of list) {
         t.notEqual(names.indexOf(name), -1)
         // TODO: Support more detailed validation of stat/mount here.
-        console.log('stat:', stat, 'mount:', mount)
         t.true(stat)
         t.true(mount)
       }

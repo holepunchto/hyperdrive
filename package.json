@@ -29,7 +29,7 @@
     "hypercore-byte-stream": "^1.0.2",
     "hypercore-protocol": "^7.2.0",
     "hyperdrive-schemas": "beta",
-    "mountable-hypertrie": "^2.3.0",
+    "mountable-hypertrie": "^2.3.1",
     "mutexify": "^1.2.0",
     "nanoiterator": "^1.2.0",
     "pump": "^3.0.0",

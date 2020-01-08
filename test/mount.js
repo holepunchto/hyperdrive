@@ -358,6 +358,141 @@ test('nested mount readdir returns correct mount', async t => {
   }
 })
 
+test('nested mount readdir returns correct mount starting in mountpoint', async t => {
+  const store = new Corestore(ram)
+  let expected = {}
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive1.mount('a', drive2.key, err => {
+        t.error(err, 'no error')
+        drive1.mount('a/b', drive3.key, err => {
+          t.error(err, 'no error')
+          drive1.writeFile('a/b/c', 'hello', err => {
+            t.error(err, 'no error')
+            expected['b'] = drive2.key
+            expected['b/c'] = drive3.key
+            onmount(drive1, drive2, drive3)
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    drive1.readdir('/a', { recursive: true, includeStats: true }, (err, list) => {
+      t.error(err, 'no error')
+      let seen = 0
+      for (let { name, stat, mount } of list) {
+        t.true(expected[name] && expected[name].equals(mount.key), 'correct mount key')
+        seen++
+      }
+      t.same(seen, 2)
+      t.end()
+    })
+  }
+})
+
+test('nested mount readdir returns correct stat modes', async t => {
+  const store = new Corestore(ram)
+  let expected = {}
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive1.mkdir('b', err => {
+        t.error(err, 'no error')
+        drive1.writeFile('b/c', 'hello', err => {
+          t.error(err, 'no error')
+          drive1.mount('a', drive2.key, err => {
+            t.error(err, 'no error')
+            drive1.mount('a/b', drive3.key, err => {
+              t.error(err, 'no error')
+              drive1.writeFile('a/b/c', 'hello', err => {
+                t.error(err, 'no error')
+                expected['a'] = 16877
+                expected['b'] = 16877
+                expected['b/c'] = 33188
+                expected['a/b'] = 16877
+                expected['a/b/c'] = 33188
+                onmount(drive1, drive2, drive3)
+              })
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    drive1.readdir('/', { recursive: true, includeStats: true }, (err, list) => {
+      t.error(err, 'no error')
+      let seen = 0
+      for (let { name, stat, mount } of list) {
+        t.true(expected[name] && expected[name] === stat.mode, 'correct stat mode')
+        seen++
+      }
+      t.same(seen, 5)
+      t.end()
+    })
+  }
+})
+
+test('nested mount readdir returns correct stat modes, non-recursive', async t => {
+  const store = new Corestore(ram)
+  let expected = {}
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive1.writeFile('b/c', 'hello', err => {
+        t.error(err, 'no error')
+        drive1.mount('a', drive2.key, err => {
+          t.error(err, 'no error')
+          drive1.mount('a/b', drive3.key, err => {
+            t.error(err, 'no error')
+            drive1.writeFile('a/b/c', 'hello', err => {
+              t.error(err, 'no error')
+              expected['a'] = 16877
+              expected['b'] = 16877
+              onmount(drive1, drive2, drive3)
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    drive1.readdir('/', { recursive: false, includeStats: true }, (err, list) => {
+      t.error(err, 'no error')
+      let seen = 0
+      for (let { name, stat, mount } of list) {
+        t.true(expected[name] && expected[name] === stat.mode, 'correct stat mode')
+        seen++
+      }
+      t.same(seen, 2)
+      t.end()
+    })
+  }
+})
+
 test('independent corestores do not share write capabilities', t => {
   const drive1 = create()
   const drive2 = create()

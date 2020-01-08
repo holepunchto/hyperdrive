@@ -690,7 +690,9 @@ class Hyperdrive extends EventEmitter {
           return cb(null, relativePath)
         }
         const split = relativePath.split('/')
-        if (includeStats) return cb(null, { name: split[0], stat, mount })
+        // Note: When doing a non-recursive readdir, we need to create a fake directory Stat (since the returned Stat might be a child file here)
+        // If this is a problem, one should follow the readdir with the appropriate stat() calls.
+        if (includeStats) return cb(null, { name: split[0], stat: split.length > 1 ? Stat.directory() : stat, mount })
         return cb(null, split[0])
       })
     )
