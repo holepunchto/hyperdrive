@@ -20,7 +20,7 @@ const createFileDescriptor = require('./lib/fd')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
-const { statIterator, createStatStream, createMountStream } = require('./lib/iterator')
+const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
@@ -676,27 +676,8 @@ class Hyperdrive extends EventEmitter {
     if (typeof opts === 'function') return this.readdir(name, null, opts)
     name = fixName(name)
 
-    const recursive = !!(opts && opts.recursive)
-    const noMounts = !!(opts && opts.noMounts)
-    const includeStats = !!(opts && opts.includeStats)
-
-    const nameStream = pump(
-      createStatStream(this, this._db, name, { ...opts, recursive, noMounts, gt: false }),
-      through.obj(({ path: statPath, stat, mount, innerPath }, enc, cb) => {
-        const relativePath = (name === statPath) ? statPath : path.relative(name, statPath)
-        if (relativePath === name) return cb(null)
-        if (recursive) {
-          if (includeStats) return cb(null, { name: relativePath, stat, mount, innerPath })
-          return cb(null, relativePath)
-        }
-        const split = relativePath.split('/')
-        // Note: When doing a non-recursive readdir, we need to create a fake directory Stat (since the returned Stat might be a child file here)
-        // If this is a problem, one should follow the readdir with the appropriate stat() calls.
-        if (includeStats) return cb(null, { name: split[0], stat: split.length > 1 ? Stat.directory() : stat, mount, innerPath })
-        return cb(null, split[0])
-      })
-    )
-    return collect(nameStream, (err, entries) => {
+    const readdirStream = createReaddirStream(this, this._db, name, opts)
+    return collect(readdirStream, (err, entries) => {
       if (err) return cb(err)
       return cb(null, entries)
     })
@@ -721,12 +702,12 @@ class Hyperdrive extends EventEmitter {
   rmdir (name, cb) {
     if (!cb) cb = noop
     name = fixName(name)
-
     const self = this
 
-    let stream = this._db.iterator(name, { gt: true })
-    stream.next((err, val) => {
+    const ite = readdirIterator(this, this._db, name)
+    ite.next((err, val) => {
       if (err) return cb(err)
+      console.error('VALUE IN RMDIR:', val)
       if (val) return cb(new errors.DirectoryNotEmpty(name))
       self._del(name, cb)
     })
