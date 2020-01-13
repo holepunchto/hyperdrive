@@ -391,3 +391,43 @@ tape('fd parallel reads', function (t) {
     })
   })
 })
+
+tape('fd close cancels pending reads', function (t) {
+  var drive = create()
+  var clone = null
+  var stream = null
+  var totalRead = null
+
+  drive.on('ready', function () {
+    clone = create(drive.key)
+    drive.writeFile('/hello.txt', 'hello', function (err) {
+      stream = drive.replicate(true, { live: true }).on('error', () => {})
+      stream.pipe(clone.replicate(false, { live: true }).on('error', () => {})).pipe(stream)
+      return onwrite()
+    })
+  })
+
+  function onwrite () {
+    clone.open('/hello.txt', 'r', (err, descriptor) => {
+      stream.destroy()
+      stream.on('close', () => {
+        // This read should hang without a timeout.
+        var totalRead = null
+        clone.read(descriptor, Buffer.allocUnsafe(64), 1024, 0, (err, total, buf) => {
+          t.true(err, 'read errored')
+          totalRead = total
+          t.end()
+        })
+        setImmediate(() => {
+          // This should cancel the above read.
+          console.log('closing')
+          clone.close(descriptor, err => {
+            t.error(err, 'no error')
+            console.log('finished close')
+            t.false(totalRead)
+          })
+        })
+      })
+    })
+  }
+})
