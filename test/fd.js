@@ -420,10 +420,8 @@ tape('fd close cancels pending reads', function (t) {
         })
         setImmediate(() => {
           // This should cancel the above read.
-          console.log('closing')
           clone.close(descriptor, err => {
             t.error(err, 'no error')
-            console.log('finished close')
             t.false(totalRead)
           })
         })
