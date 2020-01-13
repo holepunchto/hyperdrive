@@ -354,3 +354,40 @@ tape('fd random-access write fails', function (t) {
     })
   })
 })
+
+tape('fd parallel reads', function (t) {
+  t.plan(3 * 2 + 1)
+
+  const drive = create()
+  const ws = drive.createWriteStream('test')
+
+  ws.write('foo')
+  setImmediate(function () {
+    ws.write('bar')
+    setImmediate(function () {
+      ws.write('baz')
+      setImmediate(function () {
+        ws.write('quux')
+        setImmediate(function () {
+          ws.write('www')
+          ws.end(function () {
+            drive.open('test', 'r', function (err, fd) {
+              t.error(err, 'no error')
+
+              drive.read(fd, Buffer.alloc(13), 0, 13, 0, function (err, read, buf) {
+                t.error(err, 'no error')
+                t.same(read, 13)
+                t.same(buf, Buffer.from('foobarbazquux'))
+              })
+              drive.read(fd, Buffer.alloc(7), 0, 7, 9, function (err, read, buf) {
+                t.error(err, 'no error')
+                t.same(read, 7)
+                t.same(buf, Buffer.from('quuxwww'))
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+})
