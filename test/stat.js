@@ -55,3 +55,31 @@ tape('metadata', function (t) {
     })
   })
 })
+
+tape('metadata-specific methods', function (t) {
+  var archive = create()
+
+  archive.writeFile('/foo', 'bar', err => {
+    t.error(err, 'no error')
+    archive.setMetadata('/foo', '1', '1', err => {
+      t.error(err, 'no error')
+      archive.setMetadata('/foo', '2', '2', err => {
+        t.error(err, 'no error')
+        archive.stat('/foo', (err, st) => {
+          t.error(err, 'no error')
+          t.same(st.metadata['1'], Buffer.from('1'))
+          t.same(st.metadata['2'], Buffer.from('2'))
+          archive.removeMetadata('/foo', '2', err => {
+            t.error(err, 'no error')
+            archive.stat('/foo', (err, st) => {
+              t.error(err, 'no error')
+              t.same(st.metadata['1'], Buffer.from('1'))
+              t.false(st.metadata['2'])
+              t.end()
+            })
+          })
+        })
+      })
+    })
+  })
+})

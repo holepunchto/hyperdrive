@@ -1018,6 +1018,7 @@ class Hyperdrive extends EventEmitter {
       }
       return cb(null, mounts)
     })
+
   }
 
   extension (name, message) {
@@ -1026,6 +1027,25 @@ class Hyperdrive extends EventEmitter {
 
   get peers () {
     return this.metadata.peers
+  }
+
+  setMetadata (path, key, value, cb) {
+    const metadata = {}
+    metadata[key] = value
+    this._update(path, { metadata }, cb)
+  }
+
+  removeMetadata (path, key, cb) {
+    const metadata = {}
+    metadata[key] = null
+    this._update(path, { metadata }, cb)
+  }
+
+  copy (from, to, cb) {
+    this.stat(from, (err, stat) => {
+      if (err) return cb(err)
+      this.create(to, stat, cb)
+    })
   }
 }
 

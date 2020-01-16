@@ -294,3 +294,25 @@ tape('unavailable drive becomes ready', function (t) {
     })
   })
 })
+
+tape('copy', function (t) {
+  var drive = create()
+  drive.ready(err => {
+    t.error(err, 'no error')
+    drive.writeFile('hello', 'world', err => {
+      t.error(err, 'no error')
+      drive.copy('hello', 'also_hello', err => {
+        t.error(err, 'no error')
+        drive.readFile('hello', { encoding: 'utf8' }, (err, contents) => {
+          t.error(err, 'no error')
+          t.same(contents, 'world')
+          drive.readFile('also_hello', { encoding: 'utf8' }, (err, contents) => {
+            t.error(err, 'no error')
+            t.same(contents, 'world')
+            t.end()
+          })
+        })
+      })
+    })
+  })
+})
