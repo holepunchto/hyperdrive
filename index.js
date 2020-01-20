@@ -279,6 +279,30 @@ class Hyperdrive extends EventEmitter {
     })
   }
 
+  _upsert (name, stat, cb) {
+    name = fixName(name)
+
+    this._db.get(name, (err, st) => {
+      if (err) return cb(err)
+      if (!st) {
+        var decoded = Stat.file()
+      }
+      else {
+        try {
+          var decoded = Stat.decode(st.value)
+        } catch (err) {
+          return cb(err)
+        }
+      }
+      const oldMetadata = decoded.metadata
+      const newStat = Object.assign(decoded, stat)
+      if (stat.metadata) {
+        newStat.metadata = Object.assign({}, oldMetadata || {}, stat.metadata)
+      }
+      return this._putStat(name, newStat, { flags: st ? st.flags : 0 }, cb)
+    })
+  }
+
   open (name, flags, cb) {
     name = fixName(name)
 
@@ -526,7 +550,7 @@ class Hyperdrive extends EventEmitter {
 
     this.lstat(name, { file: true, trie: true }, (err, st) => {
       if (err && err.errno !== 2) return cb(err)
-      if (!st) return this.create(name, cb)
+      if (!st || !size) return this.create(name, cb)
       if (size === st.size) return cb(null)
       if (size < st.size) {
         const readStream = this.createReadStream(name, { length: size })
@@ -543,6 +567,12 @@ class Hyperdrive extends EventEmitter {
         })
       }
     })
+  }
+
+  ftruncate (fd, size, cb) {
+    const desc = this._fds[(fd - STDIO_CAP) / 2]
+    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
+    return desc.truncate(size, cb)
   }
 
   _createStat (name, opts, cb) {
@@ -707,7 +737,6 @@ class Hyperdrive extends EventEmitter {
     const ite = readdirIterator(this, this._db, name)
     ite.next((err, val) => {
       if (err) return cb(err)
-      console.error('VALUE IN RMDIR:', val)
       if (val) return cb(new errors.DirectoryNotEmpty(name))
       self._del(name, cb)
     })
