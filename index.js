@@ -11,6 +11,7 @@ const pumpify = require('pumpify')
 const pump = require('pump')
 
 const coreByteStream = require('hypercore-byte-stream')
+const Nanoresource = require('nanoresource/emitter')
 const HypercoreProtocol = require('hypercore-protocol')
 const MountableHypertrie = require('mountable-hypertrie')
 const Corestore = require('corestore')
@@ -28,7 +29,7 @@ const STDIO_CAP = 20
 module.exports = (...args) => new Hyperdrive(...args)
 module.exports.constants = require('filesystem-constants').linux
 
-class Hyperdrive extends EventEmitter {
+class Hyperdrive extends Nanoresource {
   constructor (storage, key, opts) {
     super()
 
@@ -74,7 +75,6 @@ class Hyperdrive extends EventEmitter {
     }
     this._checkoutContent = opts._content
 
-    this.ready = thunky(this._ready.bind(this))
     this.ready(onReady)
 
     const self = this
@@ -100,7 +100,11 @@ class Hyperdrive extends EventEmitter {
     return contentState.feed.writable
   }
 
-  _ready (cb) {
+  ready (cb) {
+    return this.open(cb)
+  }
+
+  _open (cb) {
     const self = this
     return this._corestore.ready(err => {
       if (err) return cb(err)
@@ -304,6 +308,7 @@ class Hyperdrive extends EventEmitter {
   }
 
   open (name, flags, cb) {
+    if (!name || typeof name === 'function') return super.open(name)
     name = fixName(name)
 
     this.ready(err => {
@@ -776,18 +781,16 @@ class Hyperdrive extends EventEmitter {
     desc.close(cb)
   }
 
+  _close (cb) {
+    this._corestore.close((err) => {
+      this.emit('close')
+      cb(err)
+    })
+  }
+
   close (fd, cb) {
     if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
-    else cb = fd
-    if (!cb) cb = noop
-
-    this.ready(err => {
-      if (err) return cb(err)
-      return this._corestore.close((err) => {
-        this.emit('close')
-        cb(err)
-      })
-    })
+    super.close(false, fd)
   }
 
   stats (path, opts, cb) {
