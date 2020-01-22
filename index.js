@@ -54,6 +54,7 @@ class Hyperdrive extends Nanoresource {
       sparse: this.sparse || this.sparseMetadata,
       extensions: opts.extensions
     })
+
     if (this._corestore !== storage) this._corestore.on('error', err => this.emit('error', err))
     if (opts.namespace) {
       this._corestore = this._corestore.namespace(opts.namespace)
@@ -425,7 +426,7 @@ class Hyperdrive extends Nanoresource {
   createDirectoryStream (name, opts) {
     if (!opts) opts = {}
     name = fixName(name)
-    return createStatStream(this, this._db, name, opts)
+    return createStatStream(this, name, opts)
   }
 
   createWriteStream (name, opts) {
@@ -711,7 +712,7 @@ class Hyperdrive extends Nanoresource {
     if (typeof opts === 'function') return this.readdir(name, null, opts)
     name = fixName(name)
 
-    const readdirStream = createReaddirStream(this, this._db, name, opts)
+    const readdirStream = createReaddirStream(this, name, opts)
     return collect(readdirStream, (err, entries) => {
       if (err) return cb(err)
       return cb(null, entries)
@@ -739,7 +740,7 @@ class Hyperdrive extends Nanoresource {
     name = fixName(name)
     const self = this
 
-    const ite = readdirIterator(this, this._db, name)
+    const ite = readdirIterator(this, name)
     ite.next((err, val) => {
       if (err) return cb(err)
       if (val) return cb(new errors.DirectoryNotEmpty(name))
@@ -805,7 +806,7 @@ class Hyperdrive extends Nanoresource {
         return fileStats(path, cb)
       } else {
         const recursive = opts && (opts.recursive !== false)
-        const ite = statIterator(self, self._db, path, { recursive })
+        const ite = statIterator(self, path, { recursive })
         return ite.next(function loop (err, info) {
           if (err) return cb(err)
           if (!info) return cb(null, stats)
@@ -895,7 +896,7 @@ class Hyperdrive extends Nanoresource {
         downloadFile(path, stat, trie, destroy)
       } else {
         const recursive = opts && (opts.recursive !== false)
-        const ite = statIterator(self, self._db, path, { recursive, random: true })
+        const ite = statIterator(self, path, { recursive, random: true })
         downloadNext(ite)
       }
     })
@@ -1036,7 +1037,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   createMountStream (opts) {
-    return createMountStream(this, this._db, opts)
+    return createMountStream(this, opts)
   }
 
   getAllMounts (opts, cb) {
