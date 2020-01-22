@@ -115,7 +115,10 @@ class Hyperdrive extends Nanoresource {
         feed: this.metadata,
         sparse: this.sparseMetadata
       })
-      this._db.on('feed', feed => this.emit('metadata-feed', feed))
+      this._db.on('feed', (feed, mountInfo) => {
+        this.emit('metadata-feed', feed)
+        this.emit('mount', feed, mountInfo)
+      })
       this._db.on('error', err => this.emit('error', err))
 
       if (this._checkoutContent) this._contentStates.set(this._db, new ContentState(this._checkoutContent))
@@ -811,7 +814,8 @@ class Hyperdrive extends Nanoresource {
           if (err) return cb(err)
           if (!info) return cb(null, stats)
           fileStats(info.path, (err, fileStats) => {
-            if (err) return cb(err)
+            if (err && err.errno !== 2) return cb(err)
+            if (!fileStats) return ite.next(loop)
             stats.set(info.path, fileStats)
             return ite.next(loop)
           })
