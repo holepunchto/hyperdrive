@@ -4,6 +4,7 @@ const ram = require('random-access-memory')
 const Corestore = require('corestore')
 const replicateAll = require('./helpers/replicate')
 const create = require('./helpers/create')
+const hyperdrive = require('../')
 
 test('basic read/write to/from a mount', t => {
   const drive1 = create()
@@ -1140,6 +1141,27 @@ test('readdir with noMounts will not traverse mounts', async t => {
       })
     })
   })
+})
+
+test('update does not clear the mount', function (t) {
+  const drive = hyperdrive(ram)
+  const other = hyperdrive(drive._corestore, null, { namespace: 'test' })
+
+  other.writeFile('/foo', 'bar', function (err) {
+    t.error(err, 'no error')
+    drive.mount('/bar', other.key, function (err) {
+      t.error(err, 'no error')
+      drive._update('/bar', {}, function (err) {
+        t.error(err, 'no error')
+        drive.readdir('/bar', function (err, files) {
+          t.error(err, 'no error')
+          t.same(files, ['foo'])
+          t.end()
+        })
+      })
+    })
+  })
+
 })
 
 test('can list in-memory mounts recursively')
