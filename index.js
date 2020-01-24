@@ -800,7 +800,6 @@ class Hyperdrive extends Nanoresource {
   stats (path, opts, cb) {
     if (typeof opts === 'function') return this.stats(path, null, opts)
     const self = this
-    const total = emptyStats()
     const stats = new Map()
 
     this.stat(path, (err, stat, trie) => {
@@ -829,6 +828,7 @@ class Hyperdrive extends Nanoresource {
     }
 
     function fileStats (path, cb) {
+      const total = emptyStats()
       return self.stat(path, (err, stat, trie) => {
         if (err) return cb(err)
         return self._getContent(trie, (err, contentState) => {
