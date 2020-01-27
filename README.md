@@ -148,6 +148,30 @@ Checkout a readonly copy of the archive at an old version. Options are used to c
 }
 ```
 
+#### `archive.on('peer-add', peer)`
+
+Emitted when a new peer has been added.
+
+```js
+const archive = Hyperdrive({
+  extension: ['example']
+})
+archive.on('extension', (name, message, peer) => {
+  console.log(name, message.toString('utf8'))
+})
+archive.on('peer-add', (peer) => {
+  peer.extension('example', Buffer.from('Hello World!', 'utf8'))
+})
+```
+
+#### `archive.on('peer-remove', peer)`
+
+Emitted when a peer has been removed.
+
+#### `archive.on('close')`
+
+Emitted when the archive has been closed.
+
 #### `archive.download([path], [callback])`
 
 Download all files in path of current version.

@@ -80,6 +80,9 @@ function Hyperdrive (storage, key, opts) {
   this.metadata.on('extension', extension)
   this.metadata.on('error', onerror)
   this.metadata.once('close', onclose)
+  this.metadata.on('peer-add', peeradd)
+  this.metadata.on('peer-remove', peerremove)
+
   this.ready = thunky(open)
   this.ready(onready)
 
@@ -109,6 +112,14 @@ function Hyperdrive (storage, key, opts) {
 
   function extension (name, message, peer) {
     self.emit('extension', name, message, peer)
+  }
+
+  function peeradd(peer) {
+    self.emit('peer-add', peer)
+  }
+
+  function peerremove(peer) {
+    self.emit('peer-remove', peer)
   }
 
   function open (cb) {
