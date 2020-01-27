@@ -114,11 +114,11 @@ function Hyperdrive (storage, key, opts) {
     self.emit('extension', name, message, peer)
   }
 
-  function peeradd(peer) {
+  function peeradd (peer) {
     self.emit('peer-add', peer)
   }
 
-  function peerremove(peer) {
+  function peerremove (peer) {
     self.emit('peer-remove', peer)
   }
 
