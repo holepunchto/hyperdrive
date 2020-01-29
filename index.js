@@ -1048,14 +1048,16 @@ class Hyperdrive extends Nanoresource {
     if (typeof opts === 'function') return this.getAllMounts(null, opts)
     const mounts = new Map()
 
-    collect(this.createMountStream(opts), (err, mountList) => {
+    this.ready(err => {
       if (err) return cb(err)
-      for (const { path, metadata, content } of mountList) {
-        mounts.set(path, { metadata, content })
-      }
-      return cb(null, mounts)
+      collect(this.createMountStream(opts), (err, mountList) => {
+        if (err) return cb(err)
+        for (const { path, metadata, content } of mountList) {
+          mounts.set(path, { metadata, content })
+        }
+        return cb(null, mounts)
+      })
     })
-
   }
 
   extension (name, message) {
