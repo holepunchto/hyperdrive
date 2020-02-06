@@ -242,7 +242,11 @@ class Hyperdrive extends Nanoresource {
 
     function onkey (publicKey) {
       const contentOpts = { key: publicKey, ...contentOptions(self), cache: { data: false } }
-      const feed = self._corestore.get(contentOpts)
+      try {
+        var feed = self._corestore.get(contentOpts)
+      } catch (err) {
+        return cb(err)
+      }
       feed.ready(err => {
         if (err) return cb(err)
         self.emit('content-feed', feed)
