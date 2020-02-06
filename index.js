@@ -420,6 +420,8 @@ class Hyperdrive extends Nanoresource {
           } catch (err) {
             return cb(err)
           }
+        } else if (chunk.left) {
+          entry.value = chunk.left.info
         }
         return cb(null, entry)
       })
