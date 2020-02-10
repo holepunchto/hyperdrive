@@ -594,10 +594,13 @@ class Hyperdrive extends Nanoresource {
     const self = this
 
     const statConstructor = (opts && opts.directory) ? Stat.directory : Stat.file
+    const shouldForce = !!opts.force
+
     this.ready(err => {
       if (err) return cb(err)
       this._db.get(name, (err, node, trie) => {
         if (err) return cb(err)
+        if (node && !shouldForce) return cb(new errors.PathAlreadyExists(name))
         onexisting(node, trie)
       })
     })
