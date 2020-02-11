@@ -47,7 +47,7 @@ class Hyperdrive extends Nanoresource {
     this.sparseMetadata = opts.sparseMetadata !== false
 
     this._namespace = opts.namespace
-    this._corestore = defaultCorestore(storage, {
+    this.corestore = defaultCorestore(storage, {
       ...opts,
       valueEncoding: 'binary',
       // TODO: Support mixed sparsity.
@@ -55,14 +55,14 @@ class Hyperdrive extends Nanoresource {
       extensions: opts.extensions
     })
 
-    if (this._corestore !== storage) this._corestore.on('error', err => this.emit('error', err))
+    if (this.corestore !== storage) this.corestore.on('error', err => this.emit('error', err))
     if (opts.namespace) {
-      this._corestore = this._corestore.namespace(opts.namespace)
+      this.corestore = this.corestore.namespace(opts.namespace)
     }
 
     // Set in ready.
     this.metadata = null
-    this._db = opts._db
+    this.db = opts._db
 
     this._contentStates = opts.contentStates || new Map()
     this._fds = []
@@ -88,7 +88,7 @@ class Hyperdrive extends Nanoresource {
 
   get version () {
     // TODO: The trie version starts at 1, so the empty hyperdrive version is also 1. This should be 0.
-    return this._db.version
+    return this.db.version
   }
 
   get writable () {
@@ -96,7 +96,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   get contentWritable () {
-    const contentState = this._contentStates.get(this._db)
+    const contentState = this._contentStates.get(this.db)
     if (!contentState) return false
     return contentState.feed.writable
   }
@@ -107,21 +107,21 @@ class Hyperdrive extends Nanoresource {
 
   _open (cb) {
     const self = this
-    return this._corestore.ready(err => {
+    return this.corestore.ready(err => {
       if (err) return cb(err)
-      this.metadata = this._corestore.default(this._metadataOpts)
+      this.metadata = this.corestore.default(this._metadataOpts)
       this.metadata.ifAvailable.wait()
-      this._db = this._db || new MountableHypertrie(this._corestore, this.key, {
+      this.db = this.db || new MountableHypertrie(this.corestore, this.key, {
         feed: this.metadata,
         sparse: this.sparseMetadata
       })
-      this._db.on('feed', (feed, mountInfo) => {
+      this.db.on('feed', (feed, mountInfo) => {
         this.emit('metadata-feed', feed)
         this.emit('mount', feed, mountInfo)
       })
-      this._db.on('error', err => this.emit('error', err))
+      this.db.on('error', err => this.emit('error', err))
 
-      if (this._checkoutContent) this._contentStates.set(this._db, new ContentState(this._checkoutContent))
+      if (this._checkoutContent) this._contentStates.set(this.db, new ContentState(this._checkoutContent))
 
       self.metadata.on('error', onerror)
       self.metadata.on('append', update)
@@ -156,8 +156,8 @@ class Hyperdrive extends Nanoresource {
     * If a content feed was not passed in with the checkout, create it. Otherwise, the checkout is complete.
     */
     function checkout () {
-      if (!self._contentStates.get(self._db)) {
-        self._getContent(self._db, err => {
+      if (!self._contentStates.get(self.db)) {
+        self._getContent(self.db, err => {
           if (err) return done(err)
           return done(null)
         })
@@ -170,10 +170,10 @@ class Hyperdrive extends Nanoresource {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize () {
-      self._getContent(self._db, { initialize: true }, (err, contentState) => {
+      self._getContent(self.db, { initialize: true }, (err, contentState) => {
         if (err) return done(err)
-        self._db.setMetadata(contentState.feed.key)
-        self._db.ready(err => {
+        self.db.setMetadata(contentState.feed.key)
+        self.db.ready(err => {
           if (err) return done(err)
           return done(null)
         })
@@ -187,12 +187,12 @@ class Hyperdrive extends Nanoresource {
      */
     function restore (keyPair) {
       if (self.metadata.writable) {
-        self._db.ready(err => {
+        self.db.ready(err => {
           if (err) return done(err)
-          self._getContent(self._db, done)
+          self._getContent(self.db, done)
         })
       } else {
-        self._db.ready(done)
+        self.db.ready(done)
       }
     }
 
@@ -243,7 +243,7 @@ class Hyperdrive extends Nanoresource {
     function onkey (publicKey) {
       const contentOpts = { key: publicKey, ...contentOptions(self), cache: { data: false } }
       try {
-        var feed = self._corestore.get(contentOpts)
+        var feed = self.corestore.get(contentOpts)
       } catch (err) {
         return cb(err)
       }
@@ -265,7 +265,7 @@ class Hyperdrive extends Nanoresource {
     } catch (err) {
       return cb(err)
     }
-    this._db.put(name, encoded, opts, err => {
+    this.db.put(name, encoded, opts, err => {
       if (err) return cb(err)
       return cb(null, stat)
     })
@@ -274,7 +274,7 @@ class Hyperdrive extends Nanoresource {
   _update (name, stat, cb) {
     name = fixName(name)
 
-    this._db.get(name, (err, st) => {
+    this.db.get(name, (err, st) => {
       if (err) return cb(err)
       if (!st) return cb(new errors.FileNotFound(name))
       try {
@@ -294,7 +294,7 @@ class Hyperdrive extends Nanoresource {
   _upsert (name, stat, cb) {
     name = fixName(name)
 
-    this._db.get(name, (err, st) => {
+    this.db.get(name, (err, st) => {
       if (err) return cb(err)
       if (!st) {
         var decoded = Stat.file()
@@ -380,7 +380,7 @@ class Hyperdrive extends Nanoresource {
         var byteOffset = 0
         var blockOffset = 0
         var blockLength = st.blocks
-        var feed = self._corestore.get({
+        var feed = self.corestore.get({
           key: st.mount.key,
           sparse: self.sparse
         })
@@ -411,7 +411,7 @@ class Hyperdrive extends Nanoresource {
     if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
     prefix = prefix || '/'
 
-    const diffStream = this._db.createDiffStream(other, prefix, opts)
+    const diffStream = this.db.createDiffStream(other, prefix, opts)
     return pumpify.obj(
       diffStream,
       through.obj((chunk, enc, cb) => {
@@ -598,7 +598,7 @@ class Hyperdrive extends Nanoresource {
 
     this.ready(err => {
       if (err) return cb(err)
-      this._db.get(name, (err, node, trie) => {
+      this.db.get(name, (err, node, trie) => {
         if (err) return cb(err)
         if (node && !shouldForce) return cb(new errors.PathAlreadyExists(name))
         onexisting(node, trie)
@@ -639,11 +639,11 @@ class Hyperdrive extends Nanoresource {
   }
 
   _statDirectory (name, opts, cb) {
-    const ite = this._db.iterator(name)
+    const ite = this.db.iterator(name)
     ite.next((err, st) => {
       if (err) return cb(err)
       if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      if (name === '/') return cb(null, Stat.directory(), this._db)
+      if (name === '/') return cb(null, Stat.directory(), this.db)
       const trie = st[MountableHypertrie.Symbols.TRIE]
       const mount = st[MountableHypertrie.Symbols.MOUNT]
       try {
@@ -664,7 +664,7 @@ class Hyperdrive extends Nanoresource {
 
     this.ready(err => {
       if (err) return cb(err)
-      this._db.get(name, opts, onstat)
+      this.db.get(name, opts, onstat)
     })
 
     function onstat (err, node, trie, mount) {
@@ -734,7 +734,7 @@ class Hyperdrive extends Nanoresource {
   _del (name, cb) {
     this.ready(err => {
       if (err) return cb(err)
-      this._db.del(name, (err, node) => {
+      this.db.del(name, (err, node) => {
         if (err) return cb(err)
         if (!node) return cb(new errors.FileNotFound(name))
         return cb(null)
@@ -769,20 +769,20 @@ class Hyperdrive extends Nanoresource {
     const stream = new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
-      this._corestore.replicate(isInitiator, { ...opts, stream })
+      this.corestore.replicate(isInitiator, { ...opts, stream })
     })
     return stream
   }
 
   checkout (version, opts) {
-    const db = this._db.checkout(version)
+    const db = this.db.checkout(version)
     opts = {
       ...opts,
       _db: db,
-      _content: this._contentStates.get(this._db),
+      _content: this._contentStates.get(this.db),
       contentStates: this._contentStates,
     }
-    return new Hyperdrive(this._corestore, this.key, opts)
+    return new Hyperdrive(this.corestore, this.key, opts)
   }
 
   _closeFile (fd, cb) {
@@ -795,7 +795,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   _close (cb) {
-    this._corestore.close((err) => {
+    this.corestore.close((err) => {
       this.emit('close')
       cb(err)
     })
@@ -966,7 +966,7 @@ class Hyperdrive extends Nanoresource {
 
   watch (name, onchange) {
     name = fixName(name)
-    return this._db.watch(name, onchange)
+    return this.db.watch(name, onchange)
   }
 
   mount (path, key, opts, cb) {
@@ -989,7 +989,7 @@ class Hyperdrive extends Nanoresource {
     statOpts.directory = !opts.hypercore
 
     if (opts.hypercore) {
-      const core = this._corestore.get({
+      const core = this.corestore.get({
         key,
         ...opts,
         parents: [this.key],
@@ -1009,15 +1009,15 @@ class Hyperdrive extends Nanoresource {
     function mountCore () {
       self._createStat(path, statOpts, (err, st) => {
         if (err) return cb(err)
-        return self._db.put(path, st.encode(), cb)
+        return self.db.put(path, st.encode(), cb)
       })
     }
 
     function mountTrie () {
       self._createStat(path, statOpts, (err, st) => {
         if (err) return cb(err)
-        self._db.mount(path, key, { ...opts, value: st.encode() }, err => {
-          return self._db.loadMount(path, cb)
+        self.db.mount(path, key, { ...opts, value: st.encode() }, err => {
+          return self.db.loadMount(path, cb)
         })
       })
     }
@@ -1030,7 +1030,7 @@ class Hyperdrive extends Nanoresource {
       if (st.mount.hypercore) {
         return this.unlink(path, cb)
       } else {
-        return this._db.unmount(path, cb)
+        return this.db.unmount(path, cb)
       }
     })
   }

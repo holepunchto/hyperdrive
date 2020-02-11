@@ -1145,7 +1145,7 @@ test('readdir with noMounts will not traverse mounts', async t => {
 
 test('update does not clear the mount', function (t) {
   const drive = hyperdrive(ram)
-  const other = hyperdrive(drive._corestore, null, { namespace: 'test' })
+  const other = hyperdrive(drive.corestore, null, { namespace: 'test' })
 
   other.writeFile('/foo', 'bar', function (err) {
     t.error(err, 'no error')
