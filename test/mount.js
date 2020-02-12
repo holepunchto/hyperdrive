@@ -892,7 +892,7 @@ test('can list in-memory mounts', async t => {
       t.true(contents)
       drive1.getAllMounts({ memory: true }, (err, mounts) => {
         t.error(err, 'no error')
-        t.same(mounts.size, 2)
+        t.same(mounts.size, 3)
         t.true(mounts.get('/'))
         t.true(mounts.get('/a'))
         t.end()
