@@ -116,10 +116,8 @@ class Hyperdrive extends Nanoresource {
         sparse: this.sparseMetadata
       })
       this.db.on('feed', (feed, mountInfo) => {
-        feed.update({ ifAvailable: true }, () => {
-          this.emit('metadata-feed', feed)
-          this.emit('mount', feed, mountInfo)
-        })
+        this.emit('metadata-feed', feed)
+        this.emit('mount', feed, mountInfo)
       })
       this.db.on('error', err => this.emit('error', err))
 
