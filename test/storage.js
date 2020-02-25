@@ -139,3 +139,26 @@ tape('sparse read/write two files', function (t) {
     }
   })
 })
+
+tape('destroying archives', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    var drive = hyperdrive(dir)
+
+    drive.writeFile('/hello.txt', 'hello world', function (err) {
+      t.ifError(err)
+      drive.destroy(function (err) {
+        t.ifError(err)
+        var drive2 = hyperdrive(dir)
+        drive2.ready(function (err) {
+          t.ifError(err)
+          drive2.readdir('/', function (err, files) {
+            t.ifError(err)
+            t.same(files, [], 'drive contents were destroyed')
+            t.end()
+          })
+        })
+      })
+    })
+  })
+})

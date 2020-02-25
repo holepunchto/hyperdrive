@@ -22,7 +22,7 @@
   "homepage": "https://github.com/mafintosh/hyperdrive#readme",
   "dependencies": {
     "byte-stream": "^2.1.0",
-    "corestore": "^5.0.0",
+    "corestore": "github:rangermauve/corestore#delete-method",
     "custom-error-class": "^1.0.0",
     "duplexify": "^3.7.1",
     "filesystem-constants": "^1.0.0",

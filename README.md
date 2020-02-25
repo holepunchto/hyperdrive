@@ -389,3 +389,8 @@ Close a file. Similar to fs.close.
 
 Closes all open resources used by the archive.
 The archive should no longer be used after calling this.
+
+#### `archive.destroy([callback])
+
+Closes the archive and destroys all its data from disk.
+Useful for clearing data you don't want anymore.

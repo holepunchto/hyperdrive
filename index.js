@@ -806,6 +806,18 @@ class Hyperdrive extends Nanoresource {
     super.close(false, fd)
   }
 
+  destroy (cb) {
+    if (!cb) cb = noop
+
+	// We need to destroy the corestore before closing
+	// Otherwise we'll lose references to the cores
+    this.corestore.destroy((err) => {
+      if (err) return cb(err)
+      this.emit('destroyed')
+      this.close(cb)
+    })
+  }
+
   stats (path, opts, cb) {
     if (typeof opts === 'function') return this.stats(path, null, opts)
     const self = this
