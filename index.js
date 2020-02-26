@@ -892,7 +892,7 @@ class Hyperdrive extends Nanoresource {
     }
   }
 
-  download (path, opts) {
+  download (path, opts = {}) {
     const self = this
     const ranges = new Map()
     var pending = 0
@@ -908,8 +908,9 @@ class Hyperdrive extends Nanoresource {
       if (stat.isFile()) {
         downloadFile(path, stat, trie, destroy)
       } else {
-        const recursive = opts && (opts.recursive !== false)
-        const ite = statIterator(self, path, { recursive, random: true })
+        const recursive = opts.recursive !== false
+        const noMounts = opts.noMounts !== false
+        const ite = statIterator(self, path, { recursive, noMounts, random: true })
         downloadNext(ite)
       }
     })
@@ -925,6 +926,7 @@ class Hyperdrive extends Nanoresource {
           else return
         }
         const { path, stat, trie } = info
+        if (stat.mount) return downloadNext(ite)
         downloadFile(path, stat, trie, err => {
           if (err) return destroy(err)
           return downloadNext(ite)
