@@ -766,7 +766,7 @@ class Hyperdrive extends Nanoresource {
       opts = isInitiator
       isInitiator = !!opts.initiator
     }
-    const stream = new HypercoreProtocol(isInitiator, { ...opts })
+    const stream = (opts && opts.stream) || new HypercoreProtocol(isInitiator, { ...opts })
     this.ready(err => {
       if (err) return stream.destroy(err)
       this.corestore.replicate(isInitiator, { ...opts, stream })
