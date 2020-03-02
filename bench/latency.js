@@ -1,13 +1,14 @@
 const { promisify } = require('util')
-const test = require('tape')
+const nanobench = require('nanobench')
 const pump = require('pump')
 const LatencyStream = require('latency-stream')
 const HypercoreProtocol = require('hypercore-protocol')
 
 const replicateAll = require('../test/helpers/replicate')
 const create = require('../test/helpers/create')
+const { runAll } = require('../test/helpers/util')
 
-test('first read, 50ms latency', async t => {
+nanobench('first read, 50ms latency', async b => {
   const LATENCY = 50
   const source = create()
   var dest, s1, s2
@@ -48,18 +49,16 @@ test('first read, 50ms latency', async t => {
 
   function bench () {
     console.time('first-read')
-    dest.readFile('hello', (err, contents) => {
-      console.timeEnd('first-read')
-      t.error(err, 'no error')
-      t.same(contents, Buffer.from('world'))
-      t.end()
+    b.start()
+    dest.readFile('hello', () => {
+      b.end()
     })
     source.replicate({ stream: s1, live: true })
     dest.replicate({ stream: s2, live: true  })
   }
 })
 
-test('subsequent read, 50ms latency', async t => {
+nanobench('subsequent read, 50ms latency', async b => {
   const LATENCY = 50
   const source = create()
   var dest, s1, s2
@@ -100,16 +99,12 @@ test('subsequent read, 50ms latency', async t => {
 
   function bench () {
     dest.readFile('hello', err => {
-      t.error(err, 'no error')
       return reconnect(() => {
-        console.time('subsequent-read')
+        b.start()
         source.replicate({ stream: s1, live: true })
         dest.replicate({ stream: s2, live: true  })
-        dest.readFile('something', (err, contents) => {
-          console.timeEnd('subsequent-read')
-          t.error(err, 'no error')
-          t.same(contents, Buffer.from('other'))
-          t.end()
+        dest.readFile('something', () => {
+          b.end()
         })
       })
     })
@@ -118,7 +113,7 @@ test('subsequent read, 50ms latency', async t => {
   }
 })
 
-test('reading the same file twice, 50ms latency', async t => {
+nanobench('reading the same file twice, 50ms latency', async b => {
   const LATENCY = 50
   const source = create()
   var dest, s1, s2
@@ -158,18 +153,67 @@ test('reading the same file twice, 50ms latency', async t => {
   }
 
   function bench () {
-    dest.readFile('hello', err => {
-      t.error(err, 'no error')
+    dest.readFile('hello', () => {
       return reconnect(() => {
-        console.time('subsequent-read')
+        b.start()
         source.replicate({ stream: s1, live: true })
         dest.replicate({ stream: s2, live: true  })
-        dest.readFile('hello', (err, contents) => {
-          console.timeEnd('subsequent-read')
-          t.error(err, 'no error')
-          t.same(contents, Buffer.from('world'))
-          t.end()
+        dest.readFile('hello', () => {
+          b.end()
         })
+      })
+    })
+    source.replicate({ stream: s1, live: true })
+    dest.replicate({ stream: s2, live: true  })
+  }
+})
+
+nanobench('listing a directory with 100 files, 50ms latency', async b => {
+  const LATENCY = 50
+  const NUM_FILES = 100
+
+  const source = create()
+  var dest, s1, s2
+
+  source.ready(() => {
+    dest = create(source.key)
+    dest.ready(() => {
+      return configure()
+    })
+  })
+
+  async function configure () {
+    const files = (new Array(NUM_FILES)).fill(0).map((_, i) => '' + i)
+    await runAll(files.map(name => {
+      return cb => source.writeFile(name, name, cb)
+    }))
+    return reconnect(bench)
+  }
+
+  function reconnect (cb) {
+    if (s1) {
+      s1.destroy()
+      s2.destroy()
+      s2.on('close', connect)
+    } else {
+      return connect()
+    }
+
+    function connect () {
+      s1 = new HypercoreProtocol(true, { live: true })
+      s2 = new HypercoreProtocol(false, { live: true })
+      pump(s1, new LatencyStream([LATENCY, LATENCY]), s2, new LatencyStream([LATENCY, LATENCY]), s1, err => {
+        // Suppress stream errors
+      })
+      s1.on('handshake', cb)
+    }
+  }
+
+  function bench () {
+    dest.readFile('0', () => {
+      b.start()
+      dest.readdir('/', (err, list) => {
+        b.end()
       })
     })
     source.replicate({ stream: s1, live: true })
