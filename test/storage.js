@@ -139,3 +139,30 @@ tape('sparse read/write two files', function (t) {
     }
   })
 })
+
+
+tape('destroying the drive destroys its data', function (t) {
+  tmp(function (err, dir, cleanup) {
+    t.ifError(err)
+    const initial = hyperdrive(dir)
+    initial.writeFile('/example.txt', 'Hello World!', function (err) {
+      t.ifError(err)
+      initial.destroy(function (err) {
+        t.ifError(err)
+        const copy = hyperdrive(dir)
+
+        copy.readdir('/', function (err, files) {
+          t.ifError(err)
+          t.deepEqual(files, [], 'archive now empty')
+          copy.close(function (err) {
+            t.ifError(err)
+            cleanup(function(err) {
+              t.ifError(err)
+              t.end()
+            })
+          })
+        })
+      })
+    })
+  })
+})
