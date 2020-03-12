@@ -4,3 +4,5 @@ node_js:
   - "lts/*"
   - "10"
   - "8"
+cache:
+  npm: false
