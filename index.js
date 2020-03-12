@@ -84,6 +84,9 @@ class Hyperdrive extends Nanoresource {
     function onReady (err) {
       if (err) return self.emit('error', err)
       self.emit('ready')
+
+      if (self._contentStates.has(self.db.feed)) return
+      self._getContent(self.db.feed, noop)
     }
   }
 
