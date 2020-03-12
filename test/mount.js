@@ -610,8 +610,8 @@ test('shared corestores will share write capabilities', async t => {
   store.ready(onready)
 
   function onready () {
-    const drive1 = create({ corestore: store })
-    const drive2 = create({ corestore: store })
+    const drive1 = create({ corestore: store, namespace: 'ns1' })
+    const drive2 = create({ corestore: store, namespace: 'ns2' })
 
     drive2.ready(err => {
       t.error(err, 'no error')
@@ -672,8 +672,8 @@ test('truncate within mount (with shared write capabilities)', async t => {
 
   function onready () {
 
-    const drive1 = create({ corestore: store })
-    const drive2 = create({ corestore: store })
+    const drive1 = create({ corestore: store, namespace: 'ns1' })
+    const drive2 = create({ corestore: store, namespace: 'ns2' })
 
     drive2.ready(err => {
       t.error(err, 'no error')
@@ -771,14 +771,14 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
 
   function createMountee () {
     const store = new Corestore(path => ram('cs1/' + path))
-    const drive1 = create({ corestore: store })
+    const drive1 = create({ corestore: store, namespace: 'ns1' })
     var drive2, drive3
 
     return new Promise(resolve => {
       drive1.ready(err => {
         t.error(err, 'no error')
-        drive2 = create({ corestore: store })
-        drive3 = create({ corestore: store })
+        drive2 = create({ corestore: store, namespace: 'ns2' })
+        drive3 = create({ corestore: store, namespace: 'ns3' })
         drive2.ready(err => {
           t.error(err, 'no error')
           drive3.ready(err => {

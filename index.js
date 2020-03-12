@@ -4,6 +4,7 @@ const { EventEmitter } = require('events')
 
 const collect = require('stream-collector')
 const thunky = require('thunky')
+const ThunkyMap = require('thunky-map')
 const unixify = require('unixify')
 const duplexify = require('duplexify')
 const through = require('through2')
@@ -63,8 +64,9 @@ class Hyperdrive extends Nanoresource {
     // Set in ready.
     this.metadata = null
     this.db = opts._db
+    this.isCheckout = !!this.db
 
-    this._contentStates = opts.contentStates || new Map()
+    this._contentStates = opts._contentStates || new ThunkyMap(this._contentStateFromMetadata.bind(this))
     this._fds = []
     this._writingFds = new Map()
 
@@ -74,7 +76,6 @@ class Hyperdrive extends Nanoresource {
       keyPair: opts.keyPair,
       extensions: opts.extensions
     }
-    this._checkoutContent = opts._content
 
     this.ready(onReady)
 
@@ -96,7 +97,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   get contentWritable () {
-    const contentState = this._contentStates.get(this.db)
+    const contentState = this._contentStates.cache.get(this.db.feed)
     if (!contentState) return false
     return contentState.feed.writable
   }
@@ -121,8 +122,6 @@ class Hyperdrive extends Nanoresource {
       })
       this.db.on('error', err => this.emit('error', err))
 
-      if (this._checkoutContent) this._contentStates.set(this.db, new ContentState(this._checkoutContent))
-
       self.metadata.on('error', onerror)
       self.metadata.on('append', update)
       self.metadata.on('extension', extension)
@@ -142,9 +141,7 @@ class Hyperdrive extends Nanoresource {
         * If the metadata feed is readable:
         *    Initialize the db without metadata and load the content feed key from the header.
         */
-        if (self.opts._db) {
-          checkout()
-        } else if (self.metadata.writable && !self.metadata.length) {
+        if (self.metadata.writable && !self.metadata.length && !self.isCheckout) {
           initialize()
         } else {
           restore()
@@ -153,25 +150,13 @@ class Hyperdrive extends Nanoresource {
     })
 
     /**
-    * If a content feed was not passed in with the checkout, create it. Otherwise, the checkout is complete.
-    */
-    function checkout () {
-      if (!self._contentStates.get(self.db)) {
-        self._getContent(self.db, err => {
-          if (err) return done(err)
-          return done(null)
-        })
-      } else {
-        return done(null)
-      }
-    }
-
-    /**
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize () {
-      self._getContent(self.db, { initialize: true }, (err, contentState) => {
+      self._contentStateFromKey(null, (err, contentState) => {
         if (err) return done(err)
+        // warm up the thunky map
+        self._contentStates.cache.set(self.db.feed, contentState)
         self.db.setMetadata(contentState.feed.key)
         self.db.ready(err => {
           if (err) return done(err)
@@ -186,14 +171,11 @@ class Hyperdrive extends Nanoresource {
      * (Otherwise, we need to read the feed's metadata block first)
      */
     function restore (keyPair) {
-      if (self.metadata.writable) {
-        self.db.ready(err => {
-          if (err) return done(err)
-          self._getContent(self.db, done)
-        })
-      } else {
-        self.db.ready(done)
-      }
+      self.db.ready(err => {
+        if (err) return done(err)
+        if (self.metadata.has(0)) self._getContent(self.db.feed, done)
+        else done(null)
+      })
     }
 
     function done (err) {
@@ -226,36 +208,31 @@ class Hyperdrive extends Nanoresource {
     }
   }
 
-  _getContent (db, opts, cb) {
-    if (typeof opts === 'function') return this._getContent(db, null, opts)
-    const self = this
+  _getContent (metadata, cb) {
+    this._contentStates.get(metadata, cb)
+  }
 
-    const existingContent = self._contentStates.get(db)
-    if (existingContent) return process.nextTick(cb, null, existingContent)
-
-    if (opts && opts.initialize) return onkey(null)
-
-    db.getMetadata((err, publicKey) => {
+  _contentStateFromMetadata (metadata, cb) {
+    MountableHypertrie.getMetadata(metadata, (err, publicKey) => {
       if (err) return cb(err)
-      return onkey(publicKey)
+      this._contentStateFromKey(publicKey, cb)
     })
+  }
 
-    function onkey (publicKey) {
-      const contentOpts = { key: publicKey, ...contentOptions(self), cache: { data: false } }
-      try {
-        var feed = self.corestore.get(contentOpts)
-      } catch (err) {
-        return cb(err)
-      }
-      feed.ready(err => {
-        if (err) return cb(err)
-        self.emit('content-feed', feed)
-        const state = new ContentState(feed)
-        self._contentStates.set(db, state)
-        feed.on('error', err => self.emit('error', err))
-        return cb(null, state)
-      })
+  _contentStateFromKey (publicKey, cb) {
+    const contentOpts = { key: publicKey, ...contentOptions(this), cache: { data: false } }
+    try {
+      var feed = this.corestore.get(contentOpts)
+    } catch (err) {
+      return cb(err)
     }
+
+    feed.on('error', err => this.emit('error', err))
+    feed.ready(err => {
+      if (err) return cb(err)
+      this.emit('content-feed', feed)
+      return cb(null, new ContentState(feed))
+    })
   }
 
   _putStat (name, stat, opts, cb) {
@@ -368,7 +345,7 @@ class Hyperdrive extends Nanoresource {
       if (err) return stream.destroy(err)
       return this.stat(name, { file: true }, (err, st, trie) => {
         if (err) return stream.destroy(err)
-        return this._getContent(trie, (err, contentState) => {
+        return this._getContent(trie.feed, (err, contentState) => {
           if (err) return stream.destroy(err)
           return oncontent(st, contentState)
         })
@@ -454,7 +431,8 @@ class Hyperdrive extends Nanoresource {
       if (err) return proxy.destroy(err)
       this.stat(name, { trie: true }, (err, stat, trie) => {
         if (err && (err.errno !== 2)) return proxy.destroy(err)
-        this._getContent(trie, (err, contentState) => {
+
+        this._getContent(trie.feed, (err, contentState) => {
           if (err) return proxy.destroy(err)
           if (opts.wait === false && contentState.isLocked()) return cb(new Error('Content is locked.'))
           contentState.lock(_release => {
@@ -608,7 +586,7 @@ class Hyperdrive extends Nanoresource {
     function onexisting (node, trie) {
       self.ready(err => {
         if (err) return cb(err)
-        self._getContent(trie, (err, contentState) => {
+        self._getContent(trie.feed, (err, contentState) => {
           if (err) return cb(err)
           const st = statConstructor({
             ...opts,
@@ -775,12 +753,10 @@ class Hyperdrive extends Nanoresource {
   }
 
   checkout (version, opts) {
-    const db = this.db.checkout(version)
     opts = {
       ...opts,
-      _db: db,
-      _content: this._contentStates.get(this.db),
-      contentStates: this._contentStates,
+      _db: this.db.checkout(version),
+      _contentStates: this._contentStates,
     }
     return new Hyperdrive(this.corestore, this.key, opts)
   }
@@ -840,7 +816,7 @@ class Hyperdrive extends Nanoresource {
       const total = emptyStats()
       return self.stat(path, (err, stat, trie) => {
         if (err) return cb(err)
-        return self._getContent(trie, (err, contentState) => {
+        return self._getContent(trie.feed, (err, contentState) => {
           if (err) return cb(err)
           const downloadedBlocks = contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks)
           total.blocks = stat.blocks
@@ -939,7 +915,7 @@ class Hyperdrive extends Nanoresource {
 
     function downloadFile (path, stat, trie, cb) {
       pending++
-      self._getContent(trie, (err, contentState) => {
+      self._getContent(trie.feed, (err, contentState) => {
         if (err) return destroy(err)
         const feed = contentState.feed
         const range = feed.download({
