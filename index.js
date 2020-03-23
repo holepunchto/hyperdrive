@@ -624,13 +624,14 @@ class Hyperdrive extends Nanoresource {
       if (name === '/') return cb(null, Stat.directory(), this.db)
       const trie = st[MountableHypertrie.Symbols.TRIE]
       const mount = st[MountableHypertrie.Symbols.MOUNT]
+      const innerPath = st[MountableHypertrie.Symbols.INNER_PATH]
       try {
         st = Stat.decode(st.value)
       } catch (err) {
         return cb(err)
       }
       const noMode = Object.assign({}, st, { mode: 0 })
-      return cb(null, Stat.directory(noMode), trie, mount)
+      return cb(null, Stat.directory(noMode), trie, mount, innerPath)
     })
   }
 
@@ -645,9 +646,9 @@ class Hyperdrive extends Nanoresource {
       this.db.get(name, opts, onstat)
     })
 
-    function onstat (err, node, trie, mount) {
+    function onstat (err, node, trie, mount, mountPath) {
       if (err) return cb(err)
-      if (!node && opts.trie) return cb(null, null, trie, mount)
+      if (!node && opts.trie) return cb(null, null, trie, mount, mountPath)
       if (!node && opts.file) return cb(new errors.FileNotFound(name))
       if (!node) return self._statDirectory(name, opts, cb)
       try {
@@ -659,7 +660,7 @@ class Hyperdrive extends Nanoresource {
       if (writingFd) {
         st.size = writingFd.stat.size
       }
-      cb(null, st, trie, mount)
+      cb(null, st, trie, mount, mountPath)
     }
   }
 
@@ -667,15 +668,15 @@ class Hyperdrive extends Nanoresource {
     if (typeof opts === 'function') return this.stat(name, null, opts)
     if (!opts) opts = {}
 
-    this.lstat(name, opts, (err, stat, trie, mount) => {
+    this.lstat(name, opts, (err, stat, trie, mount, mountPath) => {
       if (err) return cb(err)
-      if (!stat) return cb(null, null, trie, name, mount)
+      if (!stat) return cb(null, null, trie, name, mount, mountPath)
       if (stat.linkname) {
         if (path.isAbsolute(stat.linkname)) return this.stat(stat.linkname, opts, cb)
         const relativeStat = path.resolve('/', path.dirname(name), stat.linkname)
         return this.stat(relativeStat, opts, cb)
       }
-      return cb(null, stat, trie, name, mount)
+      return cb(null, stat, trie, name, mount, mountPath)
     })
   }
 
