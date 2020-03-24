@@ -1,5 +1,6 @@
 const tape = require('tape')
 const create = require('./helpers/create')
+const Replicator = require('./helpers/replicator')
 
 tape('basic fd read', function (t) {
   const drive = create()
@@ -393,6 +394,8 @@ tape('fd parallel reads', function (t) {
 })
 
 tape('fd close cancels pending reads', function (t) {
+  const r = new Replicator(t)
+
   var drive = create()
   var clone = null
   var stream = null
@@ -401,8 +404,10 @@ tape('fd close cancels pending reads', function (t) {
   drive.on('ready', function () {
     clone = create(drive.key)
     drive.writeFile('/hello.txt', 'hello', function (err) {
-      stream = drive.replicate(true, { live: true }).on('error', () => {})
-      stream.pipe(clone.replicate(false, { live: true }).on('error', () => {})).pipe(stream)
+      const [s1, s2] = r.replicate(drive, clone)
+      stream = s1
+      s1.on('error', () => {})
+      s2.on('error', () => {})
       return onwrite()
     })
   })
