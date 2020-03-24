@@ -2,10 +2,11 @@ const test = require('tape')
 const ram = require('random-access-memory')
 const Corestore = require('corestore')
 
-const replicateAll = require('./helpers/replicate')
+const Replicator = require('./helpers/replicator')
 const create = require('./helpers/create')
 
 test('single-file download', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   var drive2 = null
 
@@ -14,7 +15,7 @@ test('single-file download', t => {
     drive2 = create(drive1.key)
     drive2.ready(err => {
       t.error(err, 'no error')
-      replicateAll([drive1, drive2])
+      r.replicate(drive1, drive2)
       onready()
     })
   })
@@ -38,7 +39,7 @@ test('single-file download', t => {
     handle.on('finish', () => {
       drive2.stats('hello', (err, totals) => {
         t.same(totals.downloadedBlocks, 1)
-        t.end()
+        r.end()
       })
     })
     handle.on('error', t.fail.bind(t))
@@ -47,6 +48,7 @@ test('single-file download', t => {
 })
 
 test('directory download', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   var drive2 = null
 
@@ -55,7 +57,7 @@ test('directory download', t => {
     drive2 = create(drive1.key)
     drive2.ready(err => {
       t.error(err, 'no error')
-      replicateAll([drive1, drive2])
+      r.replicate(drive1, drive2)
       onready()
     })
   })
@@ -83,7 +85,7 @@ test('directory download', t => {
         t.same(totals.get('/a/1').downloadedBlocks, 1)
         t.same(totals.get('/a/2').downloadedBlocks, 1)
         t.same(totals.get('/a/3').downloadedBlocks, 1)
-        t.end()
+        r.end()
       })
     })
     handle.on('error', t.fail.bind(t))
@@ -91,6 +93,7 @@ test('directory download', t => {
 })
 
 test('download cancellation', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   var drive2 = null
 
@@ -99,7 +102,7 @@ test('download cancellation', t => {
     drive2 = create(drive1.key)
     drive2.ready(err => {
       t.error(err, 'no error')
-      replicateAll([drive1, drive2], { throttle: 50 })
+      r.replicate(drive1, drive2, { throttle: 50 })
       onready()
     })
   })
@@ -136,7 +139,7 @@ test('download cancellation', t => {
       drive2.stats('a', (err, totals) => {
         t.error(err, 'no error')
         t.true(totals.downloadedBlocks > 0 && totals.downloadedBlocks < 100)
-        t.end()
+        r.end()
       })
     })
     handle.on('error', t.fail.bind(t))
@@ -144,6 +147,7 @@ test('download cancellation', t => {
 })
 
 test('download omits mounts by default', t => {
+  const r = new Replicator(t)
   const store = new Corestore(ram)
   var drive1, mount, drive2
 
@@ -157,7 +161,7 @@ test('download omits mounts by default', t => {
           t.error(err)
           drive2.ready(err => {
             t.error(err, 'no error')
-            replicateAll([drive1, drive2])
+            r.replicate(drive1, drive2)
             onready()
           })
         })
@@ -194,7 +198,7 @@ test('download omits mounts by default', t => {
         drive2.stats('b', (err, totals) => {
           t.error(err, 'no error')
           t.same(totals.get('/b/hello').downloadedBlocks, 0)
-          t.end()
+          r.end()
         })
       })
     })
@@ -203,6 +207,7 @@ test('download omits mounts by default', t => {
 })
 
 test('download with noMounts false includes mounts', t => {
+  const r = new Replicator(t)
   const store = new Corestore(ram)
   var drive1, mount, drive2
 
@@ -216,7 +221,7 @@ test('download with noMounts false includes mounts', t => {
           t.error(err)
           drive2.ready(err => {
             t.error(err, 'no error')
-            replicateAll([drive1, drive2])
+            r.replicate(drive1, drive2)
             onready()
           })
         })
@@ -253,7 +258,7 @@ test('download with noMounts false includes mounts', t => {
         drive2.stats('b', (err, totals) => {
           t.error(err, 'no error')
           t.same(totals.get('/b/hello').downloadedBlocks, 1)
-          t.end()
+          r.end()
         })
       })
     })

@@ -2,16 +2,16 @@ const test = require('tape')
 const ram = require('random-access-memory')
 
 const Corestore = require('corestore')
-const replicateAll = require('./helpers/replicate')
+const Replicator = require('./helpers/replicator')
 const create = require('./helpers/create')
 const hyperdrive = require('../')
 
 test('basic read/write to/from a mount', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -22,7 +22,7 @@ test('basic read/write to/from a mount', t => {
         drive1.readFile('a/b', (err, contents) => {
           t.error(err, 'no error')
           t.same(contents, Buffer.from('hello'))
-          t.end()
+          r.end()
         })
       })
     })
@@ -30,11 +30,11 @@ test('basic read/write to/from a mount', t => {
 })
 
 test('should emit metadata-feed and content-feed events for all mounts', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   var metadataCount = 0
   var contentCount = 0
@@ -64,16 +64,16 @@ test('should emit metadata-feed and content-feed events for all mounts', t => {
   function checkEvents () {
     t.same(contentCount, 2)
     t.same(metadataCount, 2)
-    t.end()
+    r.end()
   }
 })
 
 test('can delete a mount', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -96,20 +96,23 @@ test('can delete a mount', t => {
       drive1.readFile('a/b', (err, contents) => {
         t.true(err)
         t.same(err.errno, 2)
-        t.end()
+        r.end()
       })
     })
   }
 })
 
 test('multiple flat mounts', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2, drive3])
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -148,19 +151,23 @@ test('multiple flat mounts', t => {
       drive1.readFile('b/b', (err, contents) => {
         t.error(err, 'no error')
         t.same(contents, Buffer.from('world'))
-        t.end()
+        r.end()
       })
     })
   }
 })
 
 test('recursive mounts', async t => {
-  var key1, key2
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
-  replicateAll([drive1, drive2, drive3])
+  var key1, key2
+
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -199,18 +206,18 @@ test('recursive mounts', async t => {
       drive1.readFile('a/b/b', (err, contents) => {
         t.error(err, 'no error')
         t.same(contents, Buffer.from('world'))
-        t.end()
+        r.end()
       })
     })
   }
 })
 
 test('readdir returns mounts', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -223,7 +230,7 @@ test('readdir returns mounts', t => {
           drive1.readdir('/', (err, dirs) => {
             t.error(err, 'no error')
             t.same(dirs, ['b', 'a'])
-            t.end()
+            r.end()
           })
         })
       })
@@ -232,11 +239,11 @@ test('readdir returns mounts', t => {
 })
 
 test('cross-mount watch', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   var watchEvents = 0
 
@@ -245,7 +252,7 @@ test('cross-mount watch', t => {
     drive1.mount('a', drive2.key, err => {
       t.error(err, 'no error')
       drive1.watch('/', () => {
-        if (++watchEvents === 1) t.end()
+        if (++watchEvents === 1) r.end()
       })
       drive2.writeFile('a', 'hello', err => {
         t.error(err, 'no error')
@@ -255,11 +262,11 @@ test('cross-mount watch', t => {
 })
 
 test('cross-mount symlink', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -277,7 +284,7 @@ test('cross-mount symlink', t => {
         drive1.readFile('c', (err, contents) => {
           t.error(err, 'no error')
           t.same(contents, Buffer.from('hello world'))
-          t.end()
+          r.end()
         })
       })
     })
@@ -584,11 +591,11 @@ test('nested mount readdir returns correct inner paths, recursive', async t => {
 })
 
 test('independent corestores do not share write capabilities', t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -598,7 +605,7 @@ test('independent corestores do not share write capabilities', t => {
         t.ok(err)
         drive1.readFile('a/b', (err, contents) => {
           t.ok(err)
-          t.end()
+          r.end()
         })
       })
     })
@@ -700,6 +707,7 @@ test('truncate within mount (with shared write capabilities)', async t => {
 })
 
 test('mount replication between hyperdrives', async t => {
+  const r = new Replicator(t)
   const store1 = new Corestore(path => ram('cs1/' + path))
   const store2 = new Corestore(path => ram('cs2/' + path))
   const store3 = new Corestore(path => ram('cs3/' + path))
@@ -724,7 +732,9 @@ test('mount replication between hyperdrives', async t => {
         t.error(err, 'no error')
         drive3.ready(err => {
           t.error(err, 'no error')
-          replicateAll([drive1, drive2, drive3])
+          r.replicate(drive1, drive2)
+          r.replicate(drive2, drive3)
+          r.replicate(drive1, drive3)
           onready()
         })
       })
@@ -759,15 +769,16 @@ test('mount replication between hyperdrives', async t => {
     }
   })
 
-  t.end()
+  r.end()
 })
 
 test('mount replication between hyperdrives, multiple, nested mounts', async t => {
+  const r = new Replicator(t)
   const [d1, d2] = await createMountee()
   const drive = await createMounter(d1, d2)
   await verify(drive)
 
-  t.end()
+  r.end()
 
   function createMountee () {
     const store = new Corestore(path => ram('cs1/' + path))
@@ -818,7 +829,9 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
         const drive1 = create({ corestore: store  })
         drive1.ready(err => {
           t.error(err, 'no error')
-          replicateAll([drive1, d2, d3])
+          r.replicate(drive1, d1)
+          r.replicate(d2, d3)
+          r.replicate(drive1, d3)
           drive1.mount('a', d2.key, err => {
             t.error(err, 'no error')
             drive1.mount('b', d3.key, err => {
@@ -847,14 +860,16 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
 })
 
 test('can list in-memory mounts', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2, drive3])
-
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -895,7 +910,7 @@ test('can list in-memory mounts', async t => {
         t.same(mounts.size, 3)
         t.true(mounts.get('/'))
         t.true(mounts.get('/a'))
-        t.end()
+        r.end()
       })
     })
   }
@@ -915,13 +930,16 @@ test('getAllMounts with no mounts returns only the root mount', async t => {
 })
 
 test('can list all mounts (including those not in memory)', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2, drive3])
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -960,19 +978,22 @@ test('can list all mounts (including those not in memory)', async t => {
       t.true(mounts.get('/'))
       t.true(mounts.get('/a'))
       t.true(mounts.get('/b'))
-      t.end()
+      r.end()
     })
   }
 })
 
 test('can watch multiple mounts', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2, drive3])
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -1007,7 +1028,7 @@ test('can watch multiple mounts', async t => {
           t.error(err, 'no error')
           setImmediate(() => {
             t.same(changes, 3)
-            t.end()
+            r.end()
           })
         })
       })
@@ -1016,13 +1037,16 @@ test('can watch multiple mounts', async t => {
 })
 
 test('can watch nested mounts', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
   const drive3 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2, drive3])
+  r.replicate(drive1, drive2)
+  r.replicate(drive2, drive3)
+  r.replicate(drive1, drive3)
 
   drive3.ready(err => {
     t.error(err, 'no error')
@@ -1057,7 +1081,7 @@ test('can watch nested mounts', async t => {
           t.error(err, 'no error')
           setImmediate(() => {
             t.same(changes, 3)
-            t.end()
+            r.end()
           })
         })
       })
@@ -1066,12 +1090,13 @@ test('can watch nested mounts', async t => {
 })
 
 test('can watch cyclic mounts', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
   var key1, key2
 
-  replicateAll([drive1, drive2])
+  r.replicate(drive1, drive2)
 
   drive1.ready(err => {
     t.error(err, 'no error')
@@ -1106,7 +1131,7 @@ test('can watch cyclic mounts', async t => {
           t.error(err, 'no error')
           setImmediate(() => {
             t.same(changes, 4)
-            t.end()
+            r.end()
           })
         })
       })
@@ -1115,11 +1140,11 @@ test('can watch cyclic mounts', async t => {
 })
 
 test('readdir with noMounts will not traverse mounts', async t => {
+  const r = new Replicator(t)
   const drive1 = create()
   const drive2 = create()
 
-  const s1 = drive1.replicate(true, { live: true })
-  s1.pipe(drive2.replicate(false, { live: true })).pipe(s1)
+  r.replicate(drive1, drive2)
 
   drive2.ready(err => {
     t.error(err, 'no error')
@@ -1134,7 +1159,7 @@ test('readdir with noMounts will not traverse mounts', async t => {
             drive1.readdir('/', { recursive: true, noMounts: true}, (err, dirs) => {
               t.error(err, 'no error')
               t.same(dirs, ['b', 'b/a', 'a'])
-              t.end()
+              r.end()
             })
           })
         })
