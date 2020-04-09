@@ -390,7 +390,7 @@ Close a file. Similar to fs.close.
 Closes all open resources used by the archive.
 The archive should no longer be used after calling this.
 
-#### `archive.destroy([callback])`
+#### `archive.destroyData([callback])`
 
 Destroys the data stored in the archive and closes it.
 Does not affect mounted archives.
