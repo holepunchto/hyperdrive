@@ -1,5 +1,6 @@
-var tape = require('tape')
-var create = require('./helpers/create')
+const tape = require('tape')
+const create = require('./helpers/create')
+const Replicator = require('./helpers/replicator')
 
 tape('simple checkout', function (t) {
   const drive = create()
@@ -35,6 +36,7 @@ tape('simple checkout', function (t) {
 
 tape.skip('download a version', function (t) {
   var src = create()
+  var r = new Replicator(t)
   src.on('ready', function () {
     t.ok(src.writable)
     t.ok(src.metadata.writable)
@@ -63,13 +65,12 @@ tape.skip('download a version', function (t) {
           t.same(content && content.toString(), 'number 2', 'content does not match')
           clone.readFile('/third.txt', { cached: true }, function (err, content) {
             t.same(err && err.message, 'Block not downloaded')
-            t.end()
+            r.end()
           })
         })
       })
     })
-    var stream = clone.replicate()
-    stream.pipe(src.replicate()).pipe(stream)
+    r.replicate(clone, src)
   }
 })
 

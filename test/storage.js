@@ -1,6 +1,7 @@
 const tape = require('tape')
 const tmp = require('temporary-directory')
 const create = require('./helpers/create')
+const Replicator = require('./helpers/replicator')
 const hyperdrive = require('..')
 
 tape('ram storage', function (t) {
@@ -42,6 +43,7 @@ tape('dir storage with resume', function (t) {
 })
 
 tape('dir storage for non-writable drive', function (t) {
+  const r = new Replicator(t)
   var src = create()
   src.ready(function () {
     tmp(function (err, dir, cleanup) {
@@ -54,12 +56,11 @@ tape('dir storage for non-writable drive', function (t) {
         t.same(clone.key, src.key, 'keys match')
         cleanup(function (err) {
           t.ifError(err)
-          t.end()
+          r.end()
         })
       })
 
-      var stream = clone.replicate(true)
-      stream.pipe(src.replicate(false)).pipe(stream)
+      r.replicate(src, clone)
     })
   })
 })
@@ -74,6 +75,7 @@ tape('dir storage without permissions emits error', function (t) {
 })
 
 tape('write and read (sparse)', function (t) {
+  const r = new Replicator(t)
   t.plan(3)
 
   tmp(function (err, dir, cleanup) {
@@ -84,8 +86,7 @@ tape('write and read (sparse)', function (t) {
       clone.on('ready', function () {
         drive.writeFile('/hello.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate(true, { live: true })
-          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
+          r.replicate(clone, drive)
           setTimeout(() => {
             var readStream = clone.createReadStream('/hello.txt')
             readStream.on('error', function (err) {
@@ -93,6 +94,7 @@ tape('write and read (sparse)', function (t) {
             })
             readStream.on('data', function (data) {
               t.same(data.toString(), 'world')
+              r.end()
             })
           }, 50)
         })
@@ -102,6 +104,7 @@ tape('write and read (sparse)', function (t) {
 })
 
 tape('sparse read/write two files', function (t) {
+  const r = new Replicator(t)
   var drive = create()
   drive.on('ready', function () {
     var clone = create(drive.key, { sparse: true })
@@ -111,8 +114,7 @@ tape('sparse read/write two files', function (t) {
         t.error(err, 'no error')
         drive.writeFile('/hello2.txt', 'world', function (err) {
           t.error(err, 'no error')
-          var stream = clone.replicate(true, { live: true })
-          stream.pipe(drive.replicate(false, { live: true })).pipe(stream)
+          r.replicate(drive, clone)
           clone.metadata.update(start)
         })
       })
@@ -131,7 +133,7 @@ tape('sparse read/write two files', function (t) {
             clone.readFile('/hello2.txt', function (err, data) {
               t.error(err, 'no error')
               t.same(data.toString(), 'world', 'data ok')
-              t.end()
+              r.end()
             })
           })
         })

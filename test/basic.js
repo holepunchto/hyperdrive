@@ -1,8 +1,9 @@
-var tape = require('tape')
+const tape = require('tape')
 const hypercoreCrypto = require('hypercore-crypto')
 const Corestore = require('corestore')
 const ram = require('random-access-memory')
-var create = require('./helpers/create')
+const create = require('./helpers/create')
+const Replicator = require('./helpers/replicator')
 
 tape('close event', function (t) {
   t.plan(1)
@@ -71,17 +72,16 @@ tape('write and read (sparse)', function (t) {
   var drive = create()
   drive.on('ready', function () {
     var clone = create(drive.key)
+    var r = new Replicator(t)
 
-    var s1 = clone.replicate(true, { live: true })
-    var s2 = drive.replicate(false, { live: true })
-    s1.pipe(s2).pipe(s1)
+    r.replicate(clone, drive)
 
     drive.writeFile('/hello.txt', 'world', function (err) {
       t.error(err, 'no error')
       var readStream = clone.createReadStream('/hello.txt')
       readStream.on('data', function (data) {
         t.same(data.toString(), 'world')
-        t.end()
+        r.end()
       })
     })
   })
@@ -234,6 +234,7 @@ tape.skip('can stream a large directory', async function (t) {
 })
 
 tape('can read sparse metadata', async function (t) {
+  const r = new Replicator(t)
   const { read, write } = await getTestDrives()
 
   let files = ['a', 'b/a/b', 'b/c', 'c/b', 'd/e/f/g/h', 'd/e/a', 'e/a', 'e/b', 'f', 'g']
@@ -243,7 +244,7 @@ tape('can read sparse metadata', async function (t) {
     await checkFile(file)
   }
 
-  t.end()
+  r.end()
 
   function checkFile (file) {
     return new Promise(resolve => {
@@ -269,8 +270,7 @@ tape('can read sparse metadata', async function (t) {
       let drive = create()
       drive.on('ready', () => {
         let clone = create(drive.key, { sparseMetadata: true, sparse: true })
-        let s1 = clone.replicate(true, { live: true })
-        s1.pipe(drive.replicate(false, { live: true })).pipe(s1)
+        r.replicate(clone, drive)
         return resolve({ read: clone, write: drive })
       })
     })
