@@ -127,3 +127,44 @@ test('symlinks with nested symlinks appear in non-recursive readdir', t => {
     })
   }
 })
+
+test('nested, broken symlink without parent stats can be removed', t => {
+  const drive = create()
+
+  drive.symlink('bad-target', 'a/b/c/d', err => {
+    t.error(err)
+    drive.lstat('a/b/c/d', (err, st) => {
+      t.error(err, 'no error')
+      t.true(st)
+      drive.unlink('a/b/c/d', err => {
+        t.error(err, 'no error')
+        drive.readdir('a/b/c', (err, l) => {
+          t.error(err, 'no error')
+          t.same(l.length, 0)
+          t.end()
+        })
+      })
+    })
+  })
+})
+
+test('readdir with includeStats returns unresolved stats', t => {
+  const drive = create()
+
+  drive.writeFile('/hello', 'world', { metadata: { a: 'bbb' }}, err => {
+    t.error(err, 'no error')
+    drive.symlink('/hello', '/link', err => {
+      t.error(err, 'no error')
+      drive.readdir('/', { includeStats: true }, (err, list) => {
+        t.error(err, 'no error')
+        t.same(list.length, 2)
+        for (const { stat } of list) {
+          if (stat.metadata.a) t.true(stat.metadata.a.equals(Buffer.from('bbb')))
+          else t.same(stat.linkname, '/hello')
+        }
+        t.end()
+      })
+    })
+  })
+
+})
