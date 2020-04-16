@@ -21,6 +21,7 @@ const { Stat } = require('hyperdrive-schemas')
 const createFileDescriptor = require('./lib/fd')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
+const TagManager = require('./lib/tagging')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
 
@@ -64,6 +65,7 @@ class Hyperdrive extends Nanoresource {
     // Set in ready.
     this.metadata = null
     this.db = opts._db
+    this.tags = new TagManager(this)
     this.isCheckout = !!this.db
 
     this._contentStates = opts._contentStates || new ThunkyMap(this._contentStateFromMetadata.bind(this))
@@ -1083,6 +1085,24 @@ class Hyperdrive extends Nanoresource {
       if (err) return cb(err)
       this.create(to, stat, cb)
     })
+  }
+
+  // Tag-related methods.
+
+  createTag (name, version, cb) {
+    return this.tags.create(name, version, cb)
+  }
+
+  getAllTags (cb) {
+    return this.tags.getAll(cb)
+  }
+
+  deleteTag (name, cb) {
+    return this.tags.delete(name, cb)
+  }
+
+  getTaggedVersion (name, cb) {
+    return this.tags.get(name, cb)
   }
 }
 
