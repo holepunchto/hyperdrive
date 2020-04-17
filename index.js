@@ -638,6 +638,13 @@ class Hyperdrive extends Nanoresource {
     })
   }
 
+  readlink (name, cb) {
+    this.lstat(name, function (err, st) {
+      if (err) return cb(err)
+      cb(null, st.linkname)
+    })
+  }
+
   lstat (name, opts, cb) {
     if (typeof opts === 'function') return this.lstat(name, null, opts)
     if (!opts) opts = {}
