@@ -412,7 +412,7 @@ Create a stream containing content/metadata feeds for all mounted Hyperdrives. E
 {
   path: '/',                // The mountpoint
   metadata: Hypercore(...), // The mounted metadata feed
-  content: Hypercore(...)   // The mounted content feed  
+  content: Hypercore(...)   // The mounted content feed
 }
 ```
 

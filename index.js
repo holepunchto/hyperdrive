@@ -297,6 +297,14 @@ class Hyperdrive extends Nanoresource {
     })
   }
 
+  getContent (cb) {
+    if (!this.db) return cb(null, null)
+    this._getContent(this.db.feed, (err, contentState) => {
+      if (err) return cb(err)
+      return cb(null, contentState.feed)
+    })
+  }
+
   open (name, flags, cb) {
     if (!name || typeof name === 'function') return super.open(name)
     name = fixName(name)
@@ -915,7 +923,7 @@ class Hyperdrive extends Nanoresource {
           else return
         }
         const { path, stat, trie } = info
-        if (stat.mount) return downloadNext(ite)
+        if (!stat.blocks || stat.mount || stat.isDirectory()) return downloadNext(ite)
         downloadFile(path, stat, trie, err => {
           if (err) return destroy(err)
           return downloadNext(ite)
