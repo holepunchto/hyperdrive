@@ -149,7 +149,7 @@ tape('destroying the drive destroys its data', function (t) {
     const initial = hyperdrive(dir)
     initial.writeFile('/example.txt', 'Hello World!', function (err) {
       t.ifError(err)
-      initial.destroyData(function (err) {
+      initial.destroyStorage(function (err) {
         t.ifError(err)
         const copy = hyperdrive(dir)
 
