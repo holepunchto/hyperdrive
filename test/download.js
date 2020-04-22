@@ -47,6 +47,49 @@ test('single-file download', t => {
   }
 })
 
+test('download completion calls callback if provided', t => {
+  const r = new Replicator(t)
+  const drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      r.replicate(drive1, drive2)
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.writeFile('hello', 'world', err => {
+      t.error(err, 'no error')
+      setImmediate(() => {
+        drive2.stats('hello', (err, totals) => {
+          t.error(err, 'no error')
+          t.same(totals.blocks, 1)
+          t.same(totals.downloadedBlocks, 0)
+          const handle = drive2.download('hello', onfinished)
+          ondownloading(handle)
+        })
+      })
+    })
+  }
+
+  function onfinished () {
+    drive2.stats('hello', (err, totals) => {
+      t.same(totals.downloadedBlocks, 1)
+      r.end()
+    })
+  }
+
+  function ondownloading (handle) {
+    handle.on('error', t.fail.bind(t))
+    handle.on('cancel', t.fail.bind(t))
+  }
+})
+
 test('directory download', t => {
   const r = new Replicator(t)
   const drive1 = create()
