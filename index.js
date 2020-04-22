@@ -889,7 +889,12 @@ class Hyperdrive extends Nanoresource {
     }
   }
 
-  download (path, opts = {}) {
+  download (path, opts, cb) {
+    if (typeof opts === 'function') {
+      cb = opts
+      opts = null
+    }
+    opts = opts || {}
     const self = this
     const ranges = new Map()
     var pending = 0
@@ -953,13 +958,18 @@ class Hyperdrive extends Nanoresource {
     }
 
     function destroy (err) {
-      if (destroyed) return
+      if (destroyed) return null
       destroyed = true
       for (const [path, { feed, range }] of ranges) {
         feed.undownload(range)
       }
-      if (err) handle.emit('error', err)
-      else handle.emit('finish')
+      if (err) {
+        handle.emit('error', err)
+        if (cb) return cb(err)
+      } else {
+        handle.emit('finish')
+        if (cb) return cb(null)
+      }
     }
   }
 
