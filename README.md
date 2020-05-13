@@ -1,8 +1,6 @@
 # Hyperdrive
 [![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
 
-#### *Note*: This is a beta version of Hyperdrive that's backed by [Hypertrie](https://github.com/mafintosh/hypertrie)
-
 Hyperdrive is a secure, real-time distributed file system designed for easy P2P file sharing.
 
 It has a handful of cool features:
@@ -17,7 +15,7 @@ You can use Hyperdrive standalone within your applications, or you can use it th
 
 ## Installation
 ``` js
-npm install hyperdrive@beta
+npm install hyperdrive
 ```
 
 ## Usage
