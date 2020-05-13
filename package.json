@@ -28,7 +28,7 @@
     "duplexify": "^3.7.1",
     "filesystem-constants": "^1.0.0",
     "hypercore-byte-stream": "^1.0.2",
-    "hypercore-protocol": "^7.2.0",
+    "hypercore-protocol": "^8.0.0",
     "hyperdrive-schemas": "beta",
     "mountable-hypertrie": "^2.4.0",
     "mutexify": "^1.2.0",

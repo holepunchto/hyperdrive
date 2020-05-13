@@ -166,5 +166,36 @@ test('readdir with includeStats returns unresolved stats', t => {
       })
     })
   })
-
 })
+
+// TODO: This will be fixed with a trie update.
+test.skip('stat through symlinked dir', t => {
+  const drive = create()
+
+  drive.mkdir('subdir1', err => {
+    t.error(err, 'no error')
+    drive.mkdir('subdir2', err => {
+      t.error(err, 'no error')
+      drive.writeFile('subdir1/foo', 'hello', err => {
+        t.error(err, 'no error')
+        drive.writeFile('subdir2/bar', 'world', err => {
+          t.error(err, 'no error')
+          drive.symlink('/subdir2', 'subdir1/symto2', err => {
+            t.error(err, 'no error')
+            return onlinked()
+          })
+        })
+      })
+    })
+  })
+
+  function onlinked () {
+    drive.stat('subdir1/symto2/bar', (err, st) => {
+      t.error(err, 'no error')
+      t.true(st)
+      t.end()
+    })
+  }
+})
+
+
