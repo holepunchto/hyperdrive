@@ -3,6 +3,5 @@ node_js:
   - "node"
   - "lts/*"
   - "10"
-  - "8"
 cache:
   npm: false
