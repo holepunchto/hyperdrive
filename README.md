@@ -11,9 +11,16 @@ It has a handful of cool features:
 * __Fast Lookups__: File metadata is stored in a distributed trie structure, meaning files can be located with minimal network lookups.
 * __Version Tagging__: You can assign string names to Hyperdrive versions and store these within the drive, making it straightforward to switch between semantically-meaningful versions.
 
-You can use Hyperdrive standalone within your applications, or you can use it through the [Hyperdrive daemon](https://github.com/andrewosh/hyperdrive-daemon) which handles storage and DHT networking for you. The daemon provides both a gRPC API for managing remote Hyperdrives, and a FUSE API that turns Hyperdrives into normal folders on your computer.
+Hyperdrive can also be used in a variety of ways:
+* [__The Daemon__](https://github.com/hypercore-protocol/hyperdrive-daemon): The Hyperdrive daemon provides both a gRPC API for managing remote Hyperdrives, and a FUSE API that turns Hyperdrives into normal folders on your computer.
+* [__The Client__](https://github.com/hypercore-protocol/hyperdrive-daemon-client): A Node.js client for the daemon. With this you can build services targeting remote drives.
+* [__Beaker__](https://beakerbrowser.com): An experimental browser that has first-class support for Hyperdrive.
+* [__Standalone__](#api): Hyperdrive has flexible storage/networking interfaces, making it easy to embed within larger projects.
 
 ## Installation
+If you're looking for a "batteries included" experience, check out the [Hyperdrive daemon](https://github.com/hypercore-protocol/hyperdrive-daemon).
+
+For standalone use in your modules, you can install through NPM:
 ``` js
 npm install hyperdrive
 ```
