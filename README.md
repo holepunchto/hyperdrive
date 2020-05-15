@@ -1,5 +1,5 @@
 # Hyperdrive
-[![Build Status](https://travis-ci.org/mafintosh/hyperdrive.svg?branch=master)](https://travis-ci.org/mafintosh/hyperdrive)
+[![Build Status](https://travis-ci.org/hypercore-protocol/hyperdrive.svg?branch=master)](https://travis-ci.org/hypercore-protocol/hyperdrive)
 
 Hyperdrive is a secure, real-time distributed file system designed for easy P2P file sharing.
 
