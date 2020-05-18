@@ -803,6 +803,18 @@ class Hyperdrive extends Nanoresource {
     super.close(false, fd)
   }
 
+  destroyStorage (cb) {
+	const metadata  = this.db.feed
+	this._getContent(metadata, (err, contentState) => {
+		const content = contentState.feed
+		metadata.destroyStorage(() => {
+			content.destroyStorage(() => {
+				this.close(cb)
+			})
+		})
+	})
+  }
+
   stats (path, opts, cb) {
     if (typeof opts === 'function') return this.stats(path, null, opts)
     const self = this

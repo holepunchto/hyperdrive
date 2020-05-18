@@ -443,6 +443,12 @@ Close a file. Similar to fs.close.
 Closes all open resources used by the drive.
 The drive should no longer be used after calling this.
 
+#### `archive.destroyStorage([callback])`
+
+Destroys the data stored in the archive and closes it.
+Does not affect mounted archives.
+The archive should no longer be used after calling this.
+
 ### License
 
 MIT
