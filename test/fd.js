@@ -434,3 +434,26 @@ tape('fd close cancels pending reads', function (t) {
     })
   }
 })
+
+tape('opening a writable fd on a read-only drive errors', function (t) {
+  const r = new Replicator(t)
+
+  var drive = create()
+  var clone = null
+  var stream = null
+  var totalRead = null
+
+  drive.on('ready', function () {
+    clone = create(drive.key)
+    drive.writeFile('hello', 'world', () => {
+      const [s1, s2] = r.replicate(drive, clone)
+      stream = s1
+      s1.on('error', () => {})
+      s2.on('error', () => {})
+      clone.open('hello', 'w+', (err, fd) => {
+        t.true(err, 'writable fd open failed correctly')
+        t.end()
+      })
+    })
+  })
+})
