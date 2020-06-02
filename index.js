@@ -72,6 +72,7 @@ class Hyperdrive extends Nanoresource {
     this._fds = []
     this._writingFds = new Map()
     this._unlistens = []
+    this._mirrorRanges = null
 
     this._metadataOpts = {
       key,
@@ -921,6 +922,42 @@ class Hyperdrive extends Nanoresource {
       handle.emit('destroy', err)
       clearInterval(timer)
       destroyed = true
+    }
+  }
+
+  mirror () {
+    const self = this
+    if (this._mirrorRanges) return unmirror
+    this._mirrorRanges = new Map()
+
+    this.on('content-feed', oncore)
+    this.on('metadata-feed', oncore)
+    // Getting all the mounts will trigger the event listeners above.
+    this.getAllMounts({ content: true }, (err, mounts) => {
+      if (err) return this.emit('error', err)
+      for (const [, { metadata, content }] of mounts) {
+        oncore(metadata)
+        oncore(content)
+      }
+    })
+
+    return unmirror
+
+    function unmirror () {
+      if (!self._mirrorRanges) return
+      const ranges = self._mirrorRanges
+      self._mirrorRanges = null
+      self.removeListener('content-feed', oncore)
+      self.removeListener('metadata-feed', oncore)
+      for (const [ core, range ] of ranges) {
+        core.undownload(range)
+      }
+    }
+
+    function oncore (core) {
+      if (!core) return
+      if (!self._mirrorRanges || self._mirrorRanges.has(core)) return
+      self._mirrorRanges.set(core, core.download())
     }
   }
 
