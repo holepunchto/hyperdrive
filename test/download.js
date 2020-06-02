@@ -309,6 +309,178 @@ test('download with noMounts false includes mounts', t => {
   }
 })
 
+test('drive mirroring', t => {
+  const r = new Replicator(t)
+  const drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      r.replicate(drive1, drive2)
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.writeFile('hello', 'world', () => {
+      drive1.writeFile('hello', 'world2', () => {
+        drive1.writeFile('hello', 'world3', () => {
+          drive2.mirror()
+          setImmediate(() => {
+            onmirroring()
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getContent((err, content) => {
+      t.error(err, 'no error')
+      // All versions of 'hello' should have been synced.
+      t.same(content.downloaded(), 3)
+      t.end()
+    })
+  }
+})
+
+test('can cancel a mirror', t => {
+  const r = new Replicator(t)
+  const drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      r.replicate(drive1, drive2)
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.writeFile('hello', 'world', () => {
+      drive1.writeFile('hello', 'world2', () => {
+        const unmirror = drive2.mirror()
+        setImmediate(() => {
+          unmirror()
+          drive1.writeFile('hello', 'world3', () => {
+            setImmediate(() => {
+              onmirroring()
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getContent((err, content) => {
+      t.error(err, 'no error')
+      // Only the first two versions of 'hello' should have been synced.
+      t.same(content.downloaded(), 2)
+      t.end()
+    })
+  }
+})
+
+test('calling mirror is idempotent', t => {
+  const r = new Replicator(t)
+  const drive1 = create()
+  var drive2 = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      r.replicate(drive1, drive2)
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.writeFile('hello', 'world', () => {
+      drive1.writeFile('hello', 'world2', () => {
+        drive1.writeFile('hello', 'world3', () => {
+          drive2.mirror()
+          drive2.mirror()
+          drive2.mirror()
+          setImmediate(() => {
+            onmirroring()
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getContent((err, content) => {
+      t.error(err, 'no error')
+      // All versions of 'hello' should have been synced.
+      t.same(content.downloaded(), 3)
+      t.same(drive2._mirrorRanges.size, 2)
+      t.same(drive2.listeners('content-feed').length, 1)
+      t.same(drive2.listeners('metadata-feed').length, 1)
+      t.end()
+    })
+  }
+})
+
+test('mirroring also mirrors mounts', t => {
+  const r = new Replicator(t)
+  const store = new Corestore(ram)
+  var drive1, mount, drive2
+
+  store.ready(() => {
+    drive1 = create({ corestore: store, namespace: 'd1' })
+    mount = create({ corestore: store, namespace: 'd2' })
+    drive1.ready(() => {
+      mount.ready(() => {
+        drive2 = create(drive1.key)
+        drive1.mount('b', mount.key, err => {
+          t.error(err)
+          drive2.ready(err => {
+            t.error(err, 'no error')
+            r.replicate(drive1, drive2)
+            onready()
+          })
+        })
+      })
+    })
+  })
+
+  function onready () {
+    mount.writeFile('hello', 'world', () => {
+      mount.writeFile('hello', 'world2', () => {
+        drive1.writeFile('a', '1', () => {
+          drive1.writeFile('a', '2', () => {
+            drive2.mirror()
+            setImmediate(() => {
+              onmirroring()
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getAllMounts((err, mounts) => {
+      t.error(err, 'no error')
+      const root = mounts.get('/')
+      const bMount = mounts.get('/b')
+      t.same(root.content.downloaded(), 2)
+      t.same(bMount.content.downloaded(), 2)
+      t.end()
+    })
+  }
+})
+
 function printHandle (handle) {
   handle.on('start', (...args) => console.log('start', args))
   handle.on('progress', (...args) => console.log('progress', args))
