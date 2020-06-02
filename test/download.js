@@ -481,6 +481,59 @@ test('mirroring also mirrors mounts', t => {
   }
 })
 
+test('mirroring mirrors dynamically-added mounts', t => {
+  const r = new Replicator(t)
+  const store = new Corestore(ram)
+  var drive1, mount, drive2
+
+  store.ready(() => {
+    drive1 = create({ corestore: store, namespace: 'd1' })
+    mount = create({ corestore: store, namespace: 'd2' })
+    drive1.ready(() => {
+      mount.ready(() => {
+        drive2 = create(drive1.key)
+        drive2.mirror()
+        setImmediate(() => {
+          drive1.mount('b', mount.key, err => {
+            t.error(err)
+            drive2.ready(err => {
+              t.error(err, 'no error')
+              r.replicate(drive1, drive2)
+              onready()
+            })
+          })
+        })
+      })
+    })
+  })
+
+  function onready () {
+    mount.writeFile('hello', 'world', () => {
+      mount.writeFile('hello', 'world2', () => {
+        drive1.writeFile('a', '1', () => {
+          drive1.writeFile('a', '2', () => {
+            drive2.mirror()
+            setImmediate(() => {
+              onmirroring()
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getAllMounts((err, mounts) => {
+      t.error(err, 'no error')
+      const root = mounts.get('/')
+      const bMount = mounts.get('/b')
+      t.same(root.content.downloaded(), 2)
+      t.same(bMount.content.downloaded(), 2)
+      t.end()
+    })
+  }
+})
+
 function printHandle (handle) {
   handle.on('start', (...args) => console.log('start', args))
   handle.on('progress', (...args) => console.log('progress', args))
