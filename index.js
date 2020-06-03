@@ -935,7 +935,7 @@ class Hyperdrive extends Nanoresource {
     // Getting all the mounts will trigger the event listeners above.
     this.getAllMounts({ content: true }, (err, mounts) => {
       if (err) return this.emit('error', err)
-      for (const [, { metadata, content }] of mounts) {
+      for (const { metadata, content } of mounts.values()) {
         oncore(metadata)
         oncore(content)
       }
@@ -957,7 +957,7 @@ class Hyperdrive extends Nanoresource {
     function oncore (core) {
       if (!core) return
       if (!self._mirrorRanges || self._mirrorRanges.has(core)) return
-      self._mirrorRanges.set(core, core.download())
+      self._mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
     }
   }
 
