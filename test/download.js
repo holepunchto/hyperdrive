@@ -423,7 +423,6 @@ test('calling mirror is idempotent', t => {
       t.error(err, 'no error')
       // All versions of 'hello' should have been synced.
       t.same(content.downloaded(), 3)
-      t.same(drive2._mirrorRanges.size, 2)
       t.same(drive2.listeners('content-feed').length, 1)
       t.same(drive2.listeners('metadata-feed').length, 1)
       t.end()
@@ -529,6 +528,51 @@ test('mirroring mirrors dynamically-added mounts', t => {
       const bMount = mounts.get('/b')
       t.same(root.content.downloaded(), 2)
       t.same(bMount.content.downloaded(), 2)
+      t.end()
+    })
+  }
+})
+
+test('last unmirror will clean up if mirror is called many times', t => {
+  const r = new Replicator(t)
+  const drive1 = create()
+  var drive2 = null
+  var unmirror = null
+  var initialCount = null
+
+  drive1.ready(err => {
+    t.error(err, 'no error')
+    drive2 = create(drive1.key)
+    drive2.ready(err => {
+      t.error(err, 'no error')
+      r.replicate(drive1, drive2)
+      initialCount = drive2.listenerCount('metadata-feed')
+      onready()
+    })
+  })
+
+  function onready () {
+    drive1.writeFile('hello', 'world', () => {
+      drive1.writeFile('hello', 'world2', () => {
+        drive1.writeFile('hello', 'world3', () => {
+          drive2.mirror()
+          drive2.mirror()
+          unmirror = drive2.mirror()
+          const mirrorCount = drive2.listenerCount('metadata-feed')
+          t.same(mirrorCount, initialCount + 1)
+          setImmediate(() => {
+            onmirroring()
+          })
+        })
+      })
+    })
+  }
+
+  function onmirroring () {
+    drive2.getContent((err, content) => {
+      t.same(content.downloaded(), 3)
+      unmirror()
+      t.same(drive2.listenerCount('metadata-feed'), initialCount)
       t.end()
     })
   }

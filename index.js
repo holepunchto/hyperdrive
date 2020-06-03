@@ -72,7 +72,7 @@ class Hyperdrive extends Nanoresource {
     this._fds = []
     this._writingFds = new Map()
     this._unlistens = []
-    this._mirrorRanges = null
+    this._unmirror = null
 
     this._metadataOpts = {
       key,
@@ -927,8 +927,8 @@ class Hyperdrive extends Nanoresource {
 
   mirror () {
     const self = this
-    if (this._mirrorRanges) return unmirror
-    this._mirrorRanges = new Map()
+    if (this._unmirror) return this._unmirror
+    const mirrorRanges = new Map()
 
     this.on('content-feed', oncore)
     this.on('metadata-feed', oncore)
@@ -941,23 +941,23 @@ class Hyperdrive extends Nanoresource {
       }
     })
 
-    return unmirror
+    this._unmirror = unmirror
+    return this._unmirror
 
     function unmirror () {
-      if (!self._mirrorRanges) return
-      const ranges = self._mirrorRanges
-      self._mirrorRanges = null
+      if (!self._unmirror) return
+      self._unmirror = null
       self.removeListener('content-feed', oncore)
       self.removeListener('metadata-feed', oncore)
-      for (const [ core, range ] of ranges) {
+      for (const [ core, range ] of mirrorRanges) {
         core.undownload(range)
       }
     }
 
     function oncore (core) {
       if (!core) return
-      if (!self._mirrorRanges || self._mirrorRanges.has(core)) return
-      self._mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
+      if (!self._unmirror || mirrorRanges.has(core)) return
+      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
     }
   }
 
