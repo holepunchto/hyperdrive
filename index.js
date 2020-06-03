@@ -133,6 +133,14 @@ class Hyperdrive extends Nanoresource {
       self.metadata.on('peer-add', peeradd)
       self.metadata.on('peer-remove', peerremove)
 
+      this.once('close', () => {
+        self.metadata.removeListener('error', onerror)
+        self.metadata.removeListener('append', update)
+        self.metadata.removeListener('extension', extension)
+        self.metadata.removeListener('peer-add', peeradd)
+        self.metadata.removeListener('peer-remove', peerremove)
+      })
+
       return self.metadata.ready(err => {
         if (err) return done(err)
 
@@ -232,7 +240,9 @@ class Hyperdrive extends Nanoresource {
       return cb(err)
     }
 
-    feed.on('error', err => this.emit('error', err))
+    const contentErrorListener = err => this.emit('error', err)
+    feed.on('error', contentErrorListener)
+    this.once('close', () => feed.removeListener('error', contentErrorListener))
     feed.ready(err => {
       if (err) return cb(err)
       this.emit('content-feed', feed)
