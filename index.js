@@ -121,11 +121,8 @@ class Hyperdrive extends Nanoresource {
         feed: this.metadata,
         sparse: this.sparseMetadata
       })
-      this.db.on('hypertrie', trie => {
-        this.emit('metadata-feed', trie.feed)
-        this.emit('mount', trie)
-      })
-      this.db.on('error', err => this.emit('error', err))
+      this.db.on('hypertrie', onhypertrie)
+      this.db.on('error', onerror)
 
       self.metadata.on('error', onerror)
       self.metadata.on('append', update)
@@ -134,6 +131,8 @@ class Hyperdrive extends Nanoresource {
       self.metadata.on('peer-remove', peerremove)
 
       this.once('close', () => {
+        self.db.removeListener('error', onerror)
+        self.db.removeListener('hypertrie', onhypertrie)
         self.metadata.removeListener('error', onerror)
         self.metadata.removeListener('append', update)
         self.metadata.removeListener('extension', extension)
@@ -218,6 +217,11 @@ class Hyperdrive extends Nanoresource {
 
     function peerremove(peer) {
       self.emit('peer-remove', peer)
+    }
+
+    function onhypertrie (trie) {
+      self.emit('metadata-feed', trie.feed)
+      self.emit('mount', trie)
     }
   }
 
