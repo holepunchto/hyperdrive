@@ -358,6 +358,17 @@ class Hyperdrive extends Nanoresource {
       if (err) return stream.destroy(err)
       return this.stat(name, { file: true }, (err, st, trie) => {
         if (err) return stream.destroy(err)
+        if (st.mount && st.mount.hypercore) {
+          const feed = self.corestore.get({
+            key: st.mount.key,
+            sparse: self.sparse
+          })
+          return feed.ready(err => {
+            if (err) return stream.destroy(err)
+            st.blocks = feed.length
+            return oncontent(st, { feed })
+          })
+        }
         return this._getContent(trie.feed, (err, contentState) => {
           if (err) return stream.destroy(err)
           return oncontent(st, contentState)
@@ -370,22 +381,16 @@ class Hyperdrive extends Nanoresource {
         var byteOffset = 0
         var blockOffset = 0
         var blockLength = st.blocks
-        var feed = self.corestore.get({
-          key: st.mount.key,
-          sparse: self.sparse
-        })
-        feed.once('ready', () => self.emit('content-feed', feed))
       } else {
         blockOffset = st.offset
         blockLength = st.blocks
         byteOffset = opts.start ? st.byteOffset + opts.start : (length === -1 ? -1 : st.byteOffset)
-        feed = contentState.feed
       }
 
       const byteLength = length
 
       stream.start({
-        feed,
+        feed: contentState.feed,
         blockOffset,
         blockLength,
         byteOffset,
@@ -444,7 +449,6 @@ class Hyperdrive extends Nanoresource {
       if (err) return proxy.destroy(err)
       this.stat(name, { trie: true }, (err, stat, trie) => {
         if (err && (err.errno !== 2)) return proxy.destroy(err)
-
         this._getContent(trie.feed, (err, contentState) => {
           if (err) return proxy.destroy(err)
           if (opts.wait === false && contentState.isLocked()) return cb(new Error('Content is locked.'))
