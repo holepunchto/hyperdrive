@@ -71,6 +71,7 @@ class Hyperdrive extends Nanoresource {
     this._contentStates = opts._contentStates || new ThunkyMap(this._contentStateFromMetadata.bind(this))
     this._fds = []
     this._writingFds = new Map()
+    this._unlistens = []
 
     this._metadataOpts = {
       key,
@@ -130,7 +131,7 @@ class Hyperdrive extends Nanoresource {
       self.metadata.on('peer-add', peeradd)
       self.metadata.on('peer-remove', peerremove)
 
-      this.once('close', () => {
+      this._unlistens.push(() => {
         self.db.removeListener('error', onerror)
         self.db.removeListener('hypertrie', onhypertrie)
         self.metadata.removeListener('error', onerror)
@@ -246,7 +247,7 @@ class Hyperdrive extends Nanoresource {
 
     const contentErrorListener = err => this.emit('error', err)
     feed.on('error', contentErrorListener)
-    this.once('close', () => feed.removeListener('error', contentErrorListener))
+    this._unlistens.push(() => feed.removeListener('error', contentErrorListener))
     feed.ready(err => {
       if (err) return cb(err)
       this.emit('content-feed', feed)
@@ -811,6 +812,10 @@ class Hyperdrive extends Nanoresource {
 
   _close (cb) {
     this.db.close(err => {
+      for (const unlisten of this._unlistens) {
+        unlisten()
+      }
+      this._unlistens = []
       this.emit('close')
       cb(err)
     })
