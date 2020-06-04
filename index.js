@@ -810,7 +810,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   _close (cb) {
-    this.corestore.close((err) => {
+    this.db.close(err => {
       this.emit('close')
       cb(err)
     })
