@@ -27,7 +27,7 @@ const { statIterator, createStatStream, createMountStream, createReaddirStream, 
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
-const WRITEFILE_BLOCK_SIZE = 524288
+const WRITE_STREAM_BLOCK_SIZE = 524288
 
 module.exports = (...args) => new Hyperdrive(...args)
 module.exports.constants = require('filesystem-constants').linux
@@ -488,7 +488,7 @@ class Hyperdrive extends Nanoresource {
       self.emit('appending', name, opts)
 
       // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      const stream = contentState.feed.createWriteStream()
+      const stream = contentState.feed.createWriteStream({ maxBlockSize: WRITE_STREAM_BLOCK_SIZE })
 
       proxy.on('close', ondone)
       proxy.on('finish', ondone)
@@ -558,7 +558,7 @@ class Hyperdrive extends Nanoresource {
     name = fixName(name)
 
     // Make sure that the buffer is chunked into blocks of 0.5MB.
-    let stream = this.createWriteStream(name, { ...opts, maxBlockSize: WRITEFILE_BLOCK_SIZE })
+    let stream = this.createWriteStream(name, opts)
 
     // TODO: Do we need to maintain the error state? What's triggering 'finish' after 'error'?
     var errored = false
