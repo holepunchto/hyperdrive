@@ -27,6 +27,7 @@ const { statIterator, createStatStream, createMountStream, createReaddirStream, 
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
+const WRITEFILE_BLOCK_SIZE = 524288
 
 module.exports = (...args) => new Hyperdrive(...args)
 module.exports.constants = require('filesystem-constants').linux
@@ -556,7 +557,8 @@ class Hyperdrive extends Nanoresource {
 
     name = fixName(name)
 
-    let stream = this.createWriteStream(name, opts)
+    // Make sure that the buffer is chunked into blocks of 0.5MB.
+    let stream = this.createWriteStream(name, { ...opts, maxBlockSize: WRITEFILE_BLOCK_SIZE })
 
     // TODO: Do we need to maintain the error state? What's triggering 'finish' after 'error'?
     var errored = false
