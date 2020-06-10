@@ -119,7 +119,6 @@ class Hyperdrive extends Nanoresource {
     return this.corestore.ready(err => {
       if (err) return cb(err)
       this.metadata = this.corestore.default(this._metadataOpts)
-      this.metadata.ifAvailable.wait()
       this.db = this.db || new MountableHypertrie(this.corestore, this.key, {
         feed: this.metadata,
         sparse: this.sparseMetadata
@@ -196,7 +195,6 @@ class Hyperdrive extends Nanoresource {
     }
 
     function done (err) {
-      self.metadata.ifAvailable.continue()
       if (err) return cb(err)
       self.key = self.metadata.key
       self.discoveryKey = self.metadata.discoveryKey
