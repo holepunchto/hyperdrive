@@ -131,6 +131,7 @@ class Hyperdrive extends Nanoresource {
       self.metadata.on('append', update)
       self.metadata.on('extension', extension)
       self.metadata.on('peer-add', peeradd)
+      self.metadata.on('peer-open', peeropen)
       self.metadata.on('peer-remove', peerremove)
 
       this._unlistens.push(() => {
@@ -140,6 +141,7 @@ class Hyperdrive extends Nanoresource {
         self.metadata.removeListener('append', update)
         self.metadata.removeListener('extension', extension)
         self.metadata.removeListener('peer-add', peeradd)
+        self.metadata.removeListener('peer-open', peeropen)
         self.metadata.removeListener('peer-remove', peerremove)
       })
 
@@ -216,6 +218,10 @@ class Hyperdrive extends Nanoresource {
 
     function peeradd(peer) {
       self.emit('peer-add', peer)
+    }
+
+    function peeropen(peer) {
+      self.emit('peer-open', peer)
     }
 
     function peerremove(peer) {

@@ -169,6 +169,10 @@ drive.on('peer-add', (peer) => {
 })
 ```
 
+#### `drive.on('peer-open', peer)`
+
+Emitted when a peer has been added and has finished handshaking.
+
 #### `drive.on('peer-remove', peer)`
 
 Emitted when a peer has been removed.
