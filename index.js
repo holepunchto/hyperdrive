@@ -7,9 +7,8 @@ const thunky = require('thunky')
 const ThunkyMap = require('thunky-map')
 const unixify = require('unixify')
 const duplexify = require('duplexify')
-const through = require('through2')
-const pumpify = require('pumpify')
 const pump = require('pump')
+const { Transform } = require('streamx')
 
 const coreByteStream = require('hypercore-byte-stream')
 const Nanoresource = require('nanoresource/emitter')
@@ -435,22 +434,24 @@ class Hyperdrive extends Nanoresource {
     prefix = prefix || '/'
 
     const diffStream = this.db.createDiffStream(other, prefix, opts)
-    return pumpify.obj(
+    return pump(
       diffStream,
-      through.obj((chunk, enc, cb) => {
-        const entry = { type: chunk.type, name: chunk.key }
-        if (chunk.left) entry.seq = chunk.left.seq
-        if (chunk.right) entry.previous = { seq: chunk.right.seq }
-        if (chunk.left && entry.type !== 'mount' && entry.type !== 'unmount') {
-          try {
-            entry.value = Stat.decode(chunk.left.value)
-          } catch (err) {
-            return cb(err)
+      new Transform({
+        transform (chunk, cb) {
+          const entry = { type: chunk.type, name: chunk.key }
+          if (chunk.left) entry.seq = chunk.left.seq
+          if (chunk.right) entry.previous = { seq: chunk.right.seq }
+          if (chunk.left && entry.type !== 'mount' && entry.type !== 'unmount') {
+            try {
+              entry.value = Stat.decode(chunk.left.value)
+            } catch (err) {
+              return cb(err)
+            }
+          } else if (chunk.left) {
+            entry.value = chunk.left.info
           }
-        } else if (chunk.left) {
-          entry.value = chunk.left.info
+          return cb(null, entry)
         }
-        return cb(null, entry)
       })
     )
   }
