@@ -5,7 +5,7 @@ const Corestore = require('corestore')
 const Replicator = require('./helpers/replicator')
 const create = require('./helpers/create')
 
-test('single-file download', t => {
+test.only('single-file download', t => {
   const r = new Replicator(t)
   const drive1 = create()
   var drive2 = null
