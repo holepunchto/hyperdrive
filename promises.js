@@ -18,6 +18,12 @@ module.exports = class HyperdrivePromises {
   get version () {
     return this.drive.version
   }
+  get metadata () {
+    return this.drive.metadata
+  }
+  get writable () {
+    return this.drive.metadata.writable
+  }
 
   ready () {
     return new Promise((resolve, reject) => {
@@ -58,7 +64,6 @@ module.exports = class HyperdrivePromises {
         return resolve(contents)
       })
     })
-
   }
 
   createWriteStream (name, opts) {
@@ -211,6 +216,10 @@ module.exports = class HyperdrivePromises {
     })
     prom.destroy = handle.destroy
     return prom
+  }
+
+  watch (name, onchange) {
+    return this.drive.watch(name, onchange)
   }
 
   mount (path, key, opts) {

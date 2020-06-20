@@ -889,13 +889,15 @@ class Hyperdrive extends Nanoresource {
         if (err) return cb(err)
         return self._getContent(trie.feed, (err, contentState) => {
           if (err) return cb(err)
-          const downloadedBlocks = contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks)
-          total.blocks = stat.blocks
-          total.size = stat.size
-          total.downloadedBlocks = downloadedBlocks
-          // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
-          // total.downloadedBytes = 0
-          return cb(null, total)
+          contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks, (err, downloadedBlocks) => {
+            if (err) return cb(err)
+            total.blocks = stat.blocks
+            total.size = stat.size
+            total.downloadedBlocks = downloadedBlocks
+            // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
+            // total.downloadedBytes = 0
+            return cb(null, total)
+          })
         })
       })
     }
