@@ -215,6 +215,7 @@ module.exports = class HyperdrivePromises {
       })
     })
     prom.destroy = handle.destroy
+    prom.catch(() => {})
     return prom
   }
 
