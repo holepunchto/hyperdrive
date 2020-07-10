@@ -424,6 +424,8 @@ Create a symlink from `linkname` to `target`.
 
 Watch for changes in the drive. Set `name` to `/` to watch for _all_ changes, or specify the path to a folder to watch for.
 
+Note that currently watching will not notify you of changes in mounts. You will need to listen on all the mounted drives manually.
+
 ### Hyperdrive Mounting
 Hyperdrive supports "mounting" other Hyperdrives at paths within a parent drive. This means that if your friend has a photo album drive, you can nest their drive within your own by calling `myDrive.mount('photos/my-friends-album', <my-friends-album-key>)`.
 
