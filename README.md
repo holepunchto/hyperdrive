@@ -156,16 +156,10 @@ Emitted when there is a new update to the drive.
 Emitted when a new peer has been added.
 
 ```js
-const drive = Hyperdrive({
-  extension: ['example']
-})
-
-drive.on('extension', (name, message, peer) => {
-  console.log(name, message.toString('utf8'))
-})
+const drive = Hyperdrive()
 
 drive.on('peer-add', (peer) => {
-  peer.extension('example', Buffer.from('Hello World!', 'utf8'))
+  console.log('Connected peer', peer.remotePublicKey)
 })
 ```
 
@@ -182,15 +176,33 @@ Emitted when a peer has been removed.
 Emitted when the drive has been closed.
 
 ### Extension Management
-Hyperdrive supports [hypercore](https://github.com/mafintosh/hypercore) extensions, letting you plug custom logic into a drive's replication streams.
 
-#### `drive.on('extension', name, message, peer)`
+Hyperdrive supports [hypercore](https://github.com/hypercore-protocol/hypercore#ext--feedregisterextensionname-handlers) extensions, letting you plug custom logic into a drive's replication streams.
 
-Emitted when a peer has sent you an extension message. The `name` is a string from one of the extension types in the constructor, `message` is a buffer containing the message contents, and `peer` is a reference to the peer that sent the extension. You can send an extension back with `peer.extension(name, message)`.
+#### `ext = drive.registerExtension(name, handlers)`
 
-#### `drive.extension(name, message)`
+Register a new replication extension. `name` should be the name of your extension and `handlers` should look like this:
 
-Broadcasts an extension message to all connected peers. The `name` must be a string for an extension passed in the constructor and the message must be a buffer.
+```js
+{
+  encoding: 'json' | 'binary' | 'utf-8' | anyAbstractEncoding,
+  onmessage (message, peer) {
+    // called when a message is received from a peer
+    // will be decoded using the encoding you provide
+  },
+  onerror (err) {
+    // called in case of an decoding error
+  }
+}
+```
+
+#### `ext.send(message, peer)`
+
+Send an extension message to a specific peer.
+
+#### `ext.broadcast(message)`
+
+Send a message to every peer you are connected to.
 
 ### Version Control
 Since Hyperdrive is built on top of append-only logs, old versions of files are preserved by default. You can get a read-only snapshot of a drive at any point in time with the `checkout` function, which takes a version number. Additionally, you can tag versions with string names, making them more parseable.

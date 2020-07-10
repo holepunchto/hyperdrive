@@ -1166,6 +1166,10 @@ class Hyperdrive extends Nanoresource {
     this.metadata.extension(name, message)
   }
 
+  registerExtension (name, handlers) {
+    return this.metadata.registerExtension(name, handlers)
+  }
+
   get peers () {
     return this.metadata.peers
   }
