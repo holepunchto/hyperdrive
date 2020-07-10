@@ -149,7 +149,7 @@ Emitted when a critical error during load happened.
 
 #### `drive.on('update')`
 
-Emitted when there is a new update to the drive.
+Emitted when there is a new update to the drive. Not triggered unless you load the data. Use `drive.watch()` to start loading.
 
 #### `drive.on('peer-add', peer)`
 
@@ -419,6 +419,10 @@ Write from a buffer into a file descriptor. Similar to fs.write.
 #### `drive.symlink(target, linkname, cb)`
 
 Create a symlink from `linkname` to `target`.
+
+#### `drive.watch(name, onchange)`
+
+Watch for changes in the drive. Set `name` to `/` to watch for _all_ changes, or specify the path to a folder to watch for.
 
 ### Hyperdrive Mounting
 Hyperdrive supports "mounting" other Hyperdrives at paths within a parent drive. This means that if your friend has a photo album drive, you can nest their drive within your own by calling `myDrive.mount('photos/my-friends-album', <my-friends-album-key>)`.
