@@ -12,5 +12,4 @@ require('./symlink')
 require('./readdir')
 require('./download')
 require('./tagging')
-// TODO: Re-enable when we've made the replicator work with RemoteHypercores
-// require('./fuzzing')
+require('./fuzzing')

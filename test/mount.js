@@ -905,9 +905,7 @@ test('can list in-memory mounts', async t => {
     drive1.readFile('a/a', (err, contents) => {
       t.error(err, 'no error')
       t.true(contents)
-      console.log(1)
       drive1.getAllMounts({ memory: true }, (err, mounts) => {
-        console.log(2, 'err:', err)
         t.error(err, 'no error')
         t.same(mounts.size, 3)
         t.true(mounts.get('/'))

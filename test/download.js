@@ -24,9 +24,7 @@ test('single-file download', t => {
     drive1.writeFile('hello', 'world', err => {
       t.error(err, 'no error')
       setImmediate(() => {
-        console.log('before stats')
         drive2.stats('hello', (err, totals) => {
-          console.log('got stats:', totals)
           t.error(err, 'no error')
           t.same(totals.blocks, 1)
           t.same(totals.downloadedBlocks, 0)
