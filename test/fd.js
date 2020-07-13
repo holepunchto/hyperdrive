@@ -393,7 +393,7 @@ tape('fd parallel reads', function (t) {
   })
 })
 
-tape('fd close cancels pending reads', function (t) {
+tape.skip('fd close cancels pending reads', function (t) {
   const r = new Replicator(t)
 
   var drive = create()
