@@ -65,6 +65,7 @@ class Hyperdrive extends Nanoresource {
 
     // Set in ready.
     this.metadata = null
+    this.content = opts.content || null
     this.db = opts._db
     this.tags = new TagManager(this)
     this.isCheckout = !!this.db
@@ -170,16 +171,22 @@ class Hyperdrive extends Nanoresource {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize () {
-      self._contentStateFromKey(null, (err, contentState) => {
-        if (err) return done(err)
-        // warm up the thunky map
+      if (self.content) return self.content.ready((err) => {
+        if (err) return cb(err)
+        self.emit('content-feed', self.content)
+        onContentState(null, new ContentState(self.content))
+      })
+
+      self._contentStateFromKey(null, onContentState)
+
+      function onContentState (err, contentState) {
         self._contentStates.cache.set(self.db.feed, contentState)
         self.db.setMetadata(contentState.feed.key)
         self.db.ready(err => {
           if (err) return done(err)
           return done(null)
         })
-      })
+      }
     }
 
     /**
