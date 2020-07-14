@@ -9,8 +9,6 @@ require('./storage')
 require('./watch')
 require('./mount')
 require('./symlink')
-// TODO: Re-enable when we've made the replicator work with RemoteHypercores
-// require('./download')
+require('./download')
 require('./tagging')
-// TODO: Re-enable when we've made the replicator work with RemoteHypercores
-// require('./fuzzing')
+require('./fuzzing')

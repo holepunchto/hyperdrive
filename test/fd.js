@@ -393,8 +393,7 @@ tape('fd parallel reads', function (t) {
   })
 })
 
-// TODO: Re-enable once RemoteHypercore cancellation works.
-tape.skip('fd close cancels pending reads', function (t) {
+tape('fd close cancels pending reads', function (t) {
   const r = new Replicator(t)
 
   var drive = create()
