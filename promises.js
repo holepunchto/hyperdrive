@@ -257,15 +257,6 @@ module.exports = class HyperdrivePromises {
     })
   }
 
-  readlink (name) {
-    return new Promise((resolve, reject) => {
-      this.drive.readlink(name, (err, linkname) => {
-        if (err) return reject(err)
-        return resolve(linkname)
-      })
-    })
-  }
-
   getAllMounts (opts) {
     return new Promise((resolve, reject) => {
       this.drive.getAllMounts(opts, (err, allMounts) => {
