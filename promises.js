@@ -6,22 +6,12 @@
 
 module.exports = class HyperdrivePromises {
   constructor (drive) {
-    this.drive = drive
-  }
-
-  get key () {
-    return this.drive.key
-  }
-  get discoveryKey () {
-    return this.drive.discoveryKey
-  }
-  get version () {
-    return this.drive.version
+    this._drive = drive
   }
 
   ready () {
     return new Promise((resolve, reject) => {
-      this.drive.ready(err => {
+      this._drive.ready(err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -30,7 +20,7 @@ module.exports = class HyperdrivePromises {
 
   close () {
     return new Promise((resolve, reject) => {
-      this.drive.close(err => {
+      this._drive.close(err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -39,7 +29,7 @@ module.exports = class HyperdrivePromises {
 
   create (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.create(name, opts, (err, st) => {
+      this._drive.create(name, opts, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -47,13 +37,9 @@ module.exports = class HyperdrivePromises {
 
   }
 
-  createReadStream (name, opts) {
-    return this.drive.createReadStream(name, opts)
-  }
-
   readFile (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.readFile(name, opts, (err, contents) => {
+      this._drive.readFile(name, opts, (err, contents) => {
         if (err) return reject(err)
         return resolve(contents)
       })
@@ -61,13 +47,9 @@ module.exports = class HyperdrivePromises {
 
   }
 
-  createWriteStream (name, opts) {
-    return this.drive.createWriteStream(name, opts)
-  }
-
   writeFile (name, buf, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.writeFile(name, buf, opts, err => {
+      this._drive.writeFile(name, buf, opts, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -75,21 +57,9 @@ module.exports = class HyperdrivePromises {
 
   }
 
-  createDiffStream (other, prefix, opts) {
-    return this.drive.createDiffStream(other, prefix, opts)
-  }
-
-  createDirectoryStream (name, opts) {
-    return this.drive.createDirectoryStream(name, opts)
-  }
-
-  replicate (isInitiator, opts) {
-    return this.drive.replicate(isInitiator, opts)
-  }
-
   truncate (name, size) {
     return new Promise((resolve, reject) => {
-      this.drive.truncate(name, size, err => {
+      this._drive.truncate(name, size, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -99,7 +69,7 @@ module.exports = class HyperdrivePromises {
 
   mkdir (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.mkdir(name, opts, (err, st) => {
+      this._drive.mkdir(name, opts, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -109,7 +79,7 @@ module.exports = class HyperdrivePromises {
 
   lstat (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.lstat(name, opts, (err, st) => {
+      this._drive.lstat(name, opts, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -118,7 +88,7 @@ module.exports = class HyperdrivePromises {
 
   stat (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.stat(name, opts, (err, st) => {
+      this._drive.stat(name, opts, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -127,7 +97,7 @@ module.exports = class HyperdrivePromises {
 
   access (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.access(name, opts, err => {
+      this._drive.access(name, opts, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -136,7 +106,7 @@ module.exports = class HyperdrivePromises {
 
   exists (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.exists(name, opts, (exists) => {
+      this._drive.exists(name, opts, (exists) => {
         return resolve(exists)
       })
     })
@@ -144,7 +114,7 @@ module.exports = class HyperdrivePromises {
 
   readdir (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.readdir(name, opts, (err, entries) => {
+      this._drive.readdir(name, opts, (err, entries) => {
         if (err) return reject(err)
         return resolve(entries)
       })
@@ -154,7 +124,7 @@ module.exports = class HyperdrivePromises {
 
   unlink (name) {
     return new Promise((resolve, reject) => {
-      this.drive.unlink(name, err => {
+      this._drive.unlink(name, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -163,7 +133,7 @@ module.exports = class HyperdrivePromises {
 
   rmdir (name) {
     return new Promise((resolve, reject) => {
-      this.drive.rmdir(name, err => {
+      this._drive.rmdir(name, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -172,12 +142,12 @@ module.exports = class HyperdrivePromises {
   }
 
   checkout (version, opts) {
-    return this.drive.checkout(version, opts).promises
+    return this._drive.checkout(version, opts)
   }
 
   destroyStorage () {
     return new Promise((resolve, reject) => {
-      this.drive.destroyStorage(err => {
+      this._drive.destroyStorage(err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -186,7 +156,7 @@ module.exports = class HyperdrivePromises {
 
   stats (path, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.stats(path, opts, (err, stats) => {
+      this._drive.stats(path, opts, (err, stats) => {
         if (err) return reject(err)
         return resolve(stats)
       })
@@ -194,17 +164,17 @@ module.exports = class HyperdrivePromises {
   }
 
   watchStats (path, opts) {
-    return this.drive.watchStats(path, opts)
+    return this._drive.watchStats(path, opts)
   }
 
   mirror () {
-    return this.drive.mirror()
+    return this._drive.mirror()
   }
 
   download (path, opts) {
     var handle = null
     const prom = new Promise((resolve, reject) => {
-      handle = this.drive.download(path, opts, err => {
+      handle = this._drive.download(path, opts, err => {
         if (err) return reject(err)
         return resolve(handle)
       })
@@ -215,24 +185,16 @@ module.exports = class HyperdrivePromises {
 
   mount (path, key, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.mount(path, key, opts, err => {
+      this._drive.mount(path, key, opts, err => {
         if (err) return reject(err)
         return resolve(null)
       })
     })
   }
 
-  extension (name, message) {
-    return this.drive.extension(name, message)
-  }
-
-  createMountStream (opts) {
-    return this.drive.createMountStream(opts)
-  }
-
   unmount (path) {
     return new Promise((resolve, reject) => {
-      this.drive.unmount(path, err => {
+      this._drive.unmount(path, err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -241,7 +203,7 @@ module.exports = class HyperdrivePromises {
 
   symlink (target, linkname) {
     return new Promise((resolve, reject) => {
-      this.drive.symlink(target, linkname, (err, st) => {
+      this._drive.symlink(target, linkname, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -250,7 +212,7 @@ module.exports = class HyperdrivePromises {
 
   getAllMounts (opts) {
     return new Promise((resolve, reject) => {
-      this.drive.getAllMounts(opts, (err, allMounts) => {
+      this._drive.getAllMounts(opts, (err, allMounts) => {
         if (err) return reject(err)
         return resolve(allMounts)
       })
@@ -259,7 +221,7 @@ module.exports = class HyperdrivePromises {
 
   setMetadata (path, key, value) {
     return new Promise((resolve, reject) => {
-      this.drive.setMetadata(path, key, value, (err, st) => {
+      this._drive.setMetadata(path, key, value, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -268,7 +230,7 @@ module.exports = class HyperdrivePromises {
 
   removeMetadata (path, key) {
     return new Promise((resolve, reject) => {
-      this.drive.removeMetadata(path, key, (err, st) => {
+      this._drive.removeMetadata(path, key, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -277,7 +239,7 @@ module.exports = class HyperdrivePromises {
 
   copy (from, to) {
     return new Promise((resolve, reject) => {
-      this.drive.copy(from, to, (err, st) => {
+      this._drive.copy(from, to, (err, st) => {
         if (err) return reject(err)
         return resolve(st)
       })
@@ -286,7 +248,7 @@ module.exports = class HyperdrivePromises {
 
   createTag (name, version) {
     return new Promise((resolve, reject) => {
-      this.drive.createTag(name, version, (err) => {
+      this._drive.createTag(name, version, (err) => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -295,7 +257,7 @@ module.exports = class HyperdrivePromises {
 
   getAllTags () {
     return new Promise((resolve, reject) => {
-      this.drive.getAllTags((err, allTags) => {
+      this._drive.getAllTags((err, allTags) => {
         if (err) return reject(err)
         return resolve(allTags)
       })
@@ -304,7 +266,7 @@ module.exports = class HyperdrivePromises {
 
   deleteTag (name) {
     return new Promise((resolve, reject) => {
-      this.drive.deleteTag(name, (err) => {
+      this._drive.deleteTag(name, (err) => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -314,7 +276,7 @@ module.exports = class HyperdrivePromises {
 
   getTaggedVersion (name) {
     return new Promise((resolve, reject) => {
-      this.drive.getTaggedVersion(name, (err, version) => {
+      this._drive.getTaggedVersion(name, (err, version) => {
         if (err) return reject(err)
         return resolve(version)
       })

@@ -1,4 +1,4 @@
-const { Transform } = require('streamx')
+const through = require('through2')
 const pumpify = require('pumpify')
 
 module.exports = class Replicator {
@@ -53,11 +53,9 @@ module.exports = class Replicator {
 function noop () {}
 
 function throttler (ms) {
-  return new Transform({
-    transform (chunk, cb) {
-      setTimeout(() => {
-        return cb(null, chunk)
-      }, ms)
-    }
+  return through.obj((chunk, enc, cb) => {
+    setTimeout(() => {
+      return cb(null, chunk)
+    }, ms)
   })
 }
