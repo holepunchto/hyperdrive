@@ -93,7 +93,7 @@ test('another single-directory readdir', async t => {
   t.end()
 })
 
-test('readdir can include stats/mounts', async t => {
+test.only('readdir can include stats/mounts', async t => {
   const drive = create()
 
   const files = createFiles([

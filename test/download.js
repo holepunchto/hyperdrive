@@ -5,7 +5,7 @@ const Corestore = require('corestore')
 const Replicator = require('./helpers/replicator')
 const create = require('./helpers/create')
 
-test('single-file download', t => {
+test.only('single-file download', t => {
   const r = new Replicator(t)
   const drive1 = create()
   var drive2 = null
@@ -24,22 +24,26 @@ test('single-file download', t => {
     drive1.writeFile('hello', 'world', err => {
       t.error(err, 'no error')
       setImmediate(() => {
-        console.log('before stats')
         drive2.stats('hello', (err, totals) => {
-          console.log('got stats:', totals)
           t.error(err, 'no error')
           t.same(totals.blocks, 1)
           t.same(totals.downloadedBlocks, 0)
-          drive2.download('hello', err => {
-            t.error(err)
-            drive2.stats('hello', (err, totals) => {
-              t.same(totals.downloadedBlocks, 1)
-              r.end()
-            })
-          })
+          const handle = drive2.download('hello')
+          ondownloading(handle)
         })
       })
     })
+  }
+
+  function ondownloading (handle) {
+    handle.on('finish', () => {
+      drive2.stats('hello', (err, totals) => {
+        t.same(totals.downloadedBlocks, 1)
+        r.end()
+      })
+    })
+    handle.on('error', t.fail.bind(t))
+    handle.on('cancel', t.fail.bind(t))
   }
 })
 
@@ -108,18 +112,26 @@ test('directory download', t => {
         t.error(err, 'no error')
         drive1.writeFile('a/3', '3', err => {
           t.error(err, 'no error')
-          drive2.download('a', { maxConcurrent: 1 }, err => {
-            drive2.stats('a', (err, totals) => {
-              t.error(err, 'no error')
-              t.same(totals.get('/a/1').downloadedBlocks, 1)
-              t.same(totals.get('/a/2').downloadedBlocks, 1)
-              t.same(totals.get('/a/3').downloadedBlocks, 1)
-              r.end()
-            })
+          setImmediate(() => {
+            const handle = drive2.download('a', { maxConcurrent: 1 })
+            ondownloading(handle)
           })
         })
       })
     })
+  }
+
+  function ondownloading (handle) {
+    handle.on('finish', () => {
+      drive2.stats('a', (err, totals) => {
+        t.error(err, 'no error')
+        t.same(totals.get('/a/1').downloadedBlocks, 1)
+        t.same(totals.get('/a/2').downloadedBlocks, 1)
+        t.same(totals.get('/a/3').downloadedBlocks, 1)
+        r.end()
+      })
+    })
+    handle.on('error', t.fail.bind(t))
   }
 })
 
@@ -155,7 +167,17 @@ test('download cancellation', t => {
   }
 
   function onwritten () {
-    const handle = drive2.download('a', { detailed: true, statsInterval: 50 }, err => {
+    setTimeout(() => {
+      const handle = drive2.download('a', { detailed: true, statsInterval: 50 })
+      ondownloading(handle)
+    }, 500)
+  }
+
+  function ondownloading (handle) {
+    setTimeout(() => {
+      handle.destroy()
+    }, 1000)
+    handle.on('finish', (err, total, byFile) => {
       if (err) t.fail(err)
       drive2.stats('a', (err, totals) => {
         t.error(err, 'no error')
@@ -163,9 +185,7 @@ test('download cancellation', t => {
         r.end()
       })
     })
-    setTimeout(() => {
-      handle.destroy()
-    }, 1000)
+    handle.on('error', t.fail.bind(t))
   }
 })
 
@@ -201,23 +221,31 @@ test('download omits mounts by default', t => {
           t.error(err, 'no error')
           drive1.writeFile('a/3', '3', err => {
             t.error(err, 'no error')
-            drive2.download('/', { maxConcurrent: 1 }, err => {
-              drive2.stats('a', (err, totals) => {
-                t.error(err, 'no error')
-                t.same(totals.get('/a/1').downloadedBlocks, 1)
-                t.same(totals.get('/a/2').downloadedBlocks, 1)
-                t.same(totals.get('/a/3').downloadedBlocks, 1)
-                drive2.stats('b', (err, totals) => {
-                  t.error(err, 'no error')
-                  t.same(totals.get('/b/hello').downloadedBlocks, 0)
-                  r.end()
-                })
-              })
+            setImmediate(() => {
+              const handle = drive2.download('/', { maxConcurrent: 1 })
+              ondownloading(handle)
             })
           })
         })
       })
     })
+  }
+
+  function ondownloading (handle) {
+    handle.on('finish', () => {
+      drive2.stats('a', (err, totals) => {
+        t.error(err, 'no error')
+        t.same(totals.get('/a/1').downloadedBlocks, 1)
+        t.same(totals.get('/a/2').downloadedBlocks, 1)
+        t.same(totals.get('/a/3').downloadedBlocks, 1)
+        drive2.stats('b', (err, totals) => {
+          t.error(err, 'no error')
+          t.same(totals.get('/b/hello').downloadedBlocks, 0)
+          r.end()
+        })
+      })
+    })
+    handle.on('error', t.fail.bind(t))
   }
 })
 
@@ -253,23 +281,31 @@ test('download with noMounts false includes mounts', t => {
           t.error(err, 'no error')
           drive1.writeFile('a/3', '3', err => {
             t.error(err, 'no error')
-            drive2.download('/', { maxConcurrent: 1, noMounts: false }, err => {
-              drive2.stats('a', (err, totals) => {
-                t.error(err, 'no error')
-                t.same(totals.get('/a/1').downloadedBlocks, 1)
-                t.same(totals.get('/a/2').downloadedBlocks, 1)
-                t.same(totals.get('/a/3').downloadedBlocks, 1)
-                drive2.stats('b', (err, totals) => {
-                  t.error(err, 'no error')
-                  t.same(totals.get('/b/hello').downloadedBlocks, 1)
-                  r.end()
-                })
-              })
+            setImmediate(() => {
+              const handle = drive2.download('/', { maxConcurrent: 1, noMounts: false })
+              ondownloading(handle)
             })
           })
         })
       })
     })
+  }
+
+  function ondownloading (handle) {
+    handle.on('finish', () => {
+      drive2.stats('a', (err, totals) => {
+        t.error(err, 'no error')
+        t.same(totals.get('/a/1').downloadedBlocks, 1)
+        t.same(totals.get('/a/2').downloadedBlocks, 1)
+        t.same(totals.get('/a/3').downloadedBlocks, 1)
+        drive2.stats('b', (err, totals) => {
+          t.error(err, 'no error')
+          t.same(totals.get('/b/hello').downloadedBlocks, 1)
+          r.end()
+        })
+      })
+    })
+    handle.on('error', t.fail.bind(t))
   }
 })
 

@@ -972,7 +972,8 @@ class Hyperdrive extends Nanoresource {
     function oncore (core) {
       if (!core) return
       if (!self._unmirror || self._unmirror !== unmirror || mirrorRanges.has(core)) return
-      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))}
+      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
+    }
   }
 
   download (path, opts, cb) {
@@ -981,8 +982,6 @@ class Hyperdrive extends Nanoresource {
       opts = null
     }
     opts = opts || {}
-    if (!cb) cb = noop
-
     const self = this
     const ranges = new Map()
     var pending = 0
@@ -1051,8 +1050,13 @@ class Hyperdrive extends Nanoresource {
       for (const [path, { feed, range }] of ranges) {
         feed.undownload(range)
       }
-      if (err) return cb(err)
-      return cb(null)
+      if (err) {
+        handle.emit('error', err)
+        if (cb) return cb(err)
+      } else {
+        handle.emit('finish')
+        if (cb) return cb(null)
+      }
     }
   }
 
