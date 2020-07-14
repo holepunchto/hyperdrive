@@ -22,7 +22,6 @@ const createFileDescriptor = require('./lib/fd')
 const errors = require('./lib/errors')
 const defaultCorestore = require('./lib/storage')
 const TagManager = require('./lib/tagging')
-const HyperdrivePromises = require('./promises')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
 
@@ -49,8 +48,6 @@ class Hyperdrive extends Nanoresource {
     this.live = true
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
-
-    this.promises = new HyperdrivePromises(this)
 
     this._namespace = opts.namespace
     this.corestore = defaultCorestore(storage, {
