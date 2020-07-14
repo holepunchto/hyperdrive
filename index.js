@@ -972,8 +972,7 @@ class Hyperdrive extends Nanoresource {
     function oncore (core) {
       if (!core) return
       if (!self._unmirror || self._unmirror !== unmirror || mirrorRanges.has(core)) return
-      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
-    }
+      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))}
   }
 
   download (path, opts, cb) {
