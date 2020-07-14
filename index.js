@@ -188,9 +188,9 @@ class Hyperdrive extends Nanoresource {
      * (Otherwise, we need to read the feed's metadata block first)
      */
     function restore (keyPair) {
-      self.db.ready(async err => {
+      self.db.ready(err => {
         if (err) return done(err)
-        if (await self.metadata.has(0)) self._getContent(self.db.feed, done)
+        if (self.metadata.has(0)) self._getContent(self.db.feed, done)
         else done(null)
       })
     }
