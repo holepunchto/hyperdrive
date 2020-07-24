@@ -368,6 +368,19 @@ Options include:
 
 If `wait` is set to `true`, this function will wait for data to be downloaded. If false, will return an error.
 
+#### `drive.info(name, callback)`
+
+Gets mount information about an entry.
+
+The mount information takes the form:
+```js
+{
+  feed, // The metadata feed for the mountpoint.
+  mountPath, // The absolute path of the entry's parent mount.
+  mountInfo  // The mount metadata record
+}
+```
+
 #### `drive.access(name, [options], callback)`
 
 Similar to fs.access.
