@@ -130,6 +130,15 @@ module.exports = class HyperdrivePromises {
     })
   }
 
+  info (name) {
+    return new Promise((resolve, reject) => {
+      this.drive.info(name, (err, info) => {
+        if (err) return reject(err)
+        return resolve(info)
+      })
+    })
+  }
+
   access (name, opts) {
     return new Promise((resolve, reject) => {
       this.drive.access(name, opts, err => {

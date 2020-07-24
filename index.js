@@ -28,6 +28,7 @@ const { statIterator, createStatStream, createMountStream, createReaddirStream, 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
 const WRITE_STREAM_BLOCK_SIZE = 524288
+const NOOP_FILE_PATH = ' '
 
 module.exports = (...args) => new Hyperdrive(...args)
 module.exports.constants = require('filesystem-constants').linux
@@ -734,6 +735,19 @@ class Hyperdrive extends Nanoresource {
         return this.stat(relativeStat, opts, cb)
       }
       return cb(null, stat, trie, name, mount, mountPath)
+    })
+  }
+
+  info (name, cb) {
+    name = fixName(name)
+    const noopPath = path.join(name, NOOP_FILE_PATH)
+    this.stat(noopPath, { trie: true }, (err, stat, trie, _, mountInfo, mountPath) => {
+      if (err) return cb(err)
+      return cb(null, {
+        feed: trie.feed,
+        mountPath: fixName(noopPath.slice(0, noopPath.length - mountPath.length)),
+        mountInfo
+      })
     })
   }
 

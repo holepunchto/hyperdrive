@@ -590,6 +590,53 @@ test('nested mount readdir returns correct inner paths, recursive', async t => {
   }
 })
 
+test('nested mount info returns correct mount keys and paths', async t => {
+  const store = new Corestore(ram)
+  let expected = []
+  store.ready(onready)
+
+  function onready () {
+    const drive1 = create({ corestore: store, namespace: 'd1' })
+    const drive2 = create({ corestore: store, namespace: 'd2' })
+    const drive3 = create({ corestore: store, namespace: 'd3' })
+
+    drive3.ready(err => {
+      t.error(err, 'no error')
+      drive3.writeFile('c', 'hello', err => {
+        t.error(err, 'no error')
+        drive1.mount('a', drive2.key, err => {
+          t.error(err, 'no error')
+          drive1.mount('a/b', drive3.key, err => {
+            t.error(err, 'no error')
+            drive1.writeFile('a/b/c', 'hello', err => {
+              t.error(err, 'no error')
+              expected.push({ path: '/', key: drive1.key, mountPath: '/' })
+              expected.push({ path: 'a', key: drive2.key, mountPath: '/a' })
+              expected.push({ path: 'a/b', key: drive3.key, mountPath: '/a/b'})
+              expected.push({ path: 'a/b/c', key: drive3.key, mountPath: '/a/b' })
+              onmount(drive1, drive2, drive3)
+            })
+          })
+        })
+      })
+    })
+  }
+
+  function onmount (drive1, drive2, drive3) {
+    validateNext()
+    function validateNext () {
+      if (!expected.length) return t.end()
+      const { path, key, mountPath } = expected.pop()
+      drive1.info(path, (err, info) => {
+        t.error(err, 'no error')
+        t.true(info.feed.key.equals(key))
+        t.same(info.mountPath, mountPath)
+        return validateNext()
+      })
+    }
+  }
+})
+
 test('independent corestores do not share write capabilities', t => {
   const r = new Replicator(t)
   const drive1 = create()
