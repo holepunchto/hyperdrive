@@ -459,7 +459,10 @@ class Hyperdrive extends Nanoresource {
   createDirectoryStream (name, opts) {
     if (!opts) opts = {}
     name = fixName(name)
-    return createStatStream(this, name, opts)
+    return createReaddirStream(this, name, {
+      ...opts,
+      includeStats: true
+    })
   }
 
   createWriteStream (name, opts) {
