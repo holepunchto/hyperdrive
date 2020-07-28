@@ -161,9 +161,12 @@ test('download cancellation', t => {
         r.end()
       })
     })
-    setTimeout(() => {
-      handle.destroy()
-    }, 1000)
+    drive2.getContent((err, content) => {
+      t.error(err, 'no error')
+      content.once('download', () => {
+        handle.destroy()
+      })
+    })
   }
 })
 
