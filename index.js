@@ -993,12 +993,43 @@ class Hyperdrive extends Nanoresource {
     }
   }
 
+  clear (path, opts, cb) {
+    if (typeof opts === 'function') {
+      cb = opts
+      opts = null
+    }
+    opts = opts || {}
+    if (!cb) cb = noop
+    opts.on = (feed, range, cb) => {
+      feed.clear(range.start, range.end, cb)
+      return range
+    }
+
+    opts.off = noop
+
+    return this._walk(path, opts, cb)
+  }
+
   download (path, opts, cb) {
     if (typeof opts === 'function') {
       cb = opts
       opts = null
     }
     opts = opts || {}
+    if (!cb) cb = noop
+    opts.on = (feed, range, cb) => {
+      return feed.download(range, cb)
+    }
+
+    opts.off = (feed, range) => {
+      return feed.undownload(range)
+    }
+
+    return this._walk(path, opts, cb)
+  }
+
+  _walk (path, opts, cb) {
+    if (!opts.on || !opts.off) throw new Error('_walk requires on and off')
     if (!cb) cb = noop
 
     const self = this
@@ -1050,7 +1081,7 @@ class Hyperdrive extends Nanoresource {
       self._getContent(trie.feed, (err, contentState) => {
         if (err) return destroy(err)
         const feed = contentState.feed
-        const range = feed.download({
+        const range = opts.on(feed, {
           start: stat.offset,
           end: stat.offset + stat.blocks
         }, err => {
@@ -1067,7 +1098,7 @@ class Hyperdrive extends Nanoresource {
       if (destroyed) return null
       destroyed = true
       for (const [path, { feed, range }] of ranges) {
-        feed.undownload(range)
+        opts.off(feed, range)
       }
       if (err) return cb(err)
       return cb(null)
