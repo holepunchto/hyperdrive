@@ -1018,7 +1018,7 @@ class Hyperdrive extends Nanoresource {
     opts = opts || {}
     if (!cb) cb = noop
     opts.on = (feed, range, cb) => {
-      return feed.download(range, cb)
+      return feed.download(range, opts, cb)
     }
 
     opts.off = (feed, range) => {
