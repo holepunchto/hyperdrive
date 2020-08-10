@@ -307,7 +307,7 @@ Options include:
 ``` js
 {
     recursive: false, // Recurse into subdirectories and mounts
-    noMount: false // Do not recurse into mounts when recursive: true
+    noMounts: false // Do not recurse into mounts when recursive: true
 }
 ```
 
