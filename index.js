@@ -8,6 +8,7 @@ const ThunkyMap = require('thunky-map')
 const unixify = require('unixify')
 const duplexify = require('duplexify')
 const pump = require('pump')
+const pumpify = require('pumpify')
 const { Transform } = require('streamx')
 
 const coreByteStream = require('hypercore-byte-stream')
@@ -24,6 +25,7 @@ const TagManager = require('./lib/tagging')
 const HyperdrivePromises = require('./promises')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
+const Pumpify = require('pumpify')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
@@ -435,7 +437,7 @@ class Hyperdrive extends Nanoresource {
     prefix = prefix || '/'
 
     const diffStream = this.db.createDiffStream(other, prefix, opts)
-    return pump(
+    return pumpify.obj(
       diffStream,
       new Transform({
         transform (chunk, cb) {
