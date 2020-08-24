@@ -417,7 +417,7 @@ class Hyperdrive extends Nanoresource {
         byteOffset = opts.start ? st.byteOffset + opts.start : (length === -1 ? -1 : st.byteOffset)
       }
 
-      const byteLength = length
+      const byteLength = Math.min(length, st.size)
 
       stream.start({
         feed: contentState.feed,
