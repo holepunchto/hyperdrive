@@ -61,7 +61,7 @@ class Hyperdrive extends Nanoresource {
       // TODO: Support mixed sparsity.
       sparse: this.sparse || this.sparseMetadata,
       extensions: opts.extensions
-    })
+    }, this)
 
     if (this.corestore !== storage) this.corestore.on('error', err => this.emit('error', err))
     if (opts.namespace) {
