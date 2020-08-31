@@ -83,8 +83,8 @@ The `storage` parameter defines how the contents of the drive will be stored. It
 
   - `name`: the name of the file to be stored
   - `opts`
-    - `key`: the [feed key](https://github.com/mafintosh/hypercore#feedkey) of the underlying Hypercore instance
-    - `discoveryKey`: the [discovery key](https://github.com/mafintosh/hypercore#feeddiscoverykey) of the underlying Hypercore instance
+    - `key`: the [feed key](https://github.com/hypercore-protocol/hypercore#feedkey) of the underlying Hypercore instance
+    - `discoveryKey`: the [discovery key](https://github.com/hypercore-protocol/hypercore#feeddiscoverykey) of the underlying Hypercore instance
   - `drive`: the current Hyperdrive instance
 
 Options include:
