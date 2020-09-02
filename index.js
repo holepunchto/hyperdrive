@@ -51,7 +51,7 @@ class Hyperdrive extends Nanoresource {
     this.live = true
     this.sparse = opts.sparse !== false
     this.sparseMetadata = opts.sparseMetadata !== false
-    this.headerType = opts.headerType || 'hyperdrive'
+    this.headerSubtype = opts.headerSubtype || 'hyperdrive'
 
     this.promises = new HyperdrivePromises(this)
 
@@ -129,7 +129,7 @@ class Hyperdrive extends Nanoresource {
         feed: this.metadata,
         sparse: this.sparseMetadata,
         extension: this.opts.extension !== false,
-        headerType: this.headerType
+        headerSubtype: this.headerSubtype
       })
       this.db.on('hypertrie', onhypertrie)
       this.db.on('error', onerror)
