@@ -876,7 +876,7 @@ test('mount replication between hyperdrives, multiple, nested mounts', async t =
         const drive1 = create({ corestore: store  })
         drive1.ready(err => {
           t.error(err, 'no error')
-          r.replicate(drive1, d1)
+          r.replicate(drive1, d2)
           r.replicate(d2, d3)
           r.replicate(drive1, d3)
           drive1.mount('a', d2.key, err => {
