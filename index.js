@@ -25,7 +25,6 @@ const TagManager = require('./lib/tagging')
 const HyperdrivePromises = require('./promises')
 const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
 const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
-const Pumpify = require('pumpify')
 
 // 20 is arbitrary, just to make the fds > stdio etc
 const STDIO_CAP = 20
