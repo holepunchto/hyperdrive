@@ -13,6 +13,7 @@ tape('hidden file', function (t) {
       t.same(dir, [])
     })
 
+    // file is not visible without hidden flag
     drive.readFile('/foo', function (err) {
       t.true(err instanceof errors.FileNotFound)
     })
