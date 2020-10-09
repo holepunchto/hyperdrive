@@ -488,7 +488,11 @@ class Hyperdrive extends Nanoresource {
 
     this.ready(err => {
       if (err) return proxy.destroy(err)
-      this.stat(name, { trie: true }, (err, stat, trie) => {
+      
+      const passedOpts = { trie: true }
+      if (opts.db) passedOpts.db = opts.db
+
+      this.stat(name, passedOpts, (err, stat, trie) => {
         if (err && (err.errno !== 2)) return proxy.destroy(err)
         this._getContent(trie.feed, (err, contentState) => {
           if (err) return proxy.destroy(err)
