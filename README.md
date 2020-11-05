@@ -46,7 +46,7 @@ drive.writeFile('/hello.txt', 'world', function (err) {
 })
 ```
 
-Hyperdrives can easily be replicated to other machines over any stream-based transport layer! 
+Hyperdrives can easily be replicated to other machines over any stream-based transport layer!
 
 ``` js
 var net = require('net')
@@ -232,8 +232,11 @@ Return a Map of all tags. The Map will be of the form:
 }
 ```
 
+#### `var stream = drive.createDiffStream(otherVersion, [prefix])`
+Check what differences there are between the drive version and another version of the drive.
+
 ### Downloading
-In sparse mode (which is the default), data will be downloaded from peers on-demand. If you'd like more control over this, you can use the `download` function to explicitly mark certain files/directory for immediate downloading.  
+In sparse mode (which is the default), data will be downloaded from peers on-demand. If you'd like more control over this, you can use the `download` function to explicitly mark certain files/directory for immediate downloading.
 
 #### `drive.download([path], [callback])`
 
@@ -331,7 +334,7 @@ Stat {
   atime: 2017-04-10T18:59:00.147Z,
   mtime: 2017-04-10T18:59:00.147Z,
   ctime: 2017-04-10T18:59:00.147Z,
-  linkname: undefined 
+  linkname: undefined
 }
 ```
 
@@ -397,7 +400,7 @@ If `wait` is set to `true`, this function will wait for data to be downloaded. I
 ### File Descriptors
 If you want more control over your reads and writes, you can open file descriptors. The file descriptor API mirrors Node's descriptors. Importantly, Hyperdrive does not currently handle random-access writes. Similarly, appends require the previous contents of the file to be duplicated, though this all happens internally. Random-access reads, on the other hand, are fully supported and very fast.
 
-We're still investigating more performant solutions to random-access write and appends, and it's high on our priority list! 
+We're still investigating more performant solutions to random-access write and appends, and it's high on our priority list!
 
 #### `drive.open(name, flags, callback)`
 
