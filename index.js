@@ -177,7 +177,8 @@ class Hyperdrive extends Nanoresource {
      * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
      */
     function initialize () {
-      self._contentStateFromKey(null, (err, contentState) => {
+      const contentName = self.metadata.key.toString('hex') + '-content'
+      self._contentStateFromOpts({ name: contentName }, (err, contentState) => {
         if (err) return done(err)
         // warm up the thunky map
         self._contentStates.cache.set(self.db.feed, contentState)
@@ -255,7 +256,12 @@ class Hyperdrive extends Nanoresource {
   }
 
   _contentStateFromKey (publicKey, cb) {
-    const contentOpts = { key: publicKey, ...contentOptions(this), cache: { data: false } }
+    this._contentStateFromOpts({ key: publicKey }, cb)
+  }
+
+  _contentStateFromOpts (opts, cb) {
+    const contentOpts = { ...opts, ...contentOptions(this), cache: { data: false } }
+    
     try {
       var feed = this.corestore.get(contentOpts)
     } catch (err) {
