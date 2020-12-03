@@ -142,7 +142,6 @@ tape('sparse read/write two files', function (t) {
   })
 })
 
-
 tape('destroying the drive destroys its data', function (t) {
   tmp(function (err, dir, cleanup) {
     t.ifError(err)
@@ -158,11 +157,38 @@ tape('destroying the drive destroys its data', function (t) {
           t.deepEqual(files, [], 'archive now empty')
           copy.close(function (err) {
             t.ifError(err)
-            cleanup(function(err) {
+            cleanup(function (err) {
               t.ifError(err)
               t.end()
             })
           })
+        })
+      })
+    })
+  })
+})
+
+tape('content feed gets generated consistently', function (t) {
+  const masterKey = Buffer.from('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'hex')
+
+  const drive1 = create(null, { masterKey, namespace: 'test' })
+
+  drive1.ready(function (err) {
+    t.ifError(err)
+
+    const drive2 = create(null, { masterKey, namespace: 'test' })
+
+    drive2.ready(function (err) {
+      t.ifError(err)
+      t.deepEqual(drive1.key, drive2.key, 'consistent metadata')
+
+      drive1.db.getMetadata(function (err, metadata1) {
+        t.ifError(err)
+        drive2.db.getMetadata(function (err, metadata2) {
+          t.ifError(err)
+          t.deepEqual(metadata1, metadata2, 'consistent content feed')
+
+          t.end()
         })
       })
     })
