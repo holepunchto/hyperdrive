@@ -31,13 +31,16 @@ const STDIO_CAP = 20
 const WRITE_STREAM_BLOCK_SIZE = 524288
 const NOOP_FILE_PATH = ' '
 
-module.exports = (...args) => new Hyperdrive(...args)
+module.exports = HyperdriveCompat
 module.exports.constants = require('filesystem-constants').linux
 
 class Hyperdrive extends Nanoresource {
   constructor (storage, key, opts) {
     super()
+    this._initialize(storage, key, opts)
+  }
 
+  _initialize (storage, key, opts) {
     if (isObject(key)) {
       opts = key
       key = null
@@ -1268,6 +1271,12 @@ class Hyperdrive extends Nanoresource {
     return this.tags.get(name, cb)
   }
 }
+
+function HyperdriveCompat (...args) {
+  if (!(this instanceof HyperdriveCompat)) return new HyperdriveCompat(...args)
+  Hyperdrive.prototype._initialize.call(this, ...args)
+}
+Object.setPrototypeOf(HyperdriveCompat.prototype, Hyperdrive.prototype)
 
 function isObject (val) {
   return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
