@@ -1274,6 +1274,7 @@ class Hyperdrive extends Nanoresource {
 
 function HyperdriveCompat (...args) {
   if (!(this instanceof HyperdriveCompat)) return new HyperdriveCompat(...args)
+  Nanoresource.call(this)
   Hyperdrive.prototype._initialize.call(this, ...args)
 }
 Object.setPrototypeOf(HyperdriveCompat.prototype, Hyperdrive.prototype)
