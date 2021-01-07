@@ -30,8 +30,8 @@ npm install hyperdrive
 Hyperdrive aims to implement the same API as Node.js' core `fs` module, and mirrors many POSIX APIs.
 
 ``` js
-var hyperdrive = require('hyperdrive')
-var drive = hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
+var Hyperdrive = require('hyperdrive')
+var drive = new Hyperdrive('./my-first-hyperdrive') // content will be stored in this folder
 
 drive.writeFile('/hello.txt', 'world', function (err) {
   if (err) throw err
@@ -61,7 +61,7 @@ server.listen(10000)
 
 // ... on another
 
-var clonedDrive = hyperdrive('./my-cloned-hyperdrive', origKey)
+var clonedDrive = new Hyperdrive('./my-cloned-hyperdrive', origKey)
 var socket = net.connect(10000)
 
 socket.pipe(clonedDrive.replicate()).pipe(socket)
@@ -71,7 +71,7 @@ It also comes with build in versioning, live replication (where the replication 
 
 ## API
 
-#### `var drive = hyperdrive(storage, [key], [options])`
+#### `var drive = new Hyperdrive(storage, [key], [options])`
 
 Create a new Hyperdrive.
 
@@ -156,7 +156,7 @@ Emitted when there is a new update to the drive. Not triggered unless you load t
 Emitted when a new peer has been added.
 
 ```js
-const drive = Hyperdrive()
+const drive = new Hyperdrive()
 
 drive.on('peer-add', (peer) => {
   console.log('Connected peer', peer.remotePublicKey)
