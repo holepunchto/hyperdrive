@@ -601,7 +601,7 @@ class Hyperdrive extends Nanoresource {
     stream.end(buf)
   }
   
-  }
+  
   writeFileSync(name, buf, opts){
     
     if (typeof opts === 'string') opts = { encoding: opts }
