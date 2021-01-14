@@ -576,15 +576,7 @@ class Hyperdrive extends Nanoresource {
     })
   }
 
-  readFileSync(name, opts){
-    this.readFile(name, opts, function(err, data){
-        if (err ) throw err 
-        return data
-        
-
-    })
-
-  }
+  
 
   writeFile (name, buf, opts, cb) {
     if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
@@ -612,26 +604,7 @@ class Hyperdrive extends Nanoresource {
   }
   
   
-  writeFileSync(name, buf, opts){
-    
-    if (typeof opts === 'string') opts = { encoding: opts }
-    if (!opts) opts = {}
-    if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding || 'utf-8')
-    name = fixName(name)
-
-    // Make sure that the buffer is chunked into blocks of 0.5MB.
-    let stream = this.createWriteStream(name, opts)
-
-    
-
-    stream.on('error', err => {
-       throw err 
-    })
-    stream.on('finish', () => {
-      return null
-    })
-    stream.end(buf)
-  }
+  
 
   truncate (name, size, cb) {
     name = fixName(name)
@@ -825,16 +798,7 @@ class Hyperdrive extends Nanoresource {
     })
   }
   
-  readdirSync(name, opts){
-    if (!opts) opts = null
-    name = fixName(name)
-    const readdirStream = createReaddirStream(this, name, opts)
-    return collect(readdirStream, (err, entries) => {
-      if (err) throw err
-      return entries
-    })
-
-  }
+  
 
   _del (name, cb) {
     this.ready(err => {
