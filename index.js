@@ -798,6 +798,16 @@ class Hyperdrive extends Nanoresource {
     })
   }
   
+  readdirSync(name, opts){
+      let rs = this.readdir(name, opts, function(err, data){
+          if (err){
+              throw err
+          }
+          return data  // returns data to the async,  that then returns it  to rs 
+      })
+      return rs // and we return rs
+  }
+  
   
 
   _del (name, cb) {
