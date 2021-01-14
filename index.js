@@ -600,6 +600,8 @@ class Hyperdrive extends Nanoresource {
     })
     stream.end(buf)
   }
+  
+  }
   writeFileSync(name, buf, opts){
     
     if (typeof opts === 'string') opts = { encoding: opts }
@@ -619,7 +621,6 @@ class Hyperdrive extends Nanoresource {
       return null
     })
     stream.end(buf)
-  }
   }
 
   truncate (name, size, cb) {
