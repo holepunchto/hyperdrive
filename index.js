@@ -826,6 +826,17 @@ class Hyperdrive extends Nanoresource {
       return cb(null, entries)
     })
   }
+  
+  readdirSync(name, opts){
+    if (!opts) opts = null
+    name = fixName(name)
+    const readdirStream = createReaddirStream(this, name, opts)
+    return collect(readdirStream, (err, entries) => {
+      if (err) throw err
+      return entries
+    })
+
+  }
 
   _del (name, cb) {
     this.ready(err => {
