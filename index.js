@@ -575,6 +575,17 @@ class Hyperdrive extends Nanoresource {
       cb(null, opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf)
     })
   }
+  readFileSync(name, opts){
+    if (typeof opts === 'string') opts = { encoding: opts }
+    if (!opts) opts = {}
+    name = fixName(name)
+    collect(this.createReadStream(name, opts), function (err, bufs) {
+      if (err) err
+      let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
+      return opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf
+    })
+
+  }
 
   writeFile (name, buf, opts, cb) {
     if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
