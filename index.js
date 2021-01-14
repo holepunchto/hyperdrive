@@ -866,6 +866,7 @@ class Hyperdrive extends Nanoresource {
       self._del(name, cb)
     })
   }
+  
 
   replicate (isInitiator, opts) {
     // support replicate({ initiator: bool }) also
