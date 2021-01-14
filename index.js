@@ -577,13 +577,11 @@ class Hyperdrive extends Nanoresource {
   }
 
   readFileSync(name, opts){
-    if (typeof opts === 'string') opts = { encoding: opts }
-    if (!opts) opts = {}
-    name = fixName(name)
-    collect(this.createReadStream(name, opts), function (err, bufs) {
-      if (err) throw err
-      let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-      return opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf
+    this.readFile(name, opts, function(err, data){
+        if (err ) throw err 
+        return data
+        
+
     })
 
   }
