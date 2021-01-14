@@ -600,6 +600,27 @@ class Hyperdrive extends Nanoresource {
     })
     stream.end(buf)
   }
+  writeFileSync(name, buf, opts){
+    
+    if (typeof opts === 'string') opts = { encoding: opts }
+    if (!opts) opts = {}
+    if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding || 'utf-8')
+    name = fixName(name)
+
+    // Make sure that the buffer is chunked into blocks of 0.5MB.
+    let stream = this.createWriteStream(name, opts)
+
+    
+
+    stream.on('error', err => {
+       throw err 
+    })
+    stream.on('finish', () => {
+      return null
+    })
+    stream.end(buf)
+  }
+  }
 
   truncate (name, size, cb) {
     name = fixName(name)
