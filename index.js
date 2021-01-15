@@ -798,22 +798,7 @@ class Hyperdrive extends Nanoresource {
     })
   }
   
-  readdirSync(name, opts){
-      let rs = undefined 
-      let error = undefined 
-      drive.promises.readdir(name, opts)
-      .then((data) =>{
-          rs = data
-      })
-      .catch( (err) => {
-          error = err
-
-      })
-      while (rs ===undefined && error  === undefined ){}
-      if (error ) throw error 
-      return rs
-      
-  }
+  
   
   
 
