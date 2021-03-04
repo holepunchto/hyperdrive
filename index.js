@@ -839,6 +839,81 @@ class Hyperdrive extends Nanoresource {
     ite.next(onItem)
   }
 
+  _transfer (nameFrom, nameTo, opts, cb) {
+    nameFrom = fixName(nameFrom)
+    nameTo = fixName(nameTo)
+
+    const recursive = (opts.op === 'move') || opts.recursive
+
+    const commit = (from, to, encoded, cb) => {
+      this.ready(err => {
+        if (err) return cb(err)
+
+        this.db.put(to, encoded, err => {
+          if (err) return cb(err)
+          if (opts.op === 'copy') return cb(null)
+
+          this.db.del(from, err => {
+            if (err) return cb(err)
+
+            cb(null)
+          })
+        })
+      })
+    }
+
+    this.stat(nameFrom, (err, st) => {
+      if (err) return cb(err)
+
+      if (!st.isDirectory()) {
+        const dir = opts.op === 'move' ? path.dirname(nameFrom) : nameFrom
+        const to = opts.op === 'move' ? path.join(dir, nameTo) : nameTo
+        return commit(nameFrom, to, st.encode(), cb)
+      }
+
+      const ite = readdirIterator(this, nameFrom, { recursive })
+
+      const onItem = (err, val) => {
+        if (err) return cb(err)
+        if (val === null) return cb(null)
+
+        const to = path.join(nameTo, val)
+        const from = path.join(nameFrom, val)
+
+        this.stat(from, (err, st) => {
+          if (err) return cb(err)
+
+          commit(from, to, st.encode(), err => {
+            if (err) return cb(err)
+            ite.next(onItem)
+          })
+        })
+      }
+
+      ite.next(onItem)
+    })
+  }
+
+  cp (nameFrom, nameTo, opts, cb) {
+    if (typeof opts === 'function') {
+      cb = opts
+      opts = {}
+    }
+
+    if (!cb) cb = noop
+    const recursive = opts.recursive
+
+    this._transfer(nameFrom, nameTo, { recursive, op: 'copy' }, cb)
+  }
+
+  mv (nameFrom, nameTo, cb) {
+    this._transfer(nameFrom, nameTo, { op: 'move' }, cb)
+  }
+
+  rename (nameFrom, nameTo, cb) {
+    this.mv(nameFrom, nameTo, cb)
+  }
+
   replicate (isInitiator, opts) {
     // support replicate({ initiator: bool }) also
     if (typeof isInitiator === 'object' && isInitiator && !opts) {
