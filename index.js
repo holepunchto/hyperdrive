@@ -908,7 +908,7 @@ class Hyperdrive extends Nanoresource {
     }
 
     if (!cb) cb = noop
-    const recursive = opts.recursive
+    const recursive = !!(opts && opts.recursive)
 
     this._transfer(nameFrom, nameTo, { recursive, op: 'copy' }, cb)
   }
