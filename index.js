@@ -840,6 +840,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   _transfer (nameFrom, nameTo, opts, cb) {
+    const isAbsolute = nameTo[0] === '/'
     nameFrom = fixName(nameFrom)
     nameTo = fixName(nameTo)
 
@@ -866,8 +867,14 @@ class Hyperdrive extends Nanoresource {
       if (err) return cb(err)
 
       if (!st.isDirectory()) {
-        const dir = opts.op === 'move' ? path.dirname(nameFrom) : nameFrom
-        const to = opts.op === 'move' ? path.join(dir, nameTo) : nameTo
+        const isMove = opts.op === 'move'
+
+        let to = nameTo
+
+        if (isMove && !isAbsolute) {
+          to = path.join(path.dirname(nameFrom), nameTo)
+        }
+
         return commit(nameFrom, to, st.encode(), cb)
       }
 

@@ -56,6 +56,26 @@ test('move a single file', async function (t) {
   t.end()
 })
 
+test('move a single file, absolute path', async function (t) {
+  const drive = create()
+  const files = createFiles(fixtures)
+
+  await writeFiles(drive, files)
+
+  const fileListA = await drive.promises.readdir('/a')
+  t.deepEqual(fileListA, [ 'c', 'b', 'a', 'e' ])
+
+  await drive.promises.mv('/a/e', '/quxx')
+
+  const fileListB = await drive.promises.readdir('/')
+  t.deepEqual(fileListB, [ 'g', 'b', 'a', 'e', 'quxx', 'f' ], 'does contain quxx')
+
+  const fileListC = await drive.promises.readdir('/a')
+  t.deepEqual(fileListC, ['c', 'b', 'a'], 'does not contain e')
+
+  t.end()
+})
+
 function createFiles (names) {
   const files = []
   for (const name of names) {
