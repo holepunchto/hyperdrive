@@ -16,7 +16,7 @@ const fixtures = [
   'e'
 ]
 
-test('move a directory containing files', async function (t) {
+test('move a directory containing files into a new directory', async function (t) {
   const drive = create()
   const files = createFiles(fixtures)
 
@@ -25,10 +25,14 @@ test('move a directory containing files', async function (t) {
   const fileListA = await drive.promises.readdir('/a')
   t.deepEqual(fileListA, [ 'c', 'b', 'a', 'e' ])
 
-  await drive.promises.mv('a', 'z')
+  //
+  // To be IEEE Std 1003.2 (POSIX.2) compatible,
+  // the default should be to move "/a" INTO "/z".
+  //
+  await drive.promises.mv('/a', '/z')
 
   const fileListB = await drive.promises.readdir('/z', { recursive: true })
-  t.deepEqual(fileListB, [ 'c/e', 'c/d', 'b', 'a', 'e' ])
+  t.deepEqual(fileListB, [ 'a/c/e', 'a/c/d', 'a/b', 'a/a', 'a/e' ])
 
   //
   // TODO this should propbably error, enodir
@@ -39,7 +43,34 @@ test('move a directory containing files', async function (t) {
   t.end()
 })
 
-test('move a single file', async function (t) {
+test('move a directory branch containing files to another branch', async function (t) {
+  const drive = create()
+  const files = createFiles(fixtures)
+
+  await writeFiles(drive, files)
+
+  const fileListA = await drive.promises.readdir('/a', { recursive: true })
+  t.deepEqual(fileListA, ['c/e', 'c/d', 'b', 'a','e'])
+
+  await drive.promises.mv('/a', '/b')
+
+  const fileListB = await drive.promises.readdir('/b', { recursive: true })
+  t.deepEqual(fileListB, [ 'a/c/e', 'a/c/d', 'a/b', 'a/a', 'a/e', 'e', 'd', 'f' ])
+
+  //
+  // TODO this should propbably error, enodir. however, it could break things
+  // downstream to change this behavior.
+  //
+  const fileListC = await drive.promises.readdir('/a', { recursive: true })
+  t.equal(fileListC.length, 0, 'list of /a contains zero files')
+
+  const fileListD = await drive.promises.readdir('/', { recursive: true })
+  t.ok(fileListD.every(s => s[0] !== 'a'), 'a no longer exists at root')
+
+  t.end()
+})
+
+test('move a single file with a relative path', async function (t) {
   const drive = create()
   const files = createFiles(fixtures)
 
@@ -56,7 +87,7 @@ test('move a single file', async function (t) {
   t.end()
 })
 
-test('move a single file, absolute path', async function (t) {
+test('move a single file with an absolute path', async function (t) {
   const drive = create()
   const files = createFiles(fixtures)
 
@@ -65,13 +96,11 @@ test('move a single file, absolute path', async function (t) {
   const fileListA = await drive.promises.readdir('/a')
   t.deepEqual(fileListA, [ 'c', 'b', 'a', 'e' ])
 
-  await drive.promises.mv('/a/e', '/quxx')
+  await drive.promises.mv('a/e', '/quxx.html')
 
-  const fileListB = await drive.promises.readdir('/')
-  t.deepEqual(fileListB, [ 'g', 'b', 'a', 'e', 'quxx', 'f' ], 'does contain quxx')
-
-  const fileListC = await drive.promises.readdir('/a')
-  t.deepEqual(fileListC, ['c', 'b', 'a'], 'does not contain e')
+  const fileListB = await drive.promises.readdir('/', { recursive: true })
+  t.ok(fileListB.includes('quxx.html'), 'is now a root file')
+  t.ok(!fileListB.includes('a/e'), 'a/e has been removed')
 
   t.end()
 })

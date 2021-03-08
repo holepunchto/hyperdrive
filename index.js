@@ -884,8 +884,10 @@ class Hyperdrive extends Nanoresource {
         if (err) return cb(err)
         if (val === null) return cb(null)
 
-        const to = path.join(nameTo, val)
         const from = path.join(nameFrom, val)
+        const prefix = opts.op === 'rename' ? null : nameFrom
+        const parts = [nameTo, prefix, val].filter(Boolean)
+        const to = path.join.apply(null, parts)
 
         this.stat(from, (err, st) => {
           if (err) return cb(err)
@@ -918,7 +920,7 @@ class Hyperdrive extends Nanoresource {
   }
 
   rename (nameFrom, nameTo, cb) {
-    this.mv(nameFrom, nameTo, cb)
+    this._transfer(nameFrom, nameTo, { op: 'rename' }, cb)
   }
 
   replicate (isInitiator, opts) {
