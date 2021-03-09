@@ -105,6 +105,23 @@ test('move a single file with an absolute path', async function (t) {
   t.end()
 })
 
+test('rename a single file with an absolute path', async function (t) {
+  const drive = create()
+  const files = createFiles(fixtures)
+
+  await writeFiles(drive, files)
+
+  const fileListA = await drive.promises.readdir('/a')
+  t.deepEqual(fileListA, [ 'c', 'b', 'a', 'e' ])
+
+  await drive.promises.rename('a/e', 'a/quxx.html')
+
+  const fileListB = await drive.promises.readdir('/', { recursive: true })
+  t.ok(fileListB.includes('a/quxx.html'), 'was renamed')
+
+  t.end()
+})
+
 function createFiles (names) {
   const files = []
   for (const name of names) {
