@@ -122,6 +122,20 @@ test('rename a single file with an absolute path', async function (t) {
   t.end()
 })
 
+test('rename an empty directory', async function (t) {
+  const drive = create()
+  const files = createFiles(fixtures)
+
+  await writeFiles(drive, files)
+
+  await drive.promises.mkdir('/foo')
+  await drive.promises.mv('/foo', '/bar')
+  const fileListA = await drive.promises.readdir('/')
+  t.ok(fileListA.includes('bar'), 'bar created')
+  t.ok(!fileListA.includes('foo'), 'foo removed')
+  t.end()
+})
+
 function createFiles (names) {
   const files = []
   for (const name of names) {

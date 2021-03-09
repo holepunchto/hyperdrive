@@ -865,6 +865,20 @@ class Hyperdrive extends Nanoresource {
       })
     }
 
+    const move = (from, to, opts, cb) => {
+      this.stat(from, (err, st) => {
+        if (err) {
+          if (opts.ignoreNotFound && err.code === 'ENOENT') {
+            return cb(null)
+          }
+
+          return cb(err)
+        }
+
+        commit(from, to, st.encode(), cb)
+      })
+    }
+
     this.stat(nameFrom, (err, st) => {
       if (err) return cb(err)
 
@@ -884,7 +898,14 @@ class Hyperdrive extends Nanoresource {
 
       const onItem = (err, val) => {
         if (err) return cb(err)
-        if (val === null) return cb(null)
+
+        if (val === null) {
+          if (opts.op !== 'copy') {
+            return move(nameFrom, nameTo, { ignoreNotFound: true }, cb)
+          } else {
+            return cb(null)
+          }
+        }
 
         const from = path.join(nameFrom, val)
 
@@ -894,13 +915,9 @@ class Hyperdrive extends Nanoresource {
 
         const to = path.join.apply(null, parts)
 
-        this.stat(from, (err, st) => {
+        move(from, to, { ignoreNotFound: false }, (err) => {
           if (err) return cb(err)
-
-          commit(from, to, st.encode(), err => {
-            if (err) return cb(err)
-            ite.next(onItem)
-          })
+          ite.next(onItem)
         })
       }
 
