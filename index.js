@@ -846,7 +846,7 @@ class Hyperdrive extends Nanoresource {
     nameFrom = fixName(nameFrom)
     nameTo = fixName(nameTo)
 
-    const recursive = (opts.op === 'move') || opts.recursive
+    const recursive = (opts.op !== 'copy') || opts.recursive
 
     const commit = (from, to, encoded, cb) => {
       this.ready(err => {
