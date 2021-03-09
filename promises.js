@@ -202,8 +202,13 @@ module.exports = class HyperdrivePromises {
     })
   }
 
-  rename (nameFrom, nameTo, opts) {
-    return this.mv(nameFrom, nameTo, opts)
+  rename (nameFrom, nameTo) {
+    return new Promise((resolve, reject) => {
+      this.drive.rename(nameFrom, nameTo, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
   }
 
   checkout (version, opts) {
