@@ -823,7 +823,9 @@ class Hyperdrive extends Nanoresource {
       let key = name
 
       if (recursive) {
-        if (val === null) return cb(null)
+        if (val === null) {
+          return this.db.del(name, cb)
+        }
         key = path.join(name, val)
       } else if (val) {
         return cb(new errors.DirectoryNotEmpty(name))
@@ -885,8 +887,11 @@ class Hyperdrive extends Nanoresource {
         if (val === null) return cb(null)
 
         const from = path.join(nameFrom, val)
-        const prefix = opts.op === 'rename' ? null : nameFrom
-        const parts = [nameTo, prefix, val].filter(Boolean)
+
+        const parts = opts.op === 'rename'
+          ? [nameTo, val]
+          : [nameTo, nameFrom.split('/').pop(), val]
+
         const to = path.join.apply(null, parts)
 
         this.stat(from, (err, st) => {
