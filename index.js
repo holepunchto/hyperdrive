@@ -900,16 +900,12 @@ class Hyperdrive extends Nanoresource {
         if (err) return cb(err)
 
         if (val === null) {
-          if (opts.op !== 'copy') {
-            const parts = opts.op === 'rename'
-              ? [nameTo]
-              : [nameTo, nameFrom.split('/').pop()]
-            const finalTo = path.join.apply(null, parts)
+          const parts = opts.op === 'rename'
+            ? [nameTo]
+            : [nameTo, nameFrom.split('/').pop()]
+          const finalTo = path.join.apply(null, parts)
 
-            return move(nameFrom, finalTo, { ignoreNotFound: true }, cb)
-          } else {
-            return cb(null)
-          }
+          return move(nameFrom, finalTo, { ignoreNotFound: true }, cb)
         }
 
         const from = path.join(nameFrom, val)
