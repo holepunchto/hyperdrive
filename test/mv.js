@@ -122,6 +122,21 @@ test('rename a single file with an absolute path', async function (t) {
   t.end()
 })
 
+test('move an empty directory, preserves existing hierarchy', async function (t) {
+  const drive = create()
+  const files = createFiles(fixtures)
+
+  await writeFiles(drive, files)
+
+  await drive.promises.mkdir('/foo')
+  await drive.promises.mkdir('/foo/bar')
+  await drive.promises.mv('/foo/bar', '/bazz')
+  const fileListA = await drive.promises.readdir('/', { recursive: true })
+  t.ok(fileListA.includes('bazz/bar'), 'includes moved directory')
+  t.ok(fileListA.includes('foo'), 'still contains old empty direcory')
+  t.end()
+})
+
 test('rename an empty directory', async function (t) {
   const drive = create()
   const files = createFiles(fixtures)
