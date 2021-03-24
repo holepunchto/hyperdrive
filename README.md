@@ -54,7 +54,7 @@ var net = require('net')
 // ... on one machine
 
 var server = net.createServer(function (socket) {
-  socket.pipe(drive.replicate()).pipe(socket)
+  socket.pipe(drive.replicate(false)).pipe(socket)
 })
 
 server.listen(10000)
@@ -64,7 +64,7 @@ server.listen(10000)
 var clonedDrive = new Hyperdrive('./my-cloned-hyperdrive', origKey)
 var socket = net.connect(10000)
 
-socket.pipe(clonedDrive.replicate()).pipe(socket)
+socket.pipe(clonedDrive.replicate(true)).pipe(socket)
 ```
 
 It also comes with build in versioning, live replication (where the replication streams remain open, syncing new changes), and nested Hyperdrive mounting. See more below.
@@ -104,7 +104,7 @@ Note that a cloned hyperdrive drive is fully "sparse" by default, meaning that t
 ### Replication
 Hyperdrive replication occurs through streams, meaning you can pipe a drive's replication stream into any stream-based transport system you'd like. If you have many nested Hyperdrives mounted within a parent drive, `replicate` will sync all children as well.
 
-#### `var stream = drive.replicate([options])`
+#### `var stream = drive.replicate(isInitiator, [options])`
 
 Replicate this drive. Options include
 
@@ -114,6 +114,14 @@ Replicate this drive. Options include
   encrypt: true // Enable NOISE encryption.
 }
 ```
+
+The `isInitiator` argument is a boolean indicating whether you are the iniatior of the connection (ie the client)
+or if you are the passive part (ie the server).
+
+If you are using a P2P swarm like [Hyperswarm](https://github.com/hyperswarm/hyperswarm) you can know this by checking if the swarm connection is a client socket or server socket. In Hyperswarm you can check that using [client property on the peer details object](https://github.com/hyperswarm/hyperswarm#swarmonconnection-socket-details--)
+
+If you want to multiplex the replication over an existing hypercore replication stream you can pass
+another stream instance instead of the `isInitiator` boolean.
 
 ### Public Fields
 
