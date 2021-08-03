@@ -159,6 +159,22 @@ Emitted when a critical error during load happened.
 
 Emitted when there is a new update to the drive. Not triggered unless you load the data. Use `drive.watch()` to start loading.
 
+### `drive.on('metadata-download', index, data, feed)`
+
+Emitted when data has been downloaded for the metadata feed.
+
+### `drive.on('metadata-upload', index, data, feed)`
+
+Emitted when data has been uploaded for the metadata feed.
+
+### `drive.on('content-download', index, data, feed)`
+
+Emitted when data has been downloaded for the content feed.
+
+### `drive.on('content-upload', index, data, feed)`
+
+Emitted when data has been uploaded for the content feed.
+
 #### `drive.on('peer-add', peer)`
 
 Emitted when a new peer has been added.

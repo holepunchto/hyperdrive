@@ -142,6 +142,8 @@ class Hyperdrive extends Nanoresource {
       self.metadata.on('peer-add', peeradd)
       self.metadata.on('peer-open', peeropen)
       self.metadata.on('peer-remove', peerremove)
+      self.metadata.on('download', ondownload)
+      self.metadata.on('upload', onupload)
 
       this._unlistens.push(() => {
         self.db.removeListener('error', onerror)
@@ -244,6 +246,14 @@ class Hyperdrive extends Nanoresource {
       self.emit('metadata-feed', trie.feed)
       self.emit('mount', trie)
     }
+
+    function ondownload (index, data) {
+      self.emit('metadata-download', index, data, self.metadata)
+    }
+
+    function onupload (index, data) {
+      self.emit('metadata-upload', index, data, self.metadata)
+    }
   }
 
   _getContent (metadata, cb) {
@@ -263,7 +273,7 @@ class Hyperdrive extends Nanoresource {
 
   _contentStateFromOpts (opts, cb) {
     const contentOpts = { ...opts, ...contentOptions(this), cache: { data: false } }
-    
+
     try {
       var feed = this.corestore.get(contentOpts)
     } catch (err) {
@@ -272,7 +282,19 @@ class Hyperdrive extends Nanoresource {
 
     const contentErrorListener = err => this.emit('error', err)
     feed.on('error', contentErrorListener)
-    this._unlistens.push(() => feed.removeListener('error', contentErrorListener))
+
+    const contentDownloadListener = (index, data) => this.emit('content-download', index, data, feed)
+    feed.on('download', contentDownloadListener)
+
+    const contentUploadListener = (index, data) => this.emit('content-upload', index, data, feed)
+    feed.on('upload', contentUploadListener)
+
+    this._unlistens.push(() => {
+      feed.removeListener('error', contentErrorListener)
+      feed.removeListener('download', contentDownloadListener)
+      feed.removeListener('upload', contentUploadListener)
+    })
+
     feed.ready(err => {
       if (err) return cb(err)
       this.emit('content-feed', feed)
