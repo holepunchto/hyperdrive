@@ -845,9 +845,7 @@ class Hyperdrive extends Nanoresource {
       let key = name
 
       if (recursive) {
-        if (val === null) {
-          return this.db.del(name, cb)
-        }
+        if (val === null) return cb(null)
         key = path.join(name, val)
       } else if (val) {
         return cb(new errors.DirectoryNotEmpty(name))
