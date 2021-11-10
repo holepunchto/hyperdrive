@@ -59,6 +59,7 @@ test('a directory can be recursively removed', async function (t) {
   await drive.promises.rmdir('/a', { recursive: true })
 
   const fileListB = await drive.promises.readdir('/', { recursive: true })
+  t.ok(!fileListA.some(s => /^\/a/.exec(s)), '/a no longer exists')
 
   t.equal(fileListA.length, 10)
   t.deepEqual(fileListB, [ 'b/e', 'b/d', 'b/f', 'e', 'f/a' ])
