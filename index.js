@@ -1180,7 +1180,9 @@ class Hyperdrive extends Nanoresource {
     opts.off = (feed, range) => {
       return feed.undownload(range)
     }
-
+    
+    if (path === undefined) path = '/'
+    
     return this._walk(path, opts, cb)
   }
 
