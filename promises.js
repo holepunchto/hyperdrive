@@ -175,14 +175,40 @@ module.exports = class HyperdrivePromises {
     })
   }
 
-  rmdir (name) {
+  rmdir (name, opts) {
     return new Promise((resolve, reject) => {
-      this.drive.rmdir(name, err => {
+      this.drive.rmdir(name, opts, err => {
         if (err) return reject(err)
         return resolve(null)
       })
     })
+  }
 
+  cp (nameFrom, nameTo, opts) {
+    return new Promise((resolve, reject) => {
+      this.drive.cp(nameFrom, nameTo, opts, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+
+  mv (nameFrom, nameTo) {
+    return new Promise((resolve, reject) => {
+      this.drive.mv(nameFrom, nameTo, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+
+  rename (nameFrom, nameTo) {
+    return new Promise((resolve, reject) => {
+      this.drive.rename(nameFrom, nameTo, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
   }
 
   checkout (version, opts) {

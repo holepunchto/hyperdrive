@@ -831,17 +831,141 @@ class Hyperdrive extends Nanoresource {
     this._del(name, cb || noop)
   }
 
-  rmdir (name, cb) {
+  rmdir (name, opts, cb) {
+    if (typeof opts === 'function') cb = opts
     if (!cb) cb = noop
-    name = fixName(name)
-    const self = this
 
-    const ite = readdirIterator(this, name)
-    ite.next((err, val) => {
+    name = fixName(name)
+
+    const recursive = !!(opts && opts.recursive)
+    const ite = readdirIterator(this, name, opts)
+
+    const onItem = (err, val) => {
       if (err) return cb(err)
-      if (val) return cb(new errors.DirectoryNotEmpty(name))
-      self._del(name, cb)
+      let key = name
+
+      if (recursive) {
+        if (val === null) {
+          return this.db.del(name, cb)
+        }
+        key = path.join(name, val)
+      } else if (val) {
+        return cb(new errors.DirectoryNotEmpty(name))
+      }
+
+      this._del(key, err => {
+        if (err) return cb(err)
+        if (!recursive) return cb(null)
+        ite.next(onItem)
+      })
+    }
+
+    ite.next(onItem)
+  }
+
+  _transfer (nameFrom, nameTo, opts, cb) {
+    const isAbsolute = nameTo[0] === '/'
+    nameFrom = fixName(nameFrom)
+    nameTo = fixName(nameTo)
+
+    const recursive = (opts.op !== 'copy') || opts.recursive
+
+    const commit = (from, to, encoded, cb) => {
+      this.ready(err => {
+        if (err) return cb(err)
+
+        this.db.put(to, encoded, err => {
+          if (err) return cb(err)
+          if (opts.op === 'copy') return cb(null)
+
+          this.db.del(from, err => {
+            if (err) return cb(err)
+
+            cb(null)
+          })
+        })
+      })
+    }
+
+    const move = (from, to, opts, cb) => {
+      this.stat(from, (err, st) => {
+        if (err) {
+          if (opts.ignoreNotFound && err.code === 'ENOENT') {
+            return cb(null)
+          }
+
+          return cb(err)
+        }
+
+        commit(from, to, st.encode(), cb)
+      })
+    }
+
+    this.stat(nameFrom, (err, st) => {
+      if (err) return cb(err)
+
+      if (!st.isDirectory()) {
+        const isMove = opts.op === 'move'
+
+        let to = nameTo
+
+        if (isMove && !isAbsolute) {
+          to = path.join(path.dirname(nameFrom), nameTo)
+        }
+
+        return commit(nameFrom, to, st.encode(), cb)
+      }
+
+      const ite = readdirIterator(this, nameFrom, { recursive })
+
+      const onItem = (err, val) => {
+        if (err) return cb(err)
+
+        if (val === null) {
+          const parts = opts.op === 'rename'
+            ? [nameTo]
+            : [nameTo, nameFrom.split('/').pop()]
+          const finalTo = path.join.apply(null, parts)
+
+          return move(nameFrom, finalTo, { ignoreNotFound: true }, cb)
+        }
+
+        const from = path.join(nameFrom, val)
+
+        const parts = opts.op === 'rename'
+          ? [nameTo, val]
+          : [nameTo, nameFrom.split('/').pop(), val]
+
+        const to = path.join.apply(null, parts)
+
+        move(from, to, { ignoreNotFound: false }, (err) => {
+          if (err) return cb(err)
+          ite.next(onItem)
+        })
+      }
+
+      ite.next(onItem)
     })
+  }
+
+  cp (nameFrom, nameTo, opts, cb) {
+    if (typeof opts === 'function') {
+      cb = opts
+      opts = {}
+    }
+
+    if (!cb) cb = noop
+    const recursive = !!(opts && opts.recursive)
+
+    this._transfer(nameFrom, nameTo, { recursive, op: 'copy' }, cb)
+  }
+
+  mv (nameFrom, nameTo, cb) {
+    this._transfer(nameFrom, nameTo, { op: 'move' }, cb)
+  }
+
+  rename (nameFrom, nameTo, cb) {
+    this._transfer(nameFrom, nameTo, { op: 'rename' }, cb)
   }
 
   replicate (isInitiator, opts) {
