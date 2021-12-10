@@ -27,6 +27,7 @@
     "custom-error-class": "^1.0.0",
     "duplexify": "^3.7.1",
     "filesystem-constants": "^1.0.0",
+    "fsctl": "^1.0.0",
     "hypercore-byte-stream": "^1.0.2",
     "hypercore-protocol": "^8.0.7",
     "hyperdrive-schemas": "^2.0.0",
