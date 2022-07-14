@@ -1,1443 +1,464 @@
-const pathRoot = require('path')
-const path = pathRoot.posix || pathRoot
+const Hyperbee = require('hyperbee')
+const Hyperblobs = require('hyperblobs')
+const isOptions = require('is-options')
 const { EventEmitter } = require('events')
+const { Writable, Readable } = require('streamx')
 
-const collect = require('stream-collector')
-const thunky = require('thunky')
-const ThunkyMap = require('thunky-map')
-const unixify = require('unixify')
-const duplexify = require('duplexify')
-const pump = require('pump')
-const pumpify = require('pumpify')
-const { Transform } = require('streamx')
-
-const coreByteStream = require('hypercore-byte-stream')
-const Nanoresource = require('nanoresource/emitter')
-const HypercoreProtocol = require('hypercore-protocol')
-const MountableHypertrie = require('mountable-hypertrie')
-const Corestore = require('corestore')
-const { Stat } = require('hyperdrive-schemas')
-
-const createFileDescriptor = require('./lib/fd')
-const errors = require('./lib/errors')
-const defaultCorestore = require('./lib/storage')
-const TagManager = require('./lib/tagging')
-const HyperdrivePromises = require('./promises')
-const { contentKeyPair, contentOptions, ContentState } = require('./lib/content')
-const { statIterator, createStatStream, createMountStream, createReaddirStream, readdirIterator } = require('./lib/iterator')
-
-// 20 is arbitrary, just to make the fds > stdio etc
-const STDIO_CAP = 20
-const WRITE_STREAM_BLOCK_SIZE = 524288
-const NOOP_FILE_PATH = ' '
-
-module.exports = HyperdriveCompat
-module.exports.constants = require('filesystem-constants').linux
-
-class Hyperdrive extends Nanoresource {
-  constructor (storage, key, opts) {
+module.exports = class HyperBundle extends EventEmitter {
+  constructor (corestore, key, opts = {}) {
     super()
-    this._initialize(storage, key, opts)
-  }
 
-  _initialize (storage, key, opts) {
-    if (isObject(key)) {
+    if (isOptions(key)) {
       opts = key
       key = null
     }
-    if (!opts) opts = {}
+    const { _checkout, _db, _files, onwait } = opts
+    this._onwait = onwait || null
 
-    this.opts = opts
-    this.key = key
-    this.discoveryKey = null
-    this.live = true
-    this.sparse = opts.sparse !== false
-    this.sparseMetadata = opts.sparseMetadata !== false
-    this.subtype = opts.subtype || 'hyperdrive'
+    this.corestore = corestore
+    this.db = _db || makeBee(key, corestore, this._onwait)
+    this.files = _files || this.db.sub('files')
+    this.blobs = null
 
-    this.promises = new HyperdrivePromises(this)
+    this.opening = this._open()
+    this.opening.catch(noop)
+    this.opened = false
 
-    this._namespace = opts.namespace
-    this.corestore = defaultCorestore(storage, {
-      ...opts,
-      valueEncoding: 'binary',
-      // TODO: Support mixed sparsity.
-      sparse: this.sparse || this.sparseMetadata,
-      extensions: opts.extensions
-    })
+    this._openingBlobs = null
+    this._checkout = _checkout || null
+    this._batching = !!_files
+    this._closing = null
+  }
 
-    if (this.corestore !== storage) this.corestore.on('error', err => this.emit('error', err))
-    if (opts.namespace) {
-      this.corestore = this.corestore.namespace(opts.namespace)
-    }
+  [Symbol.asyncIterator] () {
+    return this.entries()[Symbol.asyncIterator]()
+  }
 
-    // Set in ready.
-    this.metadata = null
-    this.db = opts._db
-    this.tags = new TagManager(this)
-    this.isCheckout = !!this.db
+  get key () {
+    return this.core.key
+  }
 
-    this._contentStates = opts._contentStates || new ThunkyMap(this._contentStateFromMetadata.bind(this))
-    this._fds = []
-    this._writingFds = new Map()
-    this._unlistens = []
-    this._unmirror = null
+  get discoveryKey () {
+    return this.core.discoveryKey
+  }
 
-    this._metadataOpts = {
-      key,
-      sparse: this.sparseMetadata,
-      keyPair: opts.keyPair,
-      extensions: opts.extensions
-    }
+  get contentKey () {
+    return this.blobs?.core.key
+  }
 
-    this.ready(onReady)
-
-    const self = this
-
-    function onReady (err) {
-      if (err) return self.emit('error', err)
-      self.emit('ready')
-
-      if (self._contentStates.has(self.db.feed)) return
-      self._getContent(self.db.feed, noop)
-    }
+  get core () {
+    return this.db.feed
   }
 
   get version () {
-    // TODO: The trie version starts at 1, so the empty hyperdrive version is also 1. This should be 0.
     return this.db.version
   }
 
-  get writable () {
-    return this.metadata.writable
+  findingPeers () {
+    return this.db.feed.findingPeers()
   }
 
-  get contentWritable () {
-    const contentState = this._contentStates.cache.get(this.db.feed)
-    if (!contentState) return false
-    return contentState.feed.writable
+  update () {
+    return this.db.feed.update()
   }
 
-  ready (cb) {
-    return this.open(cb)
+  ready () {
+    return this.opening
   }
 
-  _open (cb) {
-    const self = this
-    return this.corestore.ready(err => {
-      if (err) return cb(err)
-      this.metadata = this.corestore.default(this._metadataOpts)
-      this.db = this.db || new MountableHypertrie(this.corestore, this.key, {
-        feed: this.metadata,
-        sparse: this.sparseMetadata,
-        extension: this.opts.extension !== false,
-        subtype: this.subtype
-      })
-      this.db.on('hypertrie', onhypertrie)
-      this.db.on('error', onerror)
-
-      self.metadata.on('error', onerror)
-      self.metadata.on('append', update)
-      self.metadata.on('extension', extension)
-      self.metadata.on('peer-add', peeradd)
-      self.metadata.on('peer-open', peeropen)
-      self.metadata.on('peer-remove', peerremove)
-      self.metadata.on('download', ondownload)
-      self.metadata.on('upload', onupload)
-
-      this._unlistens.push(() => {
-        self.db.removeListener('error', onerror)
-        self.db.removeListener('hypertrie', onhypertrie)
-        self.metadata.removeListener('error', onerror)
-        self.metadata.removeListener('append', update)
-        self.metadata.removeListener('extension', extension)
-        self.metadata.removeListener('peer-add', peeradd)
-        self.metadata.removeListener('peer-open', peeropen)
-        self.metadata.removeListener('peer-remove', peerremove)
-      })
-
-      return self.metadata.ready(err => {
-        if (err) return done(err)
-
-        /**
-        * TODO: Update comment to reflect mounts.
-        *
-        * If a db is provided as input, ensure that a contentFeed is also provided, then return (this is a checkout).
-        * If the metadata feed is writable:
-        *    If the metadata feed has length 0, then the db should be initialized with the content feed key as metadata.
-        *    Else, initialize the db without metadata and load the content feed key from the header.
-        * If the metadata feed is readable:
-        *    Initialize the db without metadata and load the content feed key from the header.
-        */
-        if (self.metadata.writable && !self.metadata.length && !self.isCheckout) {
-          initialize()
-        } else {
-          restore()
-        }
-      })
-    })
-
-    /**
-     * The first time the hyperdrive is created, we initialize both the db (metadata feed) and the content feed here.
-     */
-    function initialize () {
-      const contentName = self.metadata.key.toString('hex') + '-content'
-      self._contentStateFromOpts({ name: contentName }, (err, contentState) => {
-        if (err) return done(err)
-        // warm up the thunky map
-        self._contentStates.cache.set(self.db.feed, contentState)
-        self.db.setMetadata(contentState.feed.key)
-        self.db.ready(err => {
-          if (err) return done(err)
-          return done(null)
-        })
-      })
-    }
-
-    /**
-     * If the hyperdrive has already been created, wait for the db (metadata feed) to load.
-     * If the metadata feed is writable, we can immediately load the content feed from its private key.
-     * (Otherwise, we need to read the feed's metadata block first)
-     */
-    function restore (keyPair) {
-      self.db.ready(err => {
-        if (err) return done(err)
-        self.metadata.has(0, (err, hasMetadataBlock) => {
-          if (err) return done(err)
-          if (hasMetadataBlock) self._getContent(self.db.feed, done)
-          else done(null)
-        })
-      })
-    }
-
-    function done (err) {
-      if (err) return cb(err)
-      self.key = self.metadata.key
-      self.discoveryKey = self.metadata.discoveryKey
-      return cb(null)
-    }
-
-    function onerror (err) {
-      if (err) self.emit('error', err)
-      return cb(err)
-    }
-
-    function update () {
-      self.emit('update')
-    }
-
-    function extension(name, message, peer) {
-      self.emit('extension', name, message, peer)
-    }
-
-    function peeradd(peer) {
-      self.emit('peer-add', peer)
-    }
-
-    function peeropen(peer) {
-      self.emit('peer-open', peer)
-    }
-
-    function peerremove(peer) {
-      self.emit('peer-remove', peer)
-    }
-
-    function onhypertrie (trie) {
-      self.emit('metadata-feed', trie.feed)
-      self.emit('mount', trie)
-    }
-
-    function ondownload (index, data) {
-      self.emit('metadata-download', index, data, self.metadata)
-    }
-
-    function onupload (index, data) {
-      self.emit('metadata-upload', index, data, self.metadata)
-    }
-  }
-
-  _getContent (metadata, cb) {
-    this._contentStates.get(metadata, cb)
-  }
-
-  _contentStateFromMetadata (metadata, cb) {
-    MountableHypertrie.getMetadata(metadata, (err, publicKey) => {
-      if (err) return cb(err)
-      this._contentStateFromKey(publicKey, cb)
+  checkout (len) {
+    return new HyperBundle(this.corestore, this.key, {
+      onwait: this._onwait,
+      _checkout: this,
+      _db: this.db.checkout(len),
+      _files: null
     })
   }
 
-  _contentStateFromKey (publicKey, cb) {
-    this._contentStateFromOpts({ key: publicKey }, cb)
+  batch () {
+    return new HyperBundle(this.corestore, this.key, {
+      onwait: this._onwait,
+      _checkout: null,
+      _db: this.db,
+      _files: this.files.batch()
+    })
   }
 
-  _contentStateFromOpts (opts, cb) {
-    const contentOpts = { ...opts, ...contentOptions(this), cache: { data: false } }
+  flush () {
+    return this.files.flush()
+  }
+
+  close () {
+    if (this._closing) return this._closing
+    this._closing = this._close()
+    return this._closing
+  }
+
+  _makeBee (key) {
+    const metadataOpts = key
+      ? { key, cache: true, onwait: this._onwait }
+      : { name: 'db', cache: true, onwait: this._onwait }
+    const core = this.corestore.get(metadataOpts)
+    const metadata = { contentFeed: null }
+    return new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json', metadata })
+  }
+
+  async _close () {
+    if (this._batching) return this.files.close()
 
     try {
-      var feed = this.corestore.get(contentOpts)
-    } catch (err) {
-      return cb(err)
+      await this.ready()
+      await this.blobs.core.close()
+      await this.db.feed.close()
+    } catch {}
+
+    this.emit('close')
+  }
+
+  async _openBlobsFromHeader (opts) {
+    if (this.blobs) return true
+
+    const header = await this.db.getHeader(opts)
+    if (!header) return false
+
+    if (this.blobs) return true
+
+    const blobsKey = header.metadata && header.metadata.contentFeed.subarray(0, 32)
+    if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
+
+    const blobsCore = this.corestore.get({
+      key: blobsKey,
+      cache: false,
+      onwait: this._onwait
+    })
+    await blobsCore.ready()
+
+    this.blobs = new Hyperblobs(blobsCore)
+
+    this.emit('blobs', this.blobs)
+    this.emit('content-key', blobsCore.key)
+
+    return true
+  }
+
+  async _open () {
+    if (this._checkout) return this._checkout.ready()
+
+    await this._openBlobsFromHeader({ wait: false })
+
+    if (this.db.feed.writable && !this.blobs) {
+      const blobsCore = this.corestore.get({
+        name: 'blobs',
+        cache: false,
+        onwait: this._onwait
+      })
+      await blobsCore.ready()
+
+      this.blobs = new Hyperblobs(blobsCore)
+      this.db.metadata.contentFeed = this.blobs.core.key
     }
 
-    const contentErrorListener = err => this.emit('error', err)
-    feed.on('error', contentErrorListener)
+    await this.db.ready()
 
-    const contentDownloadListener = (index, data) => this.emit('content-download', index, data, feed)
-    feed.on('download', contentDownloadListener)
-
-    const contentUploadListener = (index, data) => this.emit('content-upload', index, data, feed)
-    feed.on('upload', contentUploadListener)
-
-    this._unlistens.push(() => {
-      feed.removeListener('error', contentErrorListener)
-      feed.removeListener('download', contentDownloadListener)
-      feed.removeListener('upload', contentUploadListener)
-    })
-
-    feed.ready(err => {
-      if (err) return cb(err)
-      this.emit('content-feed', feed)
-      return cb(null, new ContentState(feed))
-    })
-  }
-
-  _putStat (name, stat, opts, cb) {
-    if (typeof opts === 'function') return this._putStat(name, stat, null, opts)
-    try {
-      var encoded = stat.encode()
-    } catch (err) {
-      return cb(err)
+    if (!this.blobs) {
+      // eagerly load the blob store....
+      this._openingBlobs = this._openBlobsFromHeader()
+      this._openingBlobs.catch(noop)
     }
-    this.db.put(name, encoded, opts, err => {
-      if (err) return cb(err)
-      return cb(null, stat)
-    })
+
+    this.opened = true
+    this.emit('ready')
   }
 
-  _update (name, stat, cb) {
-    name = fixName(name)
+  async getBlobs () {
+    if (this.blobs) return this.blobs
 
-    this.db.get(name, (err, st) => {
-      if (err) return cb(err)
-      if (!st) return cb(new errors.FileNotFound(name))
-      try {
-        var decoded = Stat.decode(st.value)
-      } catch (err) {
-        return cb(err)
-      }
-      const oldMetadata = decoded.metadata
-      const newStat = Object.assign(decoded, stat)
-      if (stat.metadata) {
-        newStat.metadata = Object.assign({}, oldMetadata || {}, stat.metadata)
-      }
-      return this._putStat(name, newStat, { flags: st.flags }, cb)
-    })
+    if (this._checkout) {
+      this.blobs = await this._checkout.getBlobs()
+    } else {
+      await this.ready()
+      await this._openingBlobs
+    }
+
+    return this.blobs
   }
 
-  _upsert (name, stat, cb) {
-    name = fixName(name)
+  async get (name) {
+    const node = await this.entry(name)
+    if (!node?.value.blob) return null
+    await this.getBlobs()
+    return this.blobs.get(node.value.blob)
+  }
 
-    this.db.get(name, (err, st) => {
-      if (err) return cb(err)
-      if (!st) {
-        var decoded = Stat.file()
-      }
-      else {
-        try {
-          var decoded = Stat.decode(st.value)
-        } catch (err) {
-          return cb(err)
+  async put (name, buf, { executable = false, metadata = null } = {}) {
+    await this.getBlobs()
+    const id = await this.blobs.put(buf)
+    return this.files.put(name, { executable, linkname: null, blob: id, metadata })
+  }
+
+  async del (name) {
+    if (!this.opened) await this.ready()
+    return this.files.del(name)
+  }
+
+  async symlink (name, dst, { metadata = null } = {}) {
+    if (!this.opened) await this.ready()
+    return this.files.put(name, { executable: false, linkname: dst, blob: null, metadata })
+  }
+
+  entry (name) {
+    return typeof name === 'string'
+      ? this.files.get(name)
+      : Promise.resolve(name)
+  }
+
+  diff (length, folder, opts) {
+    if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
+    if (folder) {
+      if (folder.endsWith('/')) folder = folder.slice(0, -1)
+      opts = { gt: folder + '/', lt: folder + '0', ...opts }
+    }
+    return this.files.createDiffStream(length, opts)
+  }
+
+  async downloadDiff (length, folder, opts) {
+    const dls = []
+
+    for await (const entry of this.diff(length, folder, opts)) {
+      if (!entry.left) continue
+      const b = entry.left.value.blob
+      if (!b) continue
+      const blobs = await this.getBlobs()
+      dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
+    }
+
+    const proms = []
+    for (const r of dls) proms.push(r.downloaded())
+
+    await Promise.allSettled(proms)
+  }
+
+  async downloadRange (dbRanges, blobRanges) {
+    const dls = []
+
+    await this.ready()
+
+    for (const range of dbRanges) {
+      dls.push(this.db.feed.download(range))
+    }
+
+    const blobs = await this.getBlobs()
+
+    for (const range of blobRanges) {
+      dls.push(blobs.core.download(range))
+    }
+
+    const proms = []
+    for (const r of dls) proms.push(r.downloaded())
+
+    await Promise.allSettled(proms)
+  }
+
+  entries (opts) {
+    return this.files.createReadStream(opts)
+  }
+
+  async download (folder, opts) {
+    const dls = []
+
+    for await (const entry of this.list(folder, opts)) {
+      const b = entry.value.blob
+      if (!b) continue
+
+      const blobs = await this.getBlobs()
+      dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
+    }
+
+    const proms = []
+    for (const r of dls) proms.push(r.downloaded())
+
+    await Promise.allSettled(proms)
+  }
+
+  // atm always recursive, but we should add some depth thing to it
+  list (folder, { recursive = true } = {}) {
+    if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    if (recursive === false) return shallowReadStream(this.files, folder, false)
+    // '0' is binary +1 of /
+    return folder ? this.entries({ gt: folder + '/', lt: folder + '0' }) : this.entries()
+  }
+
+  readdir (folder) {
+    if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    return shallowReadStream(this.files, folder, true)
+  }
+
+  createReadStream (name) {
+    const self = this
+
+    let destroyed = false
+    let rs = null
+
+    const stream = new Readable({
+      open (cb) {
+        self.getBlobs().then(onblobs, cb)
+
+        function onblobs () {
+          self.entry(name).then(onnode, cb)
         }
-      }
-      const oldMetadata = decoded.metadata
-      const newStat = Object.assign(decoded, stat)
-      if (stat.metadata) {
-        newStat.metadata = Object.assign({}, oldMetadata || {}, stat.metadata)
-      }
-      return this._putStat(name, newStat, { flags: st ? st.flags : 0 }, cb)
-    })
-  }
 
-  getContent (cb) {
-    if (!this.db) return cb(null, null)
-    this._getContent(this.db.feed, (err, contentState) => {
-      if (err) return cb(err)
-      return cb(null, contentState.feed)
-    })
-  }
+        function onnode (node) {
+          if (destroyed) return cb(null)
+          if (!node) return cb(new Error('Blob does not exist'))
 
-  open (name, flags, cb) {
-    if (!name || typeof name === 'function') return super.open(name)
-    name = fixName(name)
-
-    this.ready(err => {
-      if (err) return cb(err)
-      createFileDescriptor(this, name, flags, (err, fd) => {
-        if (err) return cb(err)
-        cb(null, STDIO_CAP + (this._fds.push(fd) - 1) * 2)
-      })
-    })
-  }
-
-  read (fd, buf, offset, len, pos, cb) {
-    if (typeof pos === 'function') {
-      cb = pos
-      pos = null
-    }
-
-    const desc = this._fds[(fd - STDIO_CAP) / 2]
-    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
-    if (pos == null) pos = desc.position
-    desc.read(buf, offset, len, pos, cb)
-  }
-
-  write (fd, buf, offset, len, pos, cb) {
-    if (typeof pos === 'function') {
-      cb = pos
-      pos = null
-    }
-
-    const desc = this._fds[(fd - STDIO_CAP) / 2]
-    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
-    if (pos == null) pos = desc.position
-    desc.write(buf, offset, len, pos, cb)
-  }
-
-  createReadStream (name, opts) {
-    if (!opts) opts = {}
-    const self = this
-
-    name = fixName(name)
-
-    const length = typeof opts.end === 'number' ? 1 + opts.end - (opts.start || 0) : typeof opts.length === 'number' ? opts.length : -1
-    const stream = coreByteStream({
-      ...opts,
-      highWaterMark: opts.highWaterMark || 64 * 1024
-    })
-
-    this.ready(err => {
-      if (err) return stream.destroy(err)
-      return this.stat(name, { file: true }, (err, st, trie) => {
-        if (err) return stream.destroy(err)
-        if (st.mount && st.mount.hypercore) {
-          const feed = self.corestore.get({
-            key: st.mount.key,
-            sparse: self.sparse
-          })
-          return feed.ready(err => {
-            if (err) return stream.destroy(err)
-            st.blocks = feed.length
-            return oncontent(st, { feed })
-          })
-        }
-        return this._getContent(trie.feed, (err, contentState) => {
-          if (err) return stream.destroy(err)
-          return oncontent(st, contentState)
-        })
-      })
-    })
-
-    function oncontent (st, contentState) {
-      if (st.mount && st.mount.hypercore) {
-        var byteOffset = 0
-        var blockOffset = 0
-        var blockLength = st.blocks
-      } else {
-        blockOffset = st.offset
-        blockLength = st.blocks
-        byteOffset = opts.start ? st.byteOffset + opts.start : (length === -1 ? -1 : st.byteOffset)
-      }
-
-      const byteLength = Math.min(length, st.size)
-
-      stream.start({
-        feed: contentState.feed,
-        blockOffset,
-        blockLength,
-        byteOffset,
-        byteLength
-      })
-    }
-
-    return stream
-  }
-
-  createDiffStream (other, prefix, opts) {
-    if (other instanceof Hyperdrive) other = other.version
-    if (typeof prefix === 'object') return this.createDiffStream(other, '/', prefix)
-    prefix = prefix || '/'
-
-    const diffStream = this.db.createDiffStream(other, prefix, opts)
-    return pumpify.obj(
-      diffStream,
-      new Transform({
-        transform (chunk, cb) {
-          const entry = { type: chunk.type, name: chunk.key }
-          if (chunk.left) entry.seq = chunk.left.seq
-          if (chunk.right) entry.previous = { seq: chunk.right.seq }
-          if (chunk.left && entry.type !== 'mount' && entry.type !== 'unmount') {
-            try {
-              entry.value = Stat.decode(chunk.left.value)
-            } catch (err) {
-              return cb(err)
-            }
-          } else if (chunk.left) {
-            entry.value = chunk.left.info
-          }
-          return cb(null, entry)
-        }
-      })
-    )
-  }
-
-  createDirectoryStream (name, opts) {
-    if (!opts) opts = {}
-    name = fixName(name)
-    return createReaddirStream(this, name, {
-      ...opts,
-      includeStats: true
-    })
-  }
-
-  createWriteStream (name, opts) {
-    if (!opts) opts = {}
-    name = fixName(name)
-
-    const self = this
-    var release
-
-    const proxy = duplexify()
-    proxy.setReadable(false)
-
-    // TODO: support piping through a "split" stream like rabin
-
-    this.ready(err => {
-      if (err) return proxy.destroy(err)
-      this.stat(name, { trie: true }, (err, stat, trie) => {
-        if (err && (err.errno !== 2)) return proxy.destroy(err)
-        this._getContent(trie.feed, (err, contentState) => {
-          if (err) return proxy.destroy(err)
-          if (opts.wait === false && contentState.isLocked()) return cb(new Error('Content is locked.'))
-          contentState.lock(_release => {
-            release = _release
-            append(contentState)
-          })
-        })
-      })
-    })
-
-    return proxy
-
-    function append (contentState) {
-      if (proxy.destroyed) return release()
-
-      const byteOffset = contentState.feed.byteLength
-      const offset = contentState.feed.length
-
-      self.emit('appending', name, opts)
-
-      // TODO: revert the content feed if this fails!!!! (add an option to the write stream for this (atomic: true))
-      const stream = contentState.feed.createWriteStream({ maxBlockSize: WRITE_STREAM_BLOCK_SIZE })
-
-      proxy.on('close', ondone)
-      proxy.on('finish', ondone)
-
-      proxy.setWritable(stream)
-      proxy.on('prefinish', function () {
-        const stat = Stat.file({
-          ...opts,
-          offset,
-          byteOffset,
-          size: contentState.feed.byteLength - byteOffset,
-          blocks: contentState.feed.length - offset
-        })
-        proxy.cork()
-        self._putStat(name, stat, function (err) {
-          if (err) return proxy.destroy(err)
-          self.emit('append', name, opts)
-          proxy.uncork()
-        })
-      })
-    }
-
-    function ondone () {
-      proxy.removeListener('close', ondone)
-      proxy.removeListener('finish', ondone)
-      release()
-    }
-  }
-
-  create (name, opts, cb) {
-    if (typeof opts === 'function') return this.create(name, null, opts)
-
-    name = fixName(name)
-
-    this.ready(err => {
-      if (err) return cb(err)
-      this.lstat(name, { file: true, trie: true }, (err, stat) => {
-        if (err && err.errno !== 2) return cb(err)
-        if (stat) return cb(null, stat)
-        const st = Stat.file(opts)
-        return this._putStat(name, st, cb)
-      })
-    })
-  }
-
-  readFile (name, opts, cb) {
-    if (typeof opts === 'function') return this.readFile(name, null, opts)
-    if (typeof opts === 'string') opts = { encoding: opts }
-    if (!opts) opts = {}
-
-    name = fixName(name)
-
-    collect(this.createReadStream(name, opts), function (err, bufs) {
-      if (err) return cb(err)
-      let buf = bufs.length === 1 ? bufs[0] : Buffer.concat(bufs)
-      cb(null, opts.encoding && opts.encoding !== 'binary' ? buf.toString(opts.encoding) : buf)
-    })
-  }
-
-  writeFile (name, buf, opts, cb) {
-    if (typeof opts === 'function') return this.writeFile(name, buf, null, opts)
-    if (typeof opts === 'string') opts = { encoding: opts }
-    if (!opts) opts = {}
-    if (typeof buf === 'string') buf = Buffer.from(buf, opts.encoding || 'utf-8')
-    if (!cb) cb = noop
-
-    name = fixName(name)
-
-    // Make sure that the buffer is chunked into blocks of 0.5MB.
-    let stream = this.createWriteStream(name, opts)
-
-    // TODO: Do we need to maintain the error state? What's triggering 'finish' after 'error'?
-    var errored = false
-
-    stream.on('error', err => {
-      errored = true
-      return cb(err)
-    })
-    stream.on('finish', () => {
-      if (!errored) return cb(null)
-    })
-    stream.end(buf)
-  }
-
-  truncate (name, size, cb) {
-    name = fixName(name)
-
-    this.lstat(name, { file: true, trie: true }, (err, st) => {
-      if (err && err.errno !== 2) return cb(err)
-      if (!st || !size) return this.create(name, cb)
-      if (size === st.size) return cb(null)
-      if (size < st.size) {
-        const readStream = this.createReadStream(name, { length: size })
-        const writeStream = this.createWriteStream(name)
-        return pump(readStream, writeStream, cb)
-      } else {
-        this.open(name, 'a', (err, fd) => {
-          if (err) return cb(err)
-          const length = size - st.size
-          this.write(fd, Buffer.alloc(length), 0, length, st.size, err => {
-            if (err) return cb(err)
-            this.close(fd, cb)
-          })
-        })
-      }
-    })
-  }
-
-  ftruncate (fd, size, cb) {
-    const desc = this._fds[(fd - STDIO_CAP) / 2]
-    if (!desc) return process.nextTick(cb, new errors.BadFileDescriptor(`Bad file descriptor: ${fd}`))
-    return desc.truncate(size, cb)
-  }
-
-  _createStat (name, opts, cb) {
-    const self = this
-
-    const statConstructor = (opts && opts.directory) ? Stat.directory : Stat.file
-    const shouldForce = !!opts.force
-
-    this.ready(err => {
-      if (err) return cb(err)
-      this.db.get(name, (err, node, trie) => {
-        if (err) return cb(err)
-        if (node && !shouldForce) return cb(new errors.PathAlreadyExists(name))
-        onexisting(node, trie)
-      })
-    })
-
-    function onexisting (node, trie) {
-      self.ready(err => {
-        if (err) return cb(err)
-        self._getContent(trie.feed, (err, contentState) => {
-          if (err) return cb(err)
-          const st = statConstructor({
-            ...opts,
-            offset: contentState.feed.length,
-            byteOffset: contentState.feed.byteLength
-          })
-          return cb(null, st)
-        })
-      })
-    }
-  }
-
-  mkdir (name, opts, cb) {
-    if (typeof opts === 'function') return this.mkdir(name, null, opts)
-    if (typeof opts === 'number') opts = { mode: opts }
-    if (!opts) opts = {}
-    if (!cb) cb = noop
-
-    name = fixName(name)
-    opts.directory = true
-
-    this._createStat(name, opts, (err, st) => {
-      if (err) return cb(err)
-      this._putStat(name, st, {
-        condition: ifNotExists
-      }, cb)
-    })
-  }
-
-  _statDirectory (name, opts, cb) {
-    const ite = this.db.iterator(name)
-    ite.next((err, st) => {
-      if (err) return cb(err)
-      if (name !== '/' && !st) return cb(new errors.FileNotFound(name))
-      if (name === '/') return cb(null, Stat.directory(), this.db)
-      const trie = st[MountableHypertrie.Symbols.TRIE]
-      const mount = st[MountableHypertrie.Symbols.MOUNT]
-      const innerPath = st[MountableHypertrie.Symbols.INNER_PATH]
-      try {
-        st = Stat.decode(st.value)
-      } catch (err) {
-        return cb(err)
-      }
-      const noMode = Object.assign({}, st, { mode: 0 })
-      return cb(null, Stat.directory(noMode), trie, mount, innerPath)
-    })
-  }
-
-  readlink (name, cb) {
-    this.lstat(name, function (err, st) {
-      if (err) return cb(err)
-      cb(null, st.linkname)
-    })
-  }
-
-  lstat (name, opts, cb) {
-    if (typeof opts === 'function') return this.lstat(name, null, opts)
-    if (!opts) opts = {}
-    const self = this
-    name = fixName(name)
-
-    this.ready(err => {
-      if (err) return cb(err)
-      this.db.get(name, opts, onstat)
-    })
-
-    function onstat (err, node, trie, mount, mountPath) {
-      if (err) return cb(err)
-      if (!node && opts.trie) return cb(null, null, trie, mount, mountPath)
-      if (!node && opts.file) return cb(new errors.FileNotFound(name))
-      if (!node) return self._statDirectory(name, opts, cb)
-      try {
-        var st = Stat.decode(node.value)
-      } catch (err) {
-        return cb(err)
-      }
-      const writingFd = self._writingFds.get(name)
-      if (writingFd) {
-        st.size = writingFd.stat.size
-      }
-      cb(null, st, trie, mount, mountPath)
-    }
-  }
-
-  stat (name, opts, cb) {
-    if (typeof opts === 'function') return this.stat(name, null, opts)
-    if (!opts) opts = {}
-
-    this.lstat(name, opts, (err, stat, trie, mount, mountPath) => {
-      if (err) return cb(err)
-      if (!stat) return cb(null, null, trie, name, mount, mountPath)
-      if (stat.linkname) {
-        if (path.isAbsolute(stat.linkname)) return this.stat(stat.linkname, opts, cb)
-        const relativeStat = path.resolve('/', path.dirname(name), stat.linkname)
-        return this.stat(relativeStat, opts, cb)
-      }
-      return cb(null, stat, trie, name, mount, mountPath)
-    })
-  }
-
-  info (name, cb) {
-    name = fixName(name)
-    const noopPath = path.join(name, NOOP_FILE_PATH)
-    this.stat(noopPath, { trie: true }, (err, stat, trie, _, mountInfo, mountPath) => {
-      if (err) return cb(err)
-      return cb(null, {
-        feed: trie.feed,
-        mountPath: fixName(noopPath.slice(0, noopPath.length - mountPath.length)),
-        mountInfo
-      })
-    })
-  }
-
-  access (name, opts, cb) {
-    if (typeof opts === 'function') return this.access(name, null, opts)
-    if (!opts) opts = {}
-    name = fixName(name)
-
-    this.stat(name, opts, err => {
-      cb(err)
-    })
-  }
-
-  exists (name, opts, cb) {
-    if (typeof opts === 'function') return this.exists(name, null, opts)
-    if (!opts) opts = {}
-
-    this.access(name, opts, err => {
-      cb(!err)
-    })
-  }
-
-  readdir (name, opts, cb) {
-    if (typeof opts === 'function') return this.readdir(name, null, opts)
-    name = fixName(name)
-
-    const readdirStream = createReaddirStream(this, name, opts)
-    return collect(readdirStream, (err, entries) => {
-      if (err) return cb(err)
-      return cb(null, entries)
-    })
-  }
-
-  _del (name, cb) {
-    this.ready(err => {
-      if (err) return cb(err)
-      this.db.del(name, (err, node) => {
-        if (err) return cb(err)
-        if (!node) return cb(new errors.FileNotFound(name))
-        return cb(null)
-      })
-    })
-  }
-
-  unlink (name, cb) {
-    name = fixName(name)
-    this._del(name, cb || noop)
-  }
-
-  rmdir (name, opts, cb) {
-    if (typeof opts === 'function') cb = opts
-    if (!cb) cb = noop
-
-    name = fixName(name)
-
-    const recursive = !!(opts && opts.recursive)
-    const ite = readdirIterator(this, name, opts)
-
-    const onItem = (err, val) => {
-      if (err) return cb(err)
-      let key = name
-
-      if (recursive) {
-        if (val === null) return cb(null)
-        key = path.join(name, val)
-      } else if (val) {
-        return cb(new errors.DirectoryNotEmpty(name))
-      }
-
-      this._del(key, err => {
-        if (err) return cb(err)
-        if (!recursive) return cb(null)
-        ite.next(onItem)
-      })
-    }
-
-    ite.next(onItem)
-  }
-
-  _transfer (nameFrom, nameTo, opts, cb) {
-    const isAbsolute = nameTo[0] === '/'
-    nameFrom = fixName(nameFrom)
-    nameTo = fixName(nameTo)
-
-    const recursive = (opts.op !== 'copy') || opts.recursive
-
-    const commit = (from, to, encoded, cb) => {
-      this.ready(err => {
-        if (err) return cb(err)
-
-        this.db.put(to, encoded, err => {
-          if (err) return cb(err)
-          if (opts.op === 'copy') return cb(null)
-
-          this.db.del(from, err => {
-            if (err) return cb(err)
-
-            cb(null)
-          })
-        })
-      })
-    }
-
-    const move = (from, to, opts, cb) => {
-      this.stat(from, (err, st) => {
-        if (err) {
-          if (opts.ignoreNotFound && err.code === 'ENOENT') {
+          if (!node.value.blob) {
+            stream.push(null)
             return cb(null)
           }
 
-          return cb(err)
+          rs = self.blobs.createReadStream(node.value.blob)
+
+          rs.on('data', function (data) {
+            if (!stream.push(data)) rs.pause()
+          })
+
+          rs.on('end', function () {
+            stream.push(null)
+          })
+
+          rs.on('error', function (err) {
+            stream.destroy(err)
+          })
+
+          cb(null)
         }
-
-        commit(from, to, st.encode(), cb)
-      })
-    }
-
-    this.stat(nameFrom, (err, st) => {
-      if (err) return cb(err)
-
-      if (!st.isDirectory()) {
-        const isMove = opts.op === 'move'
-
-        let to = nameTo
-
-        if (isMove && !isAbsolute) {
-          to = path.join(path.dirname(nameFrom), nameTo)
-        }
-
-        return commit(nameFrom, to, st.encode(), cb)
+      },
+      read (cb) {
+        rs.resume()
+        cb(null)
+      },
+      predestroy () {
+        destroyed = true
+        if (rs) rs.destroy()
       }
-
-      const ite = readdirIterator(this, nameFrom, { recursive })
-
-      const onItem = (err, val) => {
-        if (err) return cb(err)
-
-        if (val === null) {
-          const parts = opts.op === 'rename'
-            ? [nameTo]
-            : [nameTo, nameFrom.split('/').pop()]
-          const finalTo = path.join.apply(null, parts)
-
-          return move(nameFrom, finalTo, { ignoreNotFound: true }, cb)
-        }
-
-        const from = path.join(nameFrom, val)
-
-        const parts = opts.op === 'rename'
-          ? [nameTo, val]
-          : [nameTo, nameFrom.split('/').pop(), val]
-
-        const to = path.join.apply(null, parts)
-
-        move(from, to, { ignoreNotFound: false }, (err) => {
-          if (err) return cb(err)
-          ite.next(onItem)
-        })
-      }
-
-      ite.next(onItem)
     })
-  }
 
-  cp (nameFrom, nameTo, opts, cb) {
-    if (typeof opts === 'function') {
-      cb = opts
-      opts = {}
-    }
-
-    if (!cb) cb = noop
-    const recursive = !!(opts && opts.recursive)
-
-    this._transfer(nameFrom, nameTo, { recursive, op: 'copy' }, cb)
-  }
-
-  mv (nameFrom, nameTo, cb) {
-    this._transfer(nameFrom, nameTo, { op: 'move' }, cb)
-  }
-
-  rename (nameFrom, nameTo, cb) {
-    this._transfer(nameFrom, nameTo, { op: 'rename' }, cb)
-  }
-
-  replicate (isInitiator, opts) {
-    // support replicate({ initiator: bool }) also
-    if (typeof isInitiator === 'object' && isInitiator && !opts) {
-      opts = isInitiator
-      isInitiator = !!opts.initiator
-    }
-    const stream = (opts && opts.stream) || new HypercoreProtocol(isInitiator, { ...opts })
-    this.ready(err => {
-      if (err) return stream.destroy(err)
-      this.corestore.replicate(isInitiator, { ...opts, stream })
-    })
     return stream
   }
 
-  checkout (version, opts) {
-    opts = {
-      ...opts,
-      _db: this.db.checkout(version),
-      _contentStates: this._contentStates,
-    }
-    return new Hyperdrive(this.corestore, this.key, opts)
-  }
-
-  _closeFile (fd, cb) {
-    const idx = (fd - STDIO_CAP) / 2
-    const desc = this._fds[idx]
-    if (!desc) return process.nextTick(cb, new Error('Invalid file descriptor'))
-    this._fds[idx] = null
-    while (this._fds.length && !this._fds[this._fds.length - 1]) this._fds.pop()
-    desc.close(cb)
-  }
-
-  _close (cb) {
-    this.db.close(err => {
-      for (const unlisten of this._unlistens) {
-        unlisten()
-      }
-      this._unlistens = []
-      this.emit('close')
-      cb(err)
-    })
-  }
-
-  close (fd, cb) {
-    if (typeof fd === 'number') return this._closeFile(fd, cb || noop)
-    super.close(false, fd)
-  }
-
-  destroyStorage (cb) {
-    const metadata  = this.db.feed
-    this._getContent(metadata, (err, contentState) => {
-      const content = contentState.feed
-      metadata.destroyStorage(() => {
-        content.destroyStorage(() => {
-          this.close(cb)
-        })
-      })
-    })
-  }
-
-  stats (path, opts, cb) {
-    if (typeof opts === 'function') return this.stats(path, null, opts)
+  createWriteStream (name, { executable = false, metadata = null } = {}) {
     const self = this
-    const stats = new Map()
 
-    this.stat(path, (err, stat, trie) => {
-      if (err) return cb(err)
-      if (stat.isFile()) {
-        return fileStats(path, cb)
-      } else {
-        const recursive = opts && (opts.recursive !== false)
-        const ite = statIterator(self, path, { recursive })
-        return ite.next(function loop (err, info) {
-          if (err) return cb(err)
-          if (!info) return cb(null, stats)
-          fileStats(info.path, (err, fileStats) => {
-            if (err && err.errno !== 2) return cb(err)
-            if (!fileStats) return ite.next(loop)
-            stats.set(info.path, fileStats)
-            return ite.next(loop)
+    let destroyed = false
+    let ws = null
+    let ondrain = null
+    let onfinish = null
+
+    const stream = new Writable({
+      open (cb) {
+        self.getBlobs().then(onblobs, cb)
+
+        function onblobs () {
+          if (destroyed) return cb(null)
+
+          ws = self.blobs.createWriteStream()
+
+          ws.on('error', function (err) {
+            stream.destroy(err)
           })
-        })
-      }
-    })
 
-    function onstats (err, path, fileStats) {
-      if (err) return cb(err)
-      stats.set(path, fileStats)
-    }
-
-    function fileStats (path, cb) {
-      const total = emptyStats()
-      return self.stat(path, (err, stat, trie) => {
-        if (err) return cb(err)
-        return self._getContent(trie.feed, (err, contentState) => {
-          if (err) return cb(err)
-          contentState.feed.downloaded(stat.offset, stat.offset + stat.blocks, (err, downloadedBlocks) => {
-            if (err) return cb(err)
-            total.blocks = stat.blocks
-            total.size = stat.size
-            total.downloadedBlocks = downloadedBlocks
-            // TODO: This is not possible to implement now. Need a better byte length index in hypercore.
-            // total.downloadedBytes = 0
-            return cb(null, total)
+          ws.on('close', function () {
+            const err = new Error('Closed')
+            callOndrain(err)
+            callOnfinish(err)
           })
-        })
-      })
-    }
 
-    function emptyStats () {
-      return {
-        blocks: 0,
-        size: 0,
-        downloadedBlocks: 0,
-      }
-    }
-  }
+          ws.on('finish', function () {
+            callOnfinish(null)
+          })
 
-  watchStats (path, opts) {
-    const self = this
-    var timer = setInterval(collectStats, (opts && opts.statsInveral) || 2000)
-    var collecting = false
-    var destroyed = false
+          ws.on('drain', function () {
+            callOndrain(null)
+          })
 
-    const handle = new EventEmitter()
-    Object.assign(handle, {
-      destroy
-    })
-    return handle
-
-    function collectStats () {
-      if (collecting) return
-      collecting = true
-      self.stats(path, opts, (err, stats) => {
-        if (err) return destroy(err)
-        collecting = false
-        handle.stats = stats
-        handle.emit('update')
-      })
-    }
-
-    function destroy (err) {
-      handle.emit('destroy', err)
-      clearInterval(timer)
-      destroyed = true
-    }
-  }
-
-  mirror () {
-    const self = this
-    if (this._unmirror) return this._unmirror
-    const mirrorRanges = new Map()
-
-    this.on('content-feed', oncore)
-    this.on('metadata-feed', oncore)
-    this.getAllMounts({ content: true }, (err, mounts) => {
-      if (err) return this.emit('error', err)
-      for (const { metadata, content } of mounts.values()) {
-        oncore(metadata)
-        oncore(content)
-      }
-    })
-
-    this._unmirror = unmirror
-    return this._unmirror
-
-    function unmirror () {
-      if (!self._unmirror) return
-      self._unmirror = null
-      self.removeListener('content-feed', oncore)
-      self.removeListener('metadata-feed', oncore)
-      for (const [ core, range ] of mirrorRanges) {
-        core.undownload(range)
-      }
-    }
-
-    function oncore (core) {
-      if (!core) return
-      if (!self._unmirror || self._unmirror !== unmirror || mirrorRanges.has(core)) return
-      mirrorRanges.set(core, core.download({ start: 0, end: -1 }))
-    }
-  }
-
-  clear (path, opts, cb) {
-    if (typeof opts === 'function') {
-      cb = opts
-      opts = null
-    }
-    opts = opts || {}
-    if (!cb) cb = noop
-    opts.on = (feed, range, cb) => {
-      feed.clear(range.start, range.end, cb)
-      return range
-    }
-
-    opts.off = noop
-
-    return this._walk(path, opts, cb)
-  }
-
-  download (path, opts, cb) {
-    if (typeof opts === 'function') {
-      cb = opts
-      opts = null
-    }
-    opts = opts || {}
-    if (!cb) cb = noop
-    opts.on = (feed, range, cb) => {
-      return feed.download(range, cb)
-    }
-
-    opts.off = (feed, range) => {
-      return feed.undownload(range)
-    }
-    
-    if (path === undefined) path = '/'
-    
-    return this._walk(path, opts, cb)
-  }
-
-  _walk (path, opts, cb) {
-    if (!opts.on || !opts.off) throw new Error('_walk requires on and off')
-    if (!cb) cb = noop
-
-    const self = this
-    const ranges = new Map()
-    var pending = 0
-    var destroyed = false
-
-    const handle = new EventEmitter()
-    Object.assign(handle, {
-      destroy
-    })
-
-    self.stat(path, (err, stat, trie) => {
-      if (err) return destroy(err)
-      if (stat.isFile()) {
-        downloadFile(path, stat, trie, destroy)
-      } else {
-        const recursive = opts.recursive !== false
-        const noMounts = opts.noMounts !== false
-        const ite = statIterator(self, path, { recursive, noMounts, random: true })
-        downloadNext(ite)
-      }
-    })
-
-    return handle
-
-    function downloadNext (ite) {
-      if (destroyed) return
-      ite.next((err, info) => {
-        if (err) return destroy(err)
-        if (!info) {
-          if (!ranges.size) return destroy(null)
-          else return
+          cb(null)
         }
-        const { path, stat, trie } = info
-        if (!stat.blocks || stat.mount || stat.isDirectory()) return downloadNext(ite)
-        downloadFile(path, stat, trie, err => {
-          if (err) return destroy(err)
-          return downloadNext(ite)
-        })
-        if (pending < ((opts && opts.maxConcurrent) || 50)) {
-          return downloadNext(ite)
-        }
-      })
-    }
-
-    function downloadFile (path, stat, trie, cb) {
-      pending++
-      self._getContent(trie.feed, (err, contentState) => {
-        if (err) return destroy(err)
-        const feed = contentState.feed
-        const range = opts.on(feed, {
-          start: stat.offset,
-          end: stat.offset + stat.blocks
-        }, err => {
-          pending--
-          if (err) return cb(err)
-          ranges.delete(path)
-          return cb(null)
-        })
-        ranges.set(path, { range, feed })
-      })
-    }
-
-    function destroy (err) {
-      if (destroyed) return null
-      destroyed = true
-      for (const [path, { feed, range }] of ranges) {
-        opts.off(feed, range)
-      }
-      if (err) return cb(err)
-      return cb(null)
-    }
-  }
-
-  watch (name, onchange) {
-    name = fixName(name)
-    return this.db.watch(name, onchange)
-  }
-
-  mount (path, key, opts, cb) {
-    if (typeof opts === 'function') return this.mount(path, key, null, opts)
-    const self = this
-
-    path = fixName(path)
-    opts = opts || {}
-
-    const statOpts = {
-      uid: opts.uid,
-      gid: opts.gid
-    }
-    statOpts.mount = {
-      key,
-      version: opts.version,
-      hash: opts.hash,
-      hypercore: !!opts.hypercore
-    }
-    statOpts.directory = !opts.hypercore
-
-    if (opts.hypercore) {
-      const core = this.corestore.get({
-        key,
-        ...opts,
-        parents: [this.key],
-        sparse: this.sparse
-      })
-      core.ready(err => {
-        if (err) return cb(err)
-        this.emit('content-feed', core)
-        statOpts.size = core.byteLength
-        statOpts.blocks = core.length
-        return mountCore()
-      })
-    } else {
-      return process.nextTick(mountTrie, null)
-    }
-
-    function mountCore () {
-      self._createStat(path, statOpts, (err, st) => {
-        if (err) return cb(err)
-        return self.db.put(path, st.encode(), cb)
-      })
-    }
-
-    function mountTrie () {
-      self._createStat(path, statOpts, (err, st) => {
-        if (err) return cb(err)
-        self.db.mount(path, key, { ...opts, value: st.encode() }, err => {
-          return self.db.loadMount(path, cb)
-        })
-      })
-    }
-  }
-
-  unmount (path, cb) {
-    this.stat(path, (err, st) => {
-      if (err) return cb(err)
-      if (!st.mount) return cb(new Error('Can only unmount mounts.'))
-      if (st.mount.hypercore) {
-        return this.unlink(path, cb)
-      } else {
-        return this.db.unmount(path, cb)
+      },
+      write (data, cb) {
+        if (ws.write(data) === true) return cb(null)
+        ondrain = cb
+      },
+      final (cb) {
+        onfinish = cb
+        ws.end()
+      },
+      predestroy () {
+        destroyed = true
+        if (ws) ws.destroy()
       }
     })
-  }
 
-  symlink (target, linkName, cb) {
-    target = unixify(target)
-    linkName = fixName(linkName)
+    return stream
 
-    this.lstat(linkName, (err, stat) => {
-      if (err && (err.errno !== 2)) return cb(err)
-      if (!err) return cb(new errors.PathAlreadyExists(linkName))
-      const st = Stat.symlink({
-        linkname: target
-      })
-      return this._putStat(linkName, st, cb)
-    })
-  }
+    function callOnfinish (err) {
+      if (!onfinish) return
 
-  createMountStream (opts) {
-    return createMountStream(this, opts)
-  }
+      const cb = onfinish
+      onfinish = null
 
-  getAllMounts (opts, cb) {
-    if (typeof opts === 'function') return this.getAllMounts(null, opts)
-    const mounts = new Map()
-
-    this.ready(err => {
       if (err) return cb(err)
-      collect(this.createMountStream(opts), (err, mountList) => {
-        if (err) return cb(err)
-        for (const { path, metadata, content } of mountList) {
-          mounts.set(path, { metadata, content })
-        }
-        return cb(null, mounts)
-      })
-    })
-  }
+      self.files.put(name, { executable, linkname: null, blob: ws.id, metadata }).then(() => cb(null), cb)
+    }
 
-  extension (name, message) {
-    this.metadata.extension(name, message)
-  }
-
-  registerExtension (name, handlers) {
-    return this.metadata.registerExtension(name, handlers)
-  }
-
-  get peers () {
-    return this.metadata.peers
-  }
-
-  setMetadata (path, key, value, cb) {
-    const metadata = {}
-    metadata[key] = value
-    this._update(path, { metadata }, cb)
-  }
-
-  removeMetadata (path, key, cb) {
-    const metadata = {}
-    metadata[key] = null
-    this._update(path, { metadata }, cb)
-  }
-
-  copy (from, to, cb) {
-    this.stat(from, (err, stat) => {
-      if (err) return cb(err)
-      this.create(to, stat, cb)
-    })
-  }
-
-  // Tag-related methods.
-
-  createTag (name, version, cb) {
-    return this.tags.create(name, version, cb)
-  }
-
-  getAllTags (cb) {
-    return this.tags.getAll(cb)
-  }
-
-  deleteTag (name, cb) {
-    return this.tags.delete(name, cb)
-  }
-
-  getTaggedVersion (name, cb) {
-    return this.tags.get(name, cb)
+    function callOndrain (err) {
+      if (ondrain) {
+        const cb = ondrain
+        ondrain = null
+        cb(err)
+      }
+    }
   }
 }
 
-function HyperdriveCompat (...args) {
-  if (!(this instanceof HyperdriveCompat)) return new HyperdriveCompat(...args)
-  Nanoresource.call(this)
-  Hyperdrive.prototype._initialize.call(this, ...args)
-}
-Object.setPrototypeOf(HyperdriveCompat.prototype, Hyperdrive.prototype)
+function shallowReadStream (files, folder, keys) {
+  let prev = '/'
+  return new Readable({
+    async read (cb) {
+      let node = null
 
-function isObject (val) {
-  return !!val && typeof val !== 'string' && !Buffer.isBuffer(val)
-}
+      try {
+        node = await files.peek({
+          gt: folder + prev,
+          lt: folder + '0'
+        })
+      } catch (err) {
+        return cb(err)
+      }
 
-function ifNotExists (oldNode, newNode, cb) {
-  if (oldNode) return cb(new errors.PathAlreadyExists(oldNode.key))
-  return cb(null, true)
-}
+      if (!node) {
+        this.push(null)
+        return cb(null)
+      }
 
-function fixName (name) {
-  name = unixify(name)
-  if (!name.startsWith('/')) name = '/' + name
-  return name
+      const suffix = node.key.slice(folder.length + 1)
+      const i = suffix.indexOf('/')
+      const name = i === -1 ? suffix : suffix.slice(0, i)
+
+      prev = '/' + name + '0'
+
+      this.push(keys ? name : node)
+      cb(null)
+    }
+  })
 }
 
 function noop () {}
+
+function makeBee (key, corestore, onwait) {
+  const metadataOpts = key
+    ? { key, cache: true, onwait }
+    : { name: 'db', cache: true, onwait }
+  const core = corestore.get(metadataOpts)
+  const metadata = { contentFeed: null }
+  return new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json', metadata })
+}

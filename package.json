@@ -1,55 +1,35 @@
 {
   "name": "hyperdrive",
-  "version": "10.21.0",
-  "description": "Hyperdrive is a secure, real time distributed file system",
+  "version": "11.0.0-alpha.1",
+  "description": "Hyperdrive is a secure, real-time distributed file system",
   "main": "index.js",
-  "scripts": {
-    "test": "tape test/index.js",
-    "bench:latency": "tape bench/latency.js"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mafintosh/hyperdrive.git"
+    "url": "git+https://github.com/hypercore-protocol/hyperdrive-next.git"
   },
-  "keywords": [
-    "hyperdrive",
-    "hypertrie"
-  ],
+  "scripts": {
+    "test": "standard && brittle test.js"
+  },
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mafintosh/hyperdrive/issues"
+    "url": "https://github.com/hypercore-protocol/hyperdrive-next/issues"
   },
-  "homepage": "https://github.com/mafintosh/hyperdrive#readme",
+  "homepage": "https://github.com/hypercore-protocol/hyperdrive-next#readme",
   "dependencies": {
-    "byte-stream": "^2.1.0",
-    "corestore": "^5.8.2",
-    "custom-error-class": "^1.0.0",
-    "duplexify": "^3.7.1",
-    "filesystem-constants": "^1.0.0",
-    "hypercore-byte-stream": "^1.0.2",
-    "hypercore-protocol": "^8.0.7",
-    "hyperdrive-schemas": "^2.0.0",
-    "mountable-hypertrie": "^2.8.0",
-    "mutexify": "^1.2.0",
-    "nanoiterator": "^1.2.0",
-    "nanoresource": "^1.3.0",
-    "pump": "^3.0.0",
-    "pumpify": "^2.0.1",
-    "stream-collector": "^1.0.1",
-    "streamx": "^2.6.3",
-    "thunky": "^1.0.3",
-    "thunky-map": "^1.0.0",
-    "unixify": "^1.0.0",
-    "varint": "^5.0.0"
+    "hyperbee": "^1.10.1",
+    "hyperblobs": "next",
+    "is-options": "^1.0.2",
+    "streamx": "^2.12.4"
   },
   "devDependencies": {
-    "fuzzbuzz": "^2.0.0",
-    "latency-stream": "^1.0.0",
-    "nanobench": "^2.1.1",
-    "random-access-file": "^2.1.3",
-    "random-access-memory": "^3.1.1",
-    "tape": "^4.10.0",
-    "temporary-directory": "^1.0.2"
+    "@hyperswarm/dht": "^6.2.0",
+    "@hyperswarm/testnet": "^3.0.0",
+    "brittle": "^2.3.1",
+    "corestore": "next",
+    "hypercore-crypto": "^3.2.1",
+    "hyperswarm": "^4.0.0",
+    "random-access-memory": "^4.1.0",
+    "standard": "^17.0.0"
   }
 }
