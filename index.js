@@ -293,7 +293,7 @@ module.exports = class HyperBundle extends EventEmitter {
     return shallowReadStream(this.files, folder, true)
   }
 
-  createReadStream (name) {
+  createReadStream (name, opts) {
     const self = this
 
     let destroyed = false
@@ -316,7 +316,7 @@ module.exports = class HyperBundle extends EventEmitter {
             return cb(null)
           }
 
-          rs = self.blobs.createReadStream(node.value.blob)
+          rs = self.blobs.createReadStream(node.value.blob, opts)
 
           rs.on('data', function (data) {
             if (!stream.push(data)) rs.pause()
