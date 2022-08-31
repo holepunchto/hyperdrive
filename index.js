@@ -4,7 +4,7 @@ const isOptions = require('is-options')
 const { EventEmitter } = require('events')
 const { Writable, Readable } = require('streamx')
 
-module.exports = class HyperBundle extends EventEmitter {
+module.exports = class Hyperdrive extends EventEmitter {
   constructor (corestore, key, opts = {}) {
     super()
 
@@ -67,7 +67,7 @@ module.exports = class HyperBundle extends EventEmitter {
   }
 
   checkout (len) {
-    return new HyperBundle(this.corestore, this.key, {
+    return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       _checkout: this,
       _db: this.db.checkout(len),
@@ -76,7 +76,7 @@ module.exports = class HyperBundle extends EventEmitter {
   }
 
   batch () {
-    return new HyperBundle(this.corestore, this.key, {
+    return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       _checkout: null,
       _db: this.db,
