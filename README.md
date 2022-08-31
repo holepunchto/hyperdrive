@@ -50,9 +50,11 @@ Wait for the drive to fully open. In general, you do **NOT** need to wait for `r
 
 Returns the blob at `path` in the drive. Internally, Hyperdrive contains a metadata index of entries that "point" to offsets in a `Hyperblobs` instance. Blobs themselves are accessible via `drive.get(path)`, whereas entries are accessible via `drive.entry(path)`. If no blob exists at `path`, returns `null`.
 
-#### `const stream = drive.createReadStream(path)`
+#### `const stream = drive.createReadStream(path, options)`
 
 Returns a stream that can be used to read out the blob stored in the drive at `path`.
+
+`options` are the same as the `options` to `Hyperblobs().createReadStream(path, options)`.
 
 #### `const entry = await drive.entry(path)`
 
