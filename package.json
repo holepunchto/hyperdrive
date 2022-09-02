@@ -20,7 +20,8 @@
     "hyperbee": "^1.10.1",
     "hyperblobs": "^2.0.0",
     "is-options": "^1.0.2",
-    "streamx": "^2.12.4"
+    "streamx": "^2.12.4",
+    "unix-path-resolve": "^1.0.2"
   },
   "devDependencies": {
     "@hyperswarm/dht": "^6.2.0",
