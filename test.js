@@ -283,9 +283,6 @@ test('entry(key) resolve key path', async function (t) {
   await drive.put('/examples/more/c.txt', Buffer.from('c text'))
 
   t.alike((await drive.entry('README.md')).key, '/README.md')
-  // t.alike((await drive.entry('/../README.md')).key, '/README.md')
-  // t.alike((await drive.entry('../README.md')).key, '/README.md')
-  // t.alike((await drive.entry('../../../../README.md')).key, '/README.md')
   t.alike((await drive.entry('/examples/more/../a.txt')).key, '/examples/a.txt')
   t.alike((await drive.entry('\\examples\\more\\c.txt')).key, '/examples/more/c.txt')
 })
@@ -305,9 +302,6 @@ test('get(key) resolve key path', async function (t) {
   t.ok(c)
 
   t.alike(await drive.get('README.md'), buffer)
-  // t.alike(await drive.get('/../README.md'), buffer)
-  // t.alike(await drive.get('../README.md'), buffer)
-  // t.alike(await drive.get('../../../../README.md'), buffer)
   t.alike(await drive.get('/examples/more/../a.txt'), a)
   t.alike(await drive.get('\\examples\\more\\c.txt'), c)
 })
@@ -324,9 +318,6 @@ test('del(key) resolve key path', async function (t) {
   }
 
   await delAndEntry('README.md', '/README.md')
-  // await delAndEntry('/../script.sh', '/script.sh')
-  // await delAndEntry('../LICENSE', '/LICENSE')
-  // await delAndEntry('../../../../key.secret', '/key.secret')
   await delAndEntry('/examples/more/../a.txt', '/examples/a.txt')
   await delAndEntry('\\examples\\more\\c.txt', '/examples/more/c.txt')
 })
@@ -341,9 +332,6 @@ test('put(key, buffer) resolve key path', async function (t) {
   }
 
   await putAndEntry('b.txt', '/b.txt')
-  // await putAndEntry('/../c.txt', '/c.txt')
-  // await putAndEntry('../d.txt', '/d.txt')
-  // await putAndEntry('../../../../e.txt', '/e.txt')
   await putAndEntry('/examples/more/../f.txt', '/examples/f.txt')
   await putAndEntry('\\examples\\more\\h.txt', '/examples/more/h.txt')
 })
@@ -360,9 +348,6 @@ test('symlink(key, linkname) resolve key path', async function (t) {
   }
 
   await symlinkAndEntry('b.txt', '/b.txt')
-  // await symlinkAndEntry('/../c.txt', '/c.txt')
-  // await symlinkAndEntry('../d.txt', '/d.txt')
-  // await symlinkAndEntry('../../../../e.txt', '/e.txt')
   await symlinkAndEntry('/examples/more/../f.txt', '/examples/f.txt')
   await symlinkAndEntry('\\examples\\more\\h.txt', '/examples/more/h.txt')
 })
