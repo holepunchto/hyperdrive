@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/hypercore-protocol/hyperdrive-next#readme",
   "dependencies": {
-    "hyperbee": "^1.10.1",
+    "hyperbee": "^2.0.0",
     "hyperblobs": "^2.0.0",
     "is-options": "^1.0.2",
     "streamx": "^2.12.4",
