@@ -95,15 +95,6 @@ module.exports = class Hyperdrive extends EventEmitter {
     return this._closing
   }
 
-  _makeBee (key) {
-    const metadataOpts = key
-      ? { key, cache: true, onwait: this._onwait }
-      : { name: 'db', cache: true, onwait: this._onwait }
-    const core = this.corestore.get(metadataOpts)
-    const metadata = { contentFeed: null }
-    return new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json', metadata })
-  }
-
   async _close () {
     if (this._batching) return this.files.close()
 
