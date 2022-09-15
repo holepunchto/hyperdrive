@@ -26,11 +26,11 @@
   "devDependencies": {
     "@hyperswarm/dht": "^6.2.0",
     "@hyperswarm/testnet": "^3.0.0",
-    "brittle": "^3.0.0",
-    "corestore": "next",
+    "brittle": "^3.1.0",
+    "corestore": "^6.1.1",
     "hypercore-crypto": "^3.2.1",
     "hyperswarm": "^4.0.0",
-    "random-access-memory": "^4.1.0",
+    "random-access-memory": "^6.0.0",
     "standard": "^17.0.0"
   }
 }
