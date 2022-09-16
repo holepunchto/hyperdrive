@@ -102,6 +102,7 @@ module.exports = class Hyperdrive extends EventEmitter {
       await this.ready()
       await this.blobs.core.close()
       await this.db.feed.close()
+      await this.corestore.close()
     } catch {}
 
     this.emit('close')
