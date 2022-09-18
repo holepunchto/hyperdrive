@@ -20,6 +20,7 @@ module.exports = class Hyperdrive extends EventEmitter {
     this.db = _db || makeBee(key, corestore, this._onwait)
     this.files = _files || this.db.sub('files')
     this.blobs = null
+    this.supportsMetadata = true
 
     this.opening = this._open()
     this.opening.catch(noop)

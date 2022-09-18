@@ -45,6 +45,11 @@ test('drive.getBlobs()', async (t) => {
   t.is(blobs, drive.blobs)
 })
 
+test('drive.supportsMetadata', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  t.is(true, drive.supportsMetadata)
+})
+
 test('Hyperdrive(corestore, key)', async (t) => {
   t.plan(2)
   const { corestore, drive } = await testenv(t.teardown)
