@@ -380,8 +380,8 @@ test('drive.diff(length)', async (t) => {
   await drive.del(relpath)
 
   for await (const diff of drive.diff(drive.core.length - 2)) {
-    if (diff.right) t.is(diff.right.key, relpath)
-    if (diff.left) t.is(diff.left.key, relpath + '.old')
+    if (diff.right) t.is(diff.right.key, relpath.replace(/\\/g, '/'))
+    if (diff.left) t.is(diff.left.key, relpath.replace(/\\/g, '/') + '.old')
   }
 })
 

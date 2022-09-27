@@ -301,7 +301,7 @@ module.exports = class Hyperdrive extends EventEmitter {
         self.getBlobs().then(onblobs, cb)
 
         function onblobs () {
-          self.entry(name).then(onnode, cb)
+          self.entry(normalizePath(name)).then(onnode, cb)
         }
 
         function onnode (node) {
@@ -404,7 +404,7 @@ module.exports = class Hyperdrive extends EventEmitter {
       onfinish = null
 
       if (err) return cb(err)
-      self.files.put(name, { executable, linkname: null, blob: ws.id, metadata }).then(() => cb(null), cb)
+      self.files.put(normalizePath(name), { executable, linkname: null, blob: ws.id, metadata }).then(() => cb(null), cb)
     }
 
     function callOndrain (err) {
