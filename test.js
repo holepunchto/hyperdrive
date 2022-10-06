@@ -650,6 +650,17 @@ test('drive.batch() & drive.flush()', async (t) => {
   t.ok(await drive.get('/x'))
 })
 
+test('batch.list()', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const nil = Buffer.from('nil')
+  await drive.put('/x', nil)
+  const batch = drive.batch()
+  for await (const entry of batch.list()) {
+    t.is(entry.key, '/x')
+  }
+  await batch.flush()
+})
+
 test('drive.close()', async (t) => {
   t.plan(2)
   const { drive } = await testenv(t.teardown)
