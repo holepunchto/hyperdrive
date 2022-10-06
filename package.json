@@ -3,6 +3,10 @@
   "version": "11.0.0-alpha.8",
   "description": "Hyperdrive is a secure, real-time distributed file system",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/**.js"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hypercore-protocol/hyperdrive-next.git"
