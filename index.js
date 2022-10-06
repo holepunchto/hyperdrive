@@ -301,7 +301,7 @@ module.exports = class Hyperdrive extends EventEmitter {
         self.getBlobs().then(onblobs, cb)
 
         function onblobs () {
-          self.entry(normalizePath(name)).then(onnode, cb)
+          self.entry(name).then(onnode, cb)
         }
 
         function onnode (node) {
