@@ -30,6 +30,7 @@
   "devDependencies": {
     "@hyperswarm/dht": "^6.2.0",
     "@hyperswarm/testnet": "^3.0.0",
+    "b4a": "^1.6.0",
     "brittle": "^3.1.0",
     "corestore": "^6.1.1",
     "hypercore-crypto": "^3.2.1",
