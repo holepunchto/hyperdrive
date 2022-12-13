@@ -686,6 +686,16 @@ test.skip('drive.findingPeers()', async (t) => {
   t.ok(await mirror.drive.get('/'))
 })
 
+test('drive.mirror()', async (t) => {
+  const { drive: a } = await testenv(t.teardown)
+  const { drive: b } = await testenv(t.teardown)
+
+  await a.put('/', 'hello world')
+  await a.mirror(b).done()
+
+  t.alike(await b.get('/'), b4a.from('hello world'))
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(ram)
   await corestore.ready()

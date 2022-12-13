@@ -4,6 +4,7 @@ const isOptions = require('is-options')
 const { EventEmitter } = require('events')
 const { Writable, Readable } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
+const MirrorDrive = require('mirror-drive')
 
 module.exports = class Hyperdrive extends EventEmitter {
   constructor (corestore, key, opts = {}) {
@@ -288,6 +289,10 @@ module.exports = class Hyperdrive extends EventEmitter {
   readdir (folder = '/') {
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
     return shallowReadStream(this.files, folder, true)
+  }
+
+  mirror (out, opts) {
+    return new MirrorDrive(this, out, opts)
   }
 
   createReadStream (name, opts) {

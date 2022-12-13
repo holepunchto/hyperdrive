@@ -199,6 +199,10 @@ If an entry exists in `drive.version` of the `folder` but not in `version`, then
 
 Downloads all the blobs in `folder` corresponding to entries in `drive.checkout(version)` that are not in `drive.version`. In other words, downloads all the blobs added to `folder` up to `version` of the drive.
 
+#### `await drive.downloadRange(dbRanges, blobRanges)`
+
+Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
+
 #### `const stream = drive.list(folder, [options])`
 
 Returns a stream of all entries in the drive at paths prefixed with `folder`. Options include:
@@ -223,9 +227,11 @@ await drive.put('/parent/sibling', Buffer.from('sibling'))
 for await (const path of drive.readdir('/parent')) console.log(path) // prints "child", then prints "sibling"
 ```
 
-#### `await downloadRange(dbRanges, blobRanges)`
+#### `const mirror = drive.mirror(out, [options])`
 
-Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
+Efficiently mirror this drive into another. Returns a [`MirrorDrive`](https://github.com/holepunchto/mirror-drive#api) instance constructed with `options`.
+
+Call `await mirror.done()` to wait for the mirroring to finish.
 
 #### `const batch = drive.batch()`
 
