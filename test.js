@@ -522,11 +522,11 @@ test('drive.download(folder, [options])', async (t) => {
   t.plan(7)
   const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
-  swarm.join(drive.key, { server: true, client: false })
+  swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
-  mirror.swarm.join(drive.key, { server: false, client: true })
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
   const nil = b4a.from('nil')
@@ -564,11 +564,11 @@ test('drive.download(folder, [options])', async (t) => {
 test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
-  swarm.join(drive.key, { server: true, client: false })
+  swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
-  mirror.swarm.join(drive.key, { server: false, client: true })
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
   const blobs = await drive.getBlobs()
@@ -598,11 +598,11 @@ test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
 test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
-  swarm.join(drive.key, { server: true, client: false })
+  swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
-  mirror.swarm.join(drive.key, { server: false, client: true })
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
   const nil = b4a.from('nil')
@@ -676,11 +676,11 @@ test.skip('drive.findingPeers()', async (t) => {
   await drive.put('/', b4a.from('/'))
 
   swarm.on('connection', (conn) => corestore.replicate(conn))
-  swarm.join(drive.key, { server: true, client: false })
+  swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
-  mirror.swarm.join(drive.key, { server: false, client: true })
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   const done = mirror.drive.findingPeers()
   swarm.flush().then(done, done)
   t.ok(await mirror.drive.get('/'))
