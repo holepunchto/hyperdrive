@@ -9,7 +9,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hypercore-protocol/hyperdrive-next.git"
+    "url": "git+https://github.com/holepunchto/hyperdrive-next.git"
   },
   "scripts": {
     "test": "standard && brittle test.js"
@@ -17,9 +17,9 @@
   "author": "Mathias Buus (@mafintosh)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hypercore-protocol/hyperdrive-next/issues"
+    "url": "https://github.com/holepunchto/hyperdrive-next/issues"
   },
-  "homepage": "https://github.com/hypercore-protocol/hyperdrive-next#readme",
+  "homepage": "https://github.com/holepunchto/hyperdrive-next#readme",
   "dependencies": {
     "hyperbee": "^2.1.1",
     "hyperblobs": "^2.0.0",
