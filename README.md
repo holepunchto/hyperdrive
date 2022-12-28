@@ -248,4 +248,4 @@ Atomically commit a batch of mutations to the underlying drive.
 Close the drive and its underlying Hypercore backed datastructures.
 
 
-[core-range-docs]: https://github.com/hypercore-protocol/hypercore-next#const-range--coredownloadrange
+[core-range-docs]: https://github.com/holepunchto/hypercore#const-range--coredownloadrange
