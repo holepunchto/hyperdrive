@@ -211,6 +211,7 @@ module.exports = class Hyperdrive extends EventEmitter {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
     if (folder) {
       if (folder.endsWith('/')) folder = folder.slice(0, -1)
+      if (folder) folder = normalizePath(folder)
       opts = { gt: folder + '/', lt: folder + '0', ...opts }
     }
     return this.files.createDiffStream(length, opts)
@@ -280,7 +281,10 @@ module.exports = class Hyperdrive extends EventEmitter {
   // atm always recursive, but we should add some depth thing to it
   list (folder = '/', { recursive = true } = {}) {
     if (typeof folder === 'object') return this.list(undefined, folder)
+
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    if (folder) folder = normalizePath(folder)
+
     if (recursive === false) return shallowReadStream(this.files, folder, false)
     // '0' is binary +1 of /
     return folder ? this.entries({ gt: folder + '/', lt: folder + '0' }) : this.entries()
@@ -288,6 +292,8 @@ module.exports = class Hyperdrive extends EventEmitter {
 
   readdir (folder = '/') {
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    if (folder) folder = normalizePath(folder)
+
     return shallowReadStream(this.files, folder, true)
   }
 
