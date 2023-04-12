@@ -696,6 +696,25 @@ test('drive.mirror()', async (t) => {
   t.alike(await b.get('/'), b4a.from('hello world'))
 })
 
+test('drive.clear(path)', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  await drive.put('/loc', 'hello world')
+
+  const entry = await drive.entry('/loc')
+  const initContent = await drive.blobs.get(entry.value.blob, { wait: false })
+  t.alike(initContent, b4a.from('hello world'))
+
+  await drive.clear('/loc')
+
+  // Entry still exists (so file not deleted)
+  const nowEntry = await drive.entry('/loc')
+  t.alike(nowEntry, entry)
+
+  // But the blob is removed from storage
+  const nowContent = await drive.blobs.get(entry.value.blob, { wait: false })
+  t.is(nowContent, null)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(ram)
   await corestore.ready()

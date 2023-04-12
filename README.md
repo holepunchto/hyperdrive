@@ -140,6 +140,9 @@ Stream a blob into the drive at `path`. Options include
 
 Removes the `entry` at `path` from the drive. If a blob corresponding to the entry at `path` exists, it is not currently deleted.
 
+#### `await drive.clear(path)`
+
+Deletes the blob containing the content of the `entry` at `path` from the underlying storage, but leaves the entry itself be (so the entry still exists in the database, but its content does not exist locally anymore). Note that this is a destructive operation which also affects checkouts taken at a time before calling it.
 
 #### `const hypercore = drive.core`
 
