@@ -22,7 +22,7 @@
   "homepage": "https://github.com/holepunchto/hyperdrive-next#readme",
   "dependencies": {
     "hyperbee": "^2.1.1",
-    "hyperblobs": "^2.0.0",
+    "hyperblobs": "^2.1.0",
     "is-options": "^1.0.2",
     "mirror-drive": "^1.2.0",
     "streamx": "^2.12.4",
