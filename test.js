@@ -8,7 +8,7 @@ const ram = require('random-access-memory')
 const { discoveryKey } = require('hypercore-crypto')
 const { pipelinePromise: pipeline, Writable, Readable } = require('streamx')
 const testnet = require('@hyperswarm/testnet')
-const DHT = require('@hyperswarm/dht')
+const DHT = require('hyperdht')
 const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
 
