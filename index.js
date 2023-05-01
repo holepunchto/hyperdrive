@@ -47,7 +47,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   get core () {
-    return this.db.feed
+    return this.db.core
   }
 
   get version () {
@@ -55,11 +55,11 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   findingPeers () {
-    return this.db.feed.findingPeers()
+    return this.db.core.findingPeers()
   }
 
   update (opts) {
-    return this.db.feed.update(opts)
+    return this.db.core.update(opts)
   }
 
   checkout (len) {
@@ -125,7 +125,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     await this._openBlobsFromHeader({ wait: false })
 
-    if (this.db.feed.writable && !this.blobs) {
+    if (this.db.core.writable && !this.blobs) {
       const blobsCore = this.corestore.get({
         name: 'blobs',
         cache: false,
@@ -229,7 +229,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this.ready()
 
     for (const range of dbRanges) {
-      dls.push(this.db.feed.download(range))
+      dls.push(this.db.core.download(range))
     }
 
     const blobs = await this.getBlobs()
