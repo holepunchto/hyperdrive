@@ -89,7 +89,12 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     try {
       await this.blobs.core.close()
-      await this.db.feed.close()
+      await this.db.close()
+    } catch {}
+
+    if (this._checkout) return
+
+    try {
       await this.corestore.close()
     } catch {}
   }
