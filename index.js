@@ -1,12 +1,12 @@
 const Hyperbee = require('hyperbee')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
-const { EventEmitter } = require('events')
 const { Writable, Readable } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
+const ReadyResource = require('ready-resource')
 
-module.exports = class Hyperdrive extends EventEmitter {
+module.exports = class Hyperdrive extends ReadyResource {
   constructor (corestore, key, opts = {}) {
     super()
 
@@ -23,14 +23,11 @@ module.exports = class Hyperdrive extends EventEmitter {
     this.blobs = null
     this.supportsMetadata = true
 
-    this.opening = this._open()
-    this.opening.catch(noop)
-    this.opened = false
-
     this._openingBlobs = null
     this._checkout = _checkout || null
     this._batching = !!_files
-    this._closing = null
+
+    this.ready().catch(noop)
   }
 
   [Symbol.asyncIterator] () {
@@ -65,10 +62,6 @@ module.exports = class Hyperdrive extends EventEmitter {
     return this.db.feed.update(opts)
   }
 
-  ready () {
-    return this.opening
-  }
-
   checkout (len) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
@@ -91,23 +84,14 @@ module.exports = class Hyperdrive extends EventEmitter {
     return this.files.flush()
   }
 
-  close () {
-    if (this._closing) return this._closing
-    this._closing = this._close()
-    return this._closing
-  }
-
   async _close () {
     if (this._batching) return this.files.close()
 
     try {
-      await this.ready()
       await this.blobs.core.close()
       await this.db.feed.close()
       await this.corestore.close()
     } catch {}
-
-    this.emit('close')
   }
 
   async _openBlobsFromHeader (opts) {
@@ -160,9 +144,6 @@ module.exports = class Hyperdrive extends EventEmitter {
       this._openingBlobs = this._openBlobsFromHeader()
       this._openingBlobs.catch(noop)
     }
-
-    this.opened = true
-    this.emit('ready')
   }
 
   async getBlobs () {
