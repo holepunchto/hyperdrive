@@ -671,6 +671,20 @@ test('drive.close()', async (t) => {
   await drive.close()
 })
 
+test('drive.close() on snapshots--does not close parent', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/foo', b4a.from('bar'))
+
+  const checkout = drive.checkout(2)
+  await checkout.get('/foo')
+  await checkout.close()
+
+  // Main test is that there is no session_closed error on drive.get
+  const res = await drive.get('/foo')
+  t.alike(res, b4a.from('bar'))
+})
+
 test('drive.close() for future checkout', async (t) => {
   const { drive } = await testenv(t.teardown)
   await drive.put('some', 'thing')
