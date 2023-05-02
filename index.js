@@ -65,7 +65,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   checkout (len) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
-      _checkout: this,
+      _checkout: this._checkout || this,
       _db: this.db.checkout(len),
       _files: null
     })
@@ -88,7 +88,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (this._batching) return this.files.close()
 
     try {
-      await this.blobs.core.close()
+      if (this._checkout === null || this.blobs !== this._checkout.blobs) await this.blobs.core.close()
       await this.db.close()
     } catch {}
 
