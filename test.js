@@ -671,6 +671,18 @@ test('drive.close()', async (t) => {
   await drive.close()
 })
 
+test('drive.close() for future checkout', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  await drive.put('some', 'thing')
+  const checkout = drive.checkout(drive.length + 1)
+  await checkout.close()
+
+  t.is(checkout.closed, true)
+  t.is(checkout.db.core.closed, true)
+  t.is(drive.closed, false)
+  t.is(drive.db.core.closed, false)
+})
+
 test.skip('drive.findingPeers()', async (t) => {
   const { drive, corestore, swarm, mirror } = await testenv(t.teardown)
   await drive.put('/', b4a.from('/'))
