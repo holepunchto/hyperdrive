@@ -420,6 +420,10 @@ module.exports = class Hyperdrive extends ReadyResource {
       }
     }
   }
+
+  static normalizePath (name) {
+    return normalizePath(name)
+  }
 }
 
 function shallowReadStream (files, folder, keys) {
