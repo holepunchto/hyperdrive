@@ -26,6 +26,7 @@
     "is-options": "^1.0.2",
     "mirror-drive": "^1.2.0",
     "ready-resource": "^1.0.0",
+    "safety-catch": "^1.0.2",
     "streamx": "^2.12.4",
     "unix-path-resolve": "^1.0.2"
   },

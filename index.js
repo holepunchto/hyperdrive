@@ -5,6 +5,7 @@ const { Writable, Readable } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
 const ReadyResource = require('ready-resource')
+const safetyCatch = require('safety-catch')
 
 module.exports = class Hyperdrive extends ReadyResource {
   constructor (corestore, key, opts = {}) {
@@ -86,17 +87,21 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   async _close () {
     if (this._batching) return this.files.close()
-
     try {
-      if (this._checkout === null || this.blobs !== this._checkout.blobs) await this.blobs.core.close()
+      if (this.blobs !== null && (this._checkout === null || this.blobs !== this._checkout.blobs)) {
+        await this.blobs.core.close()
+      }
       await this.db.close()
-    } catch {}
+    } catch (e) {
+      safetyCatch(e)
+    }
 
     if (this._checkout) return
-
     try {
       await this.corestore.close()
-    } catch {}
+    } catch (e) {
+      safetyCatch(e)
+    }
   }
 
   async _openBlobsFromHeader (opts) {
