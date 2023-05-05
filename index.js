@@ -190,12 +190,22 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.files.del(normalizePath(name))
   }
 
-  async clear (name) {
+  async clear (name, { storageInfo = false } = {}) {
     const node = await this.entry(name)
     if (node === null) return
 
+    const infoBefore = storageInfo
+      ? await this.blobs.core.info({ storage: true })
+      : null
+
     await this.getBlobs()
     await this.blobs.clear(node.value.blob)
+
+    if (infoBefore) {
+      const infoAfter = await this.blobs.core.info({ storage: true })
+      const bytesCleared = infoBefore.storage.blocks - infoAfter.storage.blocks
+      return bytesCleared
+    }
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
