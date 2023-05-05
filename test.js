@@ -749,7 +749,8 @@ test('drive.clear(path)', async (t) => {
   const initContent = await drive.blobs.get(entry.value.blob, { wait: false })
   t.alike(initContent, b4a.from('hello world'))
 
-  await drive.clear('/loc')
+  const res = await drive.clear('/loc')
+  t.is(res, undefined)
 
   // Entry still exists (so file not deleted)
   const nowEntry = await drive.entry('/loc')
