@@ -28,7 +28,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this._checkout = _checkout || null
     this._batching = !!_files
 
-    this.ready().catch(noop)
+    this.ready().catch(safetyCatch)
   }
 
   [Symbol.asyncIterator] () {
@@ -155,7 +155,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (!this.blobs) {
       // eagerly load the blob store....
       this._openingBlobs = this._openBlobsFromHeader()
-      this._openingBlobs.catch(noop)
+      this._openingBlobs.catch(safetyCatch)
     }
   }
 
@@ -186,19 +186,19 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async del (name) {
-    if (!this.opened) await this.ready()
     return this.files.del(normalizePath(name))
   }
 
   async clear (name, { storageInfo = false } = {}) {
     const node = await this.entry(name)
-    if (node === null) return
+    if (node === null) return 0
+
+    await this.getBlobs()
 
     const infoBefore = storageInfo
       ? await this.blobs.core.info({ storage: true })
       : null
 
-    await this.getBlobs()
     await this.blobs.clear(node.value.blob)
 
     if (infoBefore) {
@@ -206,10 +206,11 @@ module.exports = class Hyperdrive extends ReadyResource {
       const bytesCleared = infoBefore.storage.blocks - infoAfter.storage.blocks
       return bytesCleared
     }
+
+    return 0
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
-    if (!this.opened) await this.ready()
     return this.files.put(normalizePath(name), { executable: false, linkname: dst, blob: null, metadata })
   }
 
@@ -475,8 +476,6 @@ function shallowReadStream (files, folder, keys) {
     }
   })
 }
-
-function noop () {}
 
 function makeBee (key, corestore, onwait) {
   const metadataOpts = key

@@ -135,11 +135,16 @@ Returns the entry at `path` in the drive. It looks like this:
 
 Deletes the file at `path` from the drive.
 
-#### `await drive.clear(path, [options])`
+#### `const bytesCleared = await drive.clear(path, [options])`
 
 Deletes the blob from storage to free up space, but the file structure reference is kept.
 
-If `storageInfo = true` is set, an estimate of the amount of bytes freed will be returned (default `false`).
+`options` include:
+```js
+{
+  storageInfo: false // `bytesCleared` is always zero unless you enable this
+}
+```
 
 #### `await drive.symlink(path, linkname)`
 
@@ -293,3 +298,7 @@ const buffer2 = await blobs.get(entry.value.blob)
 
 [core-range-docs]: https://github.com/holepunchto/hypercore#const-range--coredownloadrange
 [store-replicate-docs]: https://github.com/holepunchto/corestore#const-stream--storereplicateoptsorstream
+
+## License
+
+Apache-2.0
