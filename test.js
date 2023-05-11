@@ -762,15 +762,16 @@ test('drive.clear(path)', async (t) => {
 })
 
 test('drive.clear(path) with storageInfo', async (t) => {
-  const storage = createStorage()
+  const storage = createTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
-  await a.put('/file', 'abc')
+  await a.put('/file', b4a.alloc(32 * 1024).fill('a'))
   await a.close()
 
   const b = new Hyperdrive(new Corestore(storage))
+
   const bytesCleared = await b.clear('/file', { storageInfo: true })
-  t.is(bytesCleared, 0)
+  t.is(bytesCleared, 32768)
 
   const bytesCleared2 = await b.clear('/not-exists', { storageInfo: true })
   t.is(bytesCleared2, 0)
@@ -856,4 +857,11 @@ function createStorage () {
     files.set(name, storage)
     return storage
   }
+}
+
+function createTmpDir (t) {
+  const tmpdir = path.join(os.tmpdir(), 'hyperdrive-test-')
+  const dir = fs.mkdtempSync(tmpdir)
+  t.teardown(() => fs.promises.rm(dir, { recursive: true }))
+  return dir
 }
