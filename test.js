@@ -749,8 +749,8 @@ test('drive.clear(path)', async (t) => {
   const initContent = await drive.blobs.get(entry.value.blob, { wait: false })
   t.alike(initContent, b4a.from('hello world'))
 
-  const res = await drive.clear('/loc')
-  t.is(res, 0)
+  const cleared = await drive.clear('/loc')
+  t.is(cleared, null)
 
   // Entry still exists (so file not deleted)
   const nowEntry = await drive.entry('/loc')
@@ -761,20 +761,48 @@ test('drive.clear(path)', async (t) => {
   t.is(nowContent, null)
 })
 
-test('drive.clear(path) with storageInfo', async (t) => {
+test('drive.clear(path) with diff', async (t) => {
   const storage = createTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
-  await a.put('/file', b4a.alloc(32 * 1024).fill('a'))
+  await a.put('/file', b4a.alloc(4 * 1024))
   await a.close()
 
   const b = new Hyperdrive(new Corestore(storage))
 
-  const bytesCleared = await b.clear('/file', { storageInfo: true })
-  t.is(bytesCleared, 32768)
+  const cleared = await b.clear('/file', { diff: true })
+  t.ok(cleared.blocks > 0)
 
-  const bytesCleared2 = await b.clear('/not-exists', { storageInfo: true })
-  t.is(bytesCleared2, 0)
+  const cleared2 = await b.clear('/file', { diff: true })
+  t.is(cleared2.blocks, 0)
+
+  const cleared3 = await b.clear('/not-exists', { diff: true })
+  t.is(cleared3.blocks, 0)
+
+  await b.close()
+})
+
+test('drive.clearAll() with diff', async (t) => {
+  const storage = createTmpDir(t)
+
+  const a = new Hyperdrive(new Corestore(storage))
+  await a.put('/file-1', b4a.alloc(4 * 1024))
+  await a.put('/file-2', b4a.alloc(8 * 1024))
+  await a.put('/file-3', b4a.alloc(16 * 1024))
+  await a.close()
+
+  const b = new Hyperdrive(new Corestore(storage))
+
+  const cleared = await b.clearAll({ diff: true })
+  t.ok(cleared.blocks > 0)
+
+  const cleared2 = await b.clearAll({ diff: true })
+  t.is(cleared2.blocks, 0)
+
+  const cleared3 = await b.clearAll()
+  t.is(cleared3, null)
+
+  await b.close()
 })
 
 test('entry(key) cancelled when checkout closes', async function (t) {
@@ -846,17 +874,6 @@ async function streamToBuffer (stream) {
     chunks.push(chunk)
   }
   return b4a.concat(chunks)
-}
-
-function createStorage () {
-  const files = new Map()
-
-  return function (name) {
-    if (files.has(name)) return files.get(name).clone()
-    const storage = new RAM()
-    files.set(name, storage)
-    return storage
-  }
 }
 
 function createTmpDir (t) {

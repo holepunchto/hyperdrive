@@ -135,14 +135,25 @@ Returns the entry at `path` in the drive. It looks like this:
 
 Deletes the file at `path` from the drive.
 
-#### `const bytesCleared = await drive.clear(path, [options])`
+#### `const cleared = await drive.clear(path, [options])`
 
 Deletes the blob from storage to free up space, but the file structure reference is kept.
 
 `options` include:
 ```js
 {
-  storageInfo: false // `bytesCleared` is always zero unless you enable this
+  diff: false // Returned `cleared` bytes object is null unless you enable this
+}
+```
+
+#### `const cleared = await drive.clearAll([options])`
+
+Deletes all the blobs from storage to free up space, similar to how `drive.clear()` works.
+
+`options` include:
+```js
+{
+  diff: false // Returned `cleared` bytes object is null unless you enable this
 }
 ```
 
