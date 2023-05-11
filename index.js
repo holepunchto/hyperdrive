@@ -190,46 +190,65 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.files.del(normalizePath(name))
   }
 
-  async clear (name, { storageInfo = false } = {}) {
-    const node = await this.entry(name)
-    if (node === null) return 0
-    if (!this.blobs) return 0 // if no blobs, nothing to clear
+  async clear (name, opts) {
+    if (!this.opened) await this.ready()
 
-    const infoBefore = storageInfo
+    const diffing = !!(opts && opts.diff)
+
+    let node = null
+
+    try {
+      node = await this.entry(name, { wait: false })
+    } catch {
+      // do nothing, prop not available
+    }
+
+    const infoBefore = diffing === true
       ? await this.blobs.core.info({ storage: true })
       : null
 
-    await this.blobs.clear(node.value.blob)
+    if (node !== null && this.blobs !== null) {
+      await this.blobs.clear(node.value.blob)
+    }
 
-    if (!infoBefore) return 0
+    if (diffing === false) return null
 
     const infoAfter = await this.blobs.core.info({ storage: true })
-    return infoBefore.storage.blocks - infoAfter.storage.blocks
+
+    return {
+      blocks: infoBefore.storage.blocks - infoAfter.storage.blocks
+    }
   }
 
-  async clearAll ({ storageInfo = false } = {}) {
+  async clearAll (opts) {
     if (!this.opened) await this.ready()
-    if (!this.blobs) return 0 // if no blobs, nothing to clear
 
-    const infoBefore = storageInfo
+    const diffing = !!(opts && opts.diff)
+
+    const infoBefore = diffing === true
       ? await this.blobs.core.info({ storage: true })
       : null
 
-    await this.blobs.core.clear()
+    if (this.blobs !== null) {
+      await this.blobs.core.clear(0, this.blobs.core.length)
+    }
 
-    if (!infoBefore) return 0
+    if (diffing === false) return null
 
     const infoAfter = await this.blobs.core.info({ storage: true })
-    return infoBefore.storage.blocks - infoAfter.storage.blocks
+
+    return {
+      blocks: infoBefore.storage.blocks - infoAfter.storage.blocks
+    }
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
     return this.files.put(normalizePath(name), { executable: false, linkname: dst, blob: null, metadata })
   }
 
-  entry (name) {
+  entry (name, opts) {
     return typeof name === 'string'
-      ? this.files.get(normalizePath(name))
+      ? this.files.get(normalizePath(name), opts)
       : Promise.resolve(name)
   }
 
