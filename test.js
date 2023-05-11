@@ -776,6 +776,19 @@ test('drive.clear(path) with storageInfo', async (t) => {
   t.is(bytesCleared2, 0)
 })
 
+test('entry(key) cancelled when checkout closes', async function (t) {
+  const { drive } = await testenv(t.teardown)
+  await drive.put('some', '1')
+
+  const snap = drive.checkout(3) // Future
+  const prom = snap.entry('some')
+
+  const [a, b] = await Promise.allSettled([snap.close(), prom])
+
+  t.is(a.status, 'fulfilled')
+  t.is(b.status, 'rejected')
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
