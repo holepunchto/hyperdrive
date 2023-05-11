@@ -92,6 +92,7 @@ module.exports = class Hyperdrive extends ReadyResource {
         await this.blobs.core.close()
       }
       await this.db.close()
+      await this.files.close() // workaround to flush the batches for now. TODO: kill the sub!
     } catch (e) {
       safetyCatch(e)
     }
