@@ -193,8 +193,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   async clear (name, { storageInfo = false } = {}) {
     const node = await this.entry(name)
     if (node === null) return 0
-
-    await this.getBlobs()
+    if (!this.blobs) return 0 // if no blobs, nothing to clear
 
     const infoBefore = storageInfo
       ? await this.blobs.core.info({ storage: true })
@@ -202,13 +201,26 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     await this.blobs.clear(node.value.blob)
 
-    if (infoBefore) {
-      const infoAfter = await this.blobs.core.info({ storage: true })
-      const bytesCleared = infoBefore.storage.blocks - infoAfter.storage.blocks
-      return bytesCleared
-    }
+    if (!infoBefore) return 0
 
-    return 0
+    const infoAfter = await this.blobs.core.info({ storage: true })
+    return infoBefore.storage.blocks - infoAfter.storage.blocks
+  }
+
+  async clearAll ({ storageInfo = false } = {}) {
+    if (!this.opened) await this.ready()
+    if (!this.blobs) return 0 // if no blobs, nothing to clear
+
+    const infoBefore = storageInfo
+      ? await this.blobs.core.info({ storage: true })
+      : null
+
+    await this.blobs.core.clear()
+
+    if (!infoBefore) return 0
+
+    const infoAfter = await this.blobs.core.info({ storage: true })
+    return infoBefore.storage.blocks - infoAfter.storage.blocks
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
