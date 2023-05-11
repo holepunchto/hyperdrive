@@ -14,8 +14,8 @@
   "scripts": {
     "test": "standard && brittle test.js"
   },
-  "author": "Mathias Buus (@mafintosh)",
-  "license": "MIT",
+  "author": "Holepunch",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/holepunchto/hyperdrive-next/issues"
   },

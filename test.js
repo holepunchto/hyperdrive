@@ -750,7 +750,7 @@ test('drive.clear(path)', async (t) => {
   t.alike(initContent, b4a.from('hello world'))
 
   const res = await drive.clear('/loc')
-  t.is(res, undefined)
+  t.is(res, 0)
 
   // Entry still exists (so file not deleted)
   const nowEntry = await drive.entry('/loc')
@@ -759,6 +759,21 @@ test('drive.clear(path)', async (t) => {
   // But the blob is removed from storage
   const nowContent = await drive.blobs.get(entry.value.blob, { wait: false })
   t.is(nowContent, null)
+})
+
+test('drive.clear(path) with storageInfo', async (t) => {
+  const storage = createStorage()
+
+  const a = new Hyperdrive(new Corestore(storage))
+  await a.put('/file', 'abc')
+  await a.close()
+
+  const b = new Hyperdrive(new Corestore(storage))
+  const bytesCleared = await b.clear('/file', { storageInfo: true })
+  t.is(bytesCleared, 0)
+
+  const bytesCleared2 = await b.clear('/not-exists', { storageInfo: true })
+  t.is(bytesCleared2, 0)
 })
 
 async function testenv (teardown) {
@@ -817,4 +832,15 @@ async function streamToBuffer (stream) {
     chunks.push(chunk)
   }
   return b4a.concat(chunks)
+}
+
+function createStorage () {
+  const files = new Map()
+
+  return function (name) {
+    if (files.has(name)) return files.get(name).clone()
+    const storage = new RAM()
+    files.set(name, storage)
+    return storage
+  }
 }
