@@ -818,6 +818,21 @@ test('entry(key) cancelled when checkout closes', async function (t) {
   t.is(b.status, 'rejected')
 })
 
+test('drive.exists(key)', async function (t) {
+  const { drive } = await testenv(t.teardown)
+
+  t.is(await drive.exists('/file'), false)
+
+  await drive.put('/file', 'hi')
+  t.is(await drive.exists('/file'), true)
+
+  await drive.clear('/file')
+  t.is(await drive.exists('/file'), true)
+
+  await drive.del('/file')
+  t.is(await drive.exists('/file'), false)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()

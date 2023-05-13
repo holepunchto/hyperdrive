@@ -252,6 +252,10 @@ module.exports = class Hyperdrive extends ReadyResource {
       : Promise.resolve(name)
   }
 
+  async exists (name) {
+    return await this.entry(name) !== null
+  }
+
   diff (length, folder, opts) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
     if (folder) {

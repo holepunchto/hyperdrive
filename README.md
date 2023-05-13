@@ -131,6 +131,10 @@ Returns the entry at `path` in the drive. It looks like this:
 }
 ```
 
+#### `const exists = await drive.exists(path)`
+
+Returns `true` if the entry at `path` does exists, otherwise `false`.
+
 #### `await drive.del(path)`
 
 Deletes the file at `path` from the drive.
