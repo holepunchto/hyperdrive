@@ -161,6 +161,10 @@ Deletes all the blobs from storage to free up space, similar to how `drive.clear
 }
 ```
 
+#### `await drive.purge()`
+
+Purge both cores (db and blobs) from your storage, completely removing all the drive's data.
+
 #### `await drive.symlink(path, linkname)`
 
 Creates an entry in drive at `path` that points to the entry at `linkname`.

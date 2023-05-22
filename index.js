@@ -242,6 +242,19 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
   }
 
+  async purge () {
+    if (this._checkout || this._batching) {
+      throw new Error('Can only purge the main session')
+    }
+
+    await this.ready() // Ensure blobs loaded if present
+    await this.close()
+
+    const proms = [this.core.purge()]
+    if (this.blobs) proms.push(this.blobs.core.purge())
+    await Promise.all(proms)
+  }
+
   async symlink (name, dst, { metadata = null } = {}) {
     return this.files.put(normalizePath(name), { executable: false, linkname: dst, blob: null, metadata })
   }
