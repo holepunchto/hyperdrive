@@ -193,8 +193,6 @@ module.exports = class Hyperdrive extends ReadyResource {
   async clear (name, opts) {
     if (!this.opened) await this.ready()
 
-    const diffing = !!(opts && opts.diff)
-
     let node = null
 
     try {
@@ -203,43 +201,21 @@ module.exports = class Hyperdrive extends ReadyResource {
       // do nothing, prop not available
     }
 
-    const infoBefore = diffing === true
-      ? await this.blobs.core.info({ storage: true })
-      : null
-
-    if (node !== null && this.blobs !== null) {
-      await this.blobs.clear(node.value.blob)
+    if (node === null || this.blobs === null) {
+      return (opts && opts.diff) ? { blocks: 0 } : null
     }
 
-    if (diffing === false) return null
-
-    const infoAfter = await this.blobs.core.info({ storage: true })
-
-    return {
-      blocks: infoBefore.storage.blocks - infoAfter.storage.blocks
-    }
+    return this.blobs.clear(node.value.blob, opts)
   }
 
   async clearAll (opts) {
     if (!this.opened) await this.ready()
 
-    const diffing = !!(opts && opts.diff)
-
-    const infoBefore = diffing === true
-      ? await this.blobs.core.info({ storage: true })
-      : null
-
-    if (this.blobs !== null) {
-      await this.blobs.core.clear(0, this.blobs.core.length)
+    if (this.blobs === null) {
+      return (opts && opts.diff) ? { blocks: 0 } : null
     }
 
-    if (diffing === false) return null
-
-    const infoAfter = await this.blobs.core.info({ storage: true })
-
-    return {
-      blocks: infoBefore.storage.blocks - infoAfter.storage.blocks
-    }
+    return this.blobs.core.clear(0, this.blobs.core.length, opts)
   }
 
   async purge () {
