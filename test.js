@@ -358,6 +358,84 @@ test('symlink(key, linkname) resolve key path', async function (t) {
   await symlinkAndEntry('\\examples\\more\\h.txt', '/examples/more/h.txt')
 })
 
+test('watch() basic', async function (t) {
+  t.plan(5)
+
+  const { drive } = await testenv(t.teardown)
+  const buf = b4a.from('hi')
+
+  const watcher = drive.watch()
+
+  eventFlush().then(async () => {
+    await drive.put('/a.txt', buf)
+  })
+
+  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+    t.ok(current instanceof Hyperdrive)
+    t.ok(previous instanceof Hyperdrive)
+    t.is(current.version, 2)
+    t.is(previous.version, 1)
+    t.alike(await current.get('/a.txt'), buf)
+    break
+  }
+})
+
+test('watch(folder) basic', async function (t) {
+  t.plan(1)
+
+  const { drive } = await testenv(t.teardown)
+  const buf = b4a.from('hi')
+
+  await drive.put('/README.md', buf)
+  await drive.put('/examples/a.txt', buf)
+  await drive.put('/examples/more/a.txt', buf)
+
+  const watcher = drive.watch('/examples')
+
+  let next = watcher.next()
+  let onchange = null
+  next.then(data => {
+    next = watcher.next()
+    onchange(data)
+  })
+
+  onchange = () => t.fail('should not trigger changes')
+  await drive.put('/b.txt', buf)
+  await eventFlush()
+  onchange = null
+
+  onchange = () => t.pass('change')
+  await drive.put('/examples/b.txt', buf)
+  await eventFlush()
+  onchange = null
+})
+
+test('watch(folder) should normalize folder', async function (t) {
+  t.plan(1)
+
+  const { drive } = await testenv(t.teardown)
+  const buf = b4a.from('hi')
+
+  const watcher = drive.watch('examples//more//')
+
+  let next = watcher.next()
+  let onchange = null
+  next.then(data => {
+    next = watcher.next()
+    onchange(data)
+  })
+
+  onchange = () => t.fail('should not trigger changes')
+  await drive.put('/examples/a.txt', buf)
+  await eventFlush()
+  onchange = null
+
+  onchange = () => t.pass('change')
+  await drive.put('/examples/more/a.txt', buf)
+  await eventFlush()
+  onchange = null
+})
+
 test('drive.diff(length)', async (t) => {
   const { drive, paths: { root, tmp } } = await testenv(t.teardown)
   const paths = []
@@ -911,4 +989,8 @@ function createTmpDir (t) {
   const dir = fs.mkdtempSync(tmpdir)
   t.teardown(() => fs.promises.rm(dir, { recursive: true }))
   return dir
+}
+
+function eventFlush () {
+  return new Promise(resolve => setImmediate(resolve))
 }

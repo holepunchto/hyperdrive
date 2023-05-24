@@ -4,6 +4,7 @@ const isOptions = require('is-options')
 const { Writable, Readable } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
+const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
 
@@ -63,13 +64,17 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.db.core.update(opts)
   }
 
-  checkout (len) {
+  _makeCheckout (snapshot) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       _checkout: this._checkout || this,
-      _db: this.db.checkout(len),
+      _db: snapshot,
       _files: null
     })
+  }
+
+  checkout (version) {
+    return this._makeCheckout(this.db.checkout(version))
   }
 
   batch () {
@@ -243,6 +248,18 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   async exists (name) {
     return await this.entry(name) !== null
+  }
+
+  watch (folder) {
+    folder = normalizePath(folder || '/')
+
+    if (folder.endsWith('/')) folder = folder.slice(0, -1)
+
+    const encoder = new SubEncoder()
+    const files = encoder.sub('files', this.db.keyEncoding)
+    const options = { map: (snap) => this._makeCheckout(snap) }
+
+    return this.db.watch({ gt: files.encode(folder + '/'), lt: files.encode(folder + '0') }, options)
   }
 
   diff (length, folder, opts) {

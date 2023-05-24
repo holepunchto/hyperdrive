@@ -206,6 +206,30 @@ Efficiently mirror this drive into another. Returns a [`MirrorDrive`](https://gi
 
 Call `await mirror.done()` to wait for the mirroring to finish.
 
+#### `const watcher = db.watch([folder])`
+
+Returns an iterator that listens on `folder` to yield changes, by default on `/`.
+
+Usage example:
+```js
+for await (const [current, previous] of watcher) {
+  console.log(current.version)
+  console.log(previous.version)
+}
+```
+
+Those `current` and `previous` are snapshots that are auto-closed before next value.
+
+Don't close those snapshots yourself because they're used internally, let them be auto-closed.
+
+`await watcher.ready()`
+
+Waits until the watcher is loaded and detecting changes.
+
+`await watcher.destroy()`
+
+Stops the watcher. You could also stop it by using `break` in the loop.
+
 #### `const rs = drive.createReadStream(path, [options])`
 
 Returns a stream to read out the blob stored in the drive at `path`.
