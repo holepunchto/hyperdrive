@@ -7,7 +7,7 @@ Hyperdrive is a secure, real-time distributed file system
 ## Install
 
 ```sh
-npm install hyperdrive@next
+npm install hyperdrive
 ```
 
 ## Usage
