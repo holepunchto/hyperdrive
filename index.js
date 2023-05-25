@@ -277,14 +277,17 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   diff (length, folder, opts = {}) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
+
+    const range = {}
     if (folder) {
       if (folder.endsWith('/')) folder = folder.slice(0, -1)
       if (folder) folder = normalizePath(folder)
-      opts = { gt: folder + '/', lt: folder + '0', ...opts }
+      range.gt = folder + '/'
+      range.lt = folder + '0'
     }
 
     opts = { ...opts, keyEncoding: FILES_SUB }
-    return this.db.createDiffStream(length, opts)
+    return this.db.createDiffStream(length, range, opts)
   }
 
   async downloadDiff (length, folder, opts) {
