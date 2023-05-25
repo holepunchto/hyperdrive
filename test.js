@@ -775,6 +775,24 @@ test('drive.close() for future checkout', async (t) => {
   t.is(drive.db.core.closed, false)
 })
 
+test('drive.close() with openBlobsFromHeader waiting in the background', async (t) => {
+  t.plan(3)
+
+  const corestore = new Corestore(RAM)
+  const disconnectedCoreKey = b4a.from('a'.repeat(64), 'hex')
+  const drive = new Hyperdrive(corestore, disconnectedCoreKey)
+
+  await drive.ready()
+  t.is(drive.core.length, 0) // Sanity check
+  // length 0 (unavailable), so _openBlobsFromHeader will be awaiting its header
+
+  // Testing against a regression where close silently errored and never finished
+  drive.core.on('close', () => t.ok(true))
+  await drive.close()
+
+  t.ok(drive.corestore.closed)
+})
+
 test.skip('drive.findingPeers()', async (t) => {
   const { drive, corestore, swarm, mirror } = await testenv(t.teardown)
   await drive.put('/', b4a.from('/'))
