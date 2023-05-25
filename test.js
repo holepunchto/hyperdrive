@@ -878,6 +878,28 @@ test('drive.clear(path) with diff', async (t) => {
   await b.close()
 })
 
+test('drive.clear(path) on a checkout', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  await drive.put('/loc', 'hello world')
+
+  const entry = await drive.entry('/loc')
+  const initContent = await drive.blobs.get(entry.value.blob, { wait: false })
+  t.alike(initContent, b4a.from('hello world'))
+
+  const checkout = drive.checkout(drive.version)
+
+  const cleared = await checkout.clear('/loc')
+  t.is(cleared, null)
+
+  // Entry still exists (so file not deleted)
+  const nowEntry = await checkout.entry('/loc')
+  t.alike(nowEntry, entry)
+
+  // But the blob is removed from storage
+  const nowContent = await checkout.blobs.get(entry.value.blob, { wait: false })
+  t.is(nowContent, null)
+})
+
 test('drive.clearAll() with diff', async (t) => {
   const storage = createTmpDir(t)
 
