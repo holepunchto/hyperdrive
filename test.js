@@ -730,6 +730,7 @@ test('drive.batch() & drive.flush()', async (t) => {
 })
 
 test('batch.list()', async (t) => {
+  t.plan(1)
   const { drive } = await testenv(t.teardown)
   const nil = b4a.from('nil')
   await drive.put('/x', nil)
