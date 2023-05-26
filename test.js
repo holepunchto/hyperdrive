@@ -485,6 +485,38 @@ test('drive.entries()', async (t) => {
   t.is(entries.size, 0)
 })
 
+test('drive.entries() with explicit range, no opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/bFile', '/zFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(expected, expected)
+})
+
+test('drive.entries() with explicit range and opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/zFile', '/bFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' }, { reverse: true })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(observed, expected)
+})
+
 test('drive.list(folder, { recursive })', async (t) => {
   {
     const { drive, paths: { root } } = await testenv(t.teardown)

@@ -328,9 +328,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.allSettled(proms)
   }
 
-  entries (opts = {}) {
-    opts = { ...opts, keyEncoding: FILES_SUB }
-    return this.db.createReadStream(opts)
+  entries (range = {}, opts = {}) {
+    if (opts) opts.keyEncoding = FILES_SUB
+    else range.keyEncoding = FILES_SUB // backward compat
+
+    return this.db.createReadStream(range, opts)
   }
 
   async download (folder = '/', opts) {
