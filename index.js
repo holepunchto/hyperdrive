@@ -19,18 +19,19 @@ module.exports = class Hyperdrive extends ReadyResource {
       opts = key
       key = null
     }
-    const { _checkout, _db, onwait, _blobs } = opts
+    const { _checkout, _db, onwait, _batch } = opts
     this._onwait = onwait || null
 
     this.corestore = corestore
     this.db = _db || makeBee(key, corestore, this._onwait)
+    this._batch = _batch
 
-    this.blobs = _blobs || null
+    this.blobs = null
     this.supportsMetadata = true
 
     this._openingBlobs = null
     this._checkout = _checkout || null
-    this._batching = !!_blobs
+    this._batching = !!_batch
 
     this.ready().catch(safetyCatch)
   }
@@ -83,8 +84,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       _checkout: null,
-      _db: this.db.batch(),
-      _blobs: this.blobs
+      _db: this.db,
+      _batch: this.db.batch()
     })
   }
 
@@ -163,6 +164,11 @@ module.exports = class Hyperdrive extends ReadyResource {
       // eagerly load the blob store....
       this._openingBlobs = this._openBlobsFromHeader()
       this._openingBlobs.catch(safetyCatch)
+    }
+
+    if (this._batching) {
+      // original db no longer needed, since blobs already open
+      this.db = this._batch
     }
   }
 

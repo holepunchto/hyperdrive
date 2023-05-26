@@ -796,6 +796,18 @@ test('drive.close() on snapshots--does not close parent', async (t) => {
   t.alike(res, b4a.from('bar'))
 })
 
+test('drive.batch() on non-ready drive', async (t) => {
+  const drive = new Hyperdrive(new Corestore(RAM))
+  const batch = drive.batch()
+  await batch.put('/x', 'something')
+  await batch.flush()
+  t.ok(await drive.get('/x'))
+
+  await batch.close()
+  // TODO: uncomment when blobs session leaks fix is in
+  // t.is(batch.blobs.core.closed, true)
+})
+
 test('drive.close() for future checkout', async (t) => {
   const { drive } = await testenv(t.teardown)
   await drive.put('some', 'thing')
