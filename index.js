@@ -91,7 +91,11 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async _close () {
-    if (this._batching) return this.files.close()
+    if (this._batching) {
+      await this.blobs.core.close()
+      return this.files.close()
+    }
+
     try {
       if (this.blobs !== null && (this._checkout === null || this.blobs !== this._checkout.blobs)) {
         await this.blobs.core.close()
