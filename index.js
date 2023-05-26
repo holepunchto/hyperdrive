@@ -139,7 +139,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _open () {
     if (this._checkout) {
       await this._checkout.ready()
-      await this.getBlobs()
+      this.blobs = this._checkout.blobs
       return
     }
 
