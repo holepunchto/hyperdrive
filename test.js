@@ -820,6 +820,24 @@ test('drive.close() for future checkout', async (t) => {
   t.is(drive.db.core.closed, false)
 })
 
+test('drive.close() with openBlobsFromHeader waiting in the background', async (t) => {
+  t.plan(3)
+
+  const corestore = new Corestore(RAM)
+  const disconnectedCoreKey = b4a.from('a'.repeat(64), 'hex')
+  const drive = new Hyperdrive(corestore, disconnectedCoreKey)
+
+  await drive.ready()
+  t.is(drive.core.length, 0) // Sanity check
+  // length 0 (unavailable), so _openBlobsFromHeader will be awaiting its header
+
+  // Testing against a regression where close silently errored and never finished
+  drive.core.on('close', () => t.ok(true))
+  await drive.close()
+
+  t.ok(drive.corestore.closed)
+})
+
 test.skip('drive.findingPeers()', async (t) => {
   const { drive, corestore, swarm, mirror } = await testenv(t.teardown)
   await drive.put('/', b4a.from('/'))
@@ -903,6 +921,28 @@ test('drive.clear(path) with diff', async (t) => {
   t.is(cleared3.blocks, 0)
 
   await b.close()
+})
+
+test('drive.clear(path) on a checkout', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  await drive.put('/loc', 'hello world')
+
+  const entry = await drive.entry('/loc')
+  const initContent = await drive.blobs.get(entry.value.blob, { wait: false })
+  t.alike(initContent, b4a.from('hello world'))
+
+  const checkout = drive.checkout(drive.version)
+
+  const cleared = await checkout.clear('/loc')
+  t.is(cleared, null)
+
+  // Entry still exists (so file not deleted)
+  const nowEntry = await checkout.entry('/loc')
+  t.alike(nowEntry, entry)
+
+  // But the blob is removed from storage
+  const nowContent = await checkout.blobs.get(entry.value.blob, { wait: false })
+  t.is(nowContent, null)
 })
 
 test('drive.clearAll() with diff', async (t) => {
