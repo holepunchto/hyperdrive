@@ -86,27 +86,23 @@ module.exports = class Hyperdrive extends ReadyResource {
     })
   }
 
-  flush () {
-    return this.files.flush()
+  async flush () {
+    await this.files.flush()
+    return this.close()
   }
 
   async _close () {
-    if (this._batching) {
-      await this.blobs.core.close()
-      return this.files.close()
-    }
-
     try {
       if (this.blobs !== null && (this._checkout === null || this.blobs !== this._checkout.blobs)) {
         await this.blobs.core.close()
       }
-      await this.db.close()
+      if (!this._batching) await this.db.close()
       await this.files.close() // workaround to flush the batches for now. TODO: kill the sub!
     } catch (e) {
       safetyCatch(e)
     }
 
-    if (this._checkout) return
+    if (this._checkout || this._batching) return
     try {
       await this.corestore.close()
     } catch (e) {
