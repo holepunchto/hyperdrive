@@ -22,6 +22,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.corestore = corestore
     this.db = _db || makeBee(key, corestore, this._onwait)
     this.files = _files || this.db.sub('files')
+    this.core = this.db.core
     this.blobs = null
     this.supportsMetadata = true
 
@@ -36,6 +37,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.entries()[Symbol.asyncIterator]()
   }
 
+  get id () {
+    return this.core.id
+  }
+
   get key () {
     return this.core.key
   }
@@ -48,20 +53,28 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.blobs?.core.key
   }
 
-  get core () {
-    return this.db.core
-  }
-
   get version () {
     return this.db.version
   }
 
+  get writable () {
+    return this.core.writable
+  }
+
+  get readable () {
+    return this.core.readable
+  }
+
   findingPeers () {
-    return this.db.core.findingPeers()
+    return this.corestore.findingPeers()
+  }
+
+  replicate (isInitiator, opts) {
+    return this.corestore.replicate(isInitiator, opts)
   }
 
   update (opts) {
-    return this.db.core.update(opts)
+    return this.db.update(opts)
   }
 
   _makeCheckout (snapshot) {
