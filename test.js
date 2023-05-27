@@ -966,6 +966,33 @@ test('drive.exists(key)', async function (t) {
   t.is(await drive.exists('/file'), false)
 })
 
+test('basic properties', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  t.is(typeof drive.findingPeers, 'function')
+  t.is(typeof drive.replicate, 'function')
+
+  t.is(drive.id, null)
+  t.is(drive.key, null)
+  t.is(drive.discoveryKey, null)
+
+  t.is(drive.writable, false)
+  t.is(drive.readable, true)
+
+  await drive.ready()
+
+  t.is(drive.writable, true)
+
+  t.is(drive.id.length, 52)
+  t.is(drive.key.byteLength, 32)
+  t.is(drive.discoveryKey.byteLength, 32)
+
+  t.is(drive.id, drive.core.id)
+  t.is(drive.key, drive.core.key)
+  t.is(drive.discoveryKey, drive.core.discoveryKey)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
