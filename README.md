@@ -78,6 +78,10 @@ The underlying Hyperbee backing the drive file structure.
 
 The Hypercore used for `drive.db`.
 
+#### `drive.id`
+
+String containing the id (z-base-32 of the public key) identifying this drive.
+
 #### `drive.key`
 
 The public key of the Hypercore backing the drive.
@@ -91,6 +95,14 @@ Can be used as a `topic` to seed the drive using Hyperswarm.
 #### `drive.contentKey`
 
 The public key of the [Hyperblobs](https://github.com/holepunchto/hyperblobs) instance holding blobs associated with entries in the drive.
+
+#### `drive.writable`
+
+Boolean indicating if we can write or delete data in this drive.
+
+#### `drive.readable`
+
+Boolean indicating if we can read from this drive. After closing the drive this will be `false`.
 
 #### `drive.version`
 
@@ -291,19 +303,19 @@ In other words, downloads all the blobs added to `folder` up to `version` of the
 
 Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
 
-#### `const done = drive.corestore.findingPeers()`
+#### `const done = drive.findingPeers()`
 
 Indicate to Hyperdrive that you're finding peers in the background, requests will be on hold until this is done.
 
 Call `done()` when your current discovery iteration is done, i.e. after `swarm.flush()` finishes.
 
-#### `const stream = drive.corestore.replicate(isInitiatorOrStream)`
+#### `const stream = drive.replicate(isInitiatorOrStream)`
 
 Usage example:
 ```js
 const swarm = new Hyperswarm()
-const done = drive.corestore.findingPeers()
-swarm.on('connection', (socket) => drive.corestore.replicate(socket))
+const done = drive.findingPeers()
+swarm.on('connection', (socket) => drive.replicate(socket))
 swarm.join(drive.discoveryKey)
 swarm.flush().then(done, done)
 ```
@@ -321,7 +333,7 @@ Waits for initial proof of the new drive version until all `findingPeers` are do
 }
 ```
 
-Use `drive.corestore.findingPeers()` or `{ wait: true }` to make await `drive.update()` blocking.
+Use `drive.findingPeers()` or `{ wait: true }` to make await `drive.update()` blocking.
 
 #### `const blobs = await drive.getBlobs()`
 
