@@ -727,6 +727,15 @@ test('drive.batch() & drive.flush()', async (t) => {
   await batch.put('/y', nil)
   await batch.flush()
   t.ok(await drive.get('/x'))
+
+  // No session leaks
+  await batch.close()
+  t.ok(batch.blobs.core.closed)
+
+  // Sanity check: nothing else closed
+  t.is(drive.blobs.core.closed, false)
+  t.is(drive.db.closed, false)
+  t.is(drive.files.core.closed, false)
 })
 
 test('batch.list()', async (t) => {
