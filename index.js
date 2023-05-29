@@ -16,7 +16,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       opts = key
       key = null
     }
-    const { _checkout, _db, _files, onwait } = opts
+    const { _checkout, _db, _files, onwait, readonly } = opts
     this._onwait = onwait || null
 
     this.corestore = corestore
@@ -27,6 +27,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.supportsMetadata = true
 
     this._openingBlobs = null
+    this._readonly = !!readonly
     this._checkout = _checkout || null
     this._batching = !!_files
 
@@ -80,6 +81,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   _makeCheckout (snapshot) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
+      readable: this._readonly,
       _checkout: this._checkout || this,
       _db: snapshot,
       _files: null
@@ -93,6 +95,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   batch () {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
+      readable: this._readonly,
       _checkout: null,
       _db: this.db,
       _files: this.files.batch()
