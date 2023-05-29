@@ -59,7 +59,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   get writable () {
-    return this.core.writable
+    return this._readonly ? false : this.core.writable
   }
 
   get readable () {
@@ -166,7 +166,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     await this._openBlobsFromHeader({ wait: false })
 
-    if (this.db.core.writable && !this.blobs) {
+    if (this.db.core.writable && !this.blobs && !this._readonly) {
       const blobsCore = this.corestore.get({
         name: 'blobs',
         cache: false,
