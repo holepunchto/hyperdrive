@@ -81,7 +81,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   _makeCheckout (snapshot) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
-      readable: this._readonly,
+      readonly: this._readonly,
       _checkout: this._checkout || this,
       _db: snapshot,
       _files: null
@@ -95,7 +95,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   batch () {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
-      readable: this._readonly,
+      readonly: this._readonly,
       _checkout: null,
       _db: this.db,
       _files: this.files.batch()
@@ -143,6 +143,11 @@ module.exports = class Hyperdrive extends ReadyResource {
       onwait: this._onwait
     })
     await blobsCore.ready()
+
+    if (this.closing) {
+      await blobsCore.close()
+      return false
+    }
 
     this.blobs = new Hyperblobs(blobsCore)
 
