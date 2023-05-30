@@ -35,7 +35,7 @@
     "@hyperswarm/testnet": "^3.0.0",
     "b4a": "^1.6.0",
     "brittle": "^3.1.0",
-    "corestore": "^6.1.1",
+    "corestore": "^6.7.0",
     "hypercore-crypto": "^3.2.1",
     "hyperdht": "^6.5.2",
     "hyperswarm": "^4.0.0",
