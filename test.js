@@ -1002,6 +1002,27 @@ test('basic properties', async function (t) {
   t.is(drive.discoveryKey, drive.core.discoveryKey)
 })
 
+test('basic writable option', async function (t) {
+  t.plan(3)
+
+  const store = new Corestore(RAM)
+
+  const a = new Hyperdrive(store)
+  await a.put('/file-one', 'hi')
+
+  const b = new Hyperdrive(store.session({ writable: false }), a.key)
+  await b.ready()
+  t.is(b.writable, false)
+  t.is(b.blobs.core.writable, false)
+
+  try {
+    await b.put('/file-two', 'hi')
+    t.fail('Should have failed')
+  } catch (err) {
+    t.is(err.code, 'SESSION_NOT_WRITABLE')
+  }
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
