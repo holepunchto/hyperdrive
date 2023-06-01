@@ -32,12 +32,11 @@
     "unix-path-resolve": "^1.0.2"
   },
   "devDependencies": {
-    "@hyperswarm/testnet": "^3.0.0",
     "b4a": "^1.6.0",
     "brittle": "^3.1.0",
     "corestore": "^6.7.0",
     "hypercore-crypto": "^3.2.1",
-    "hyperdht": "^6.5.2",
+    "hyperdht": "^6.6.0",
     "hyperswarm": "^4.0.0",
     "random-access-memory": "^6.0.0",
     "standard": "^17.0.0"
