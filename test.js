@@ -1036,11 +1036,11 @@ test('basic compare', async function (t) {
   await drive.put('/file.txt', 'hi')
   const c = await drive.entry('/file.txt')
 
-  t.is(drive.compare(a, c), -2)
+  t.is(drive.compare(a, c), -1)
   t.is(drive.compare(a, b), -1)
   t.is(drive.compare(a, a), 0)
   t.is(drive.compare(b, a), 1)
-  t.is(drive.compare(c, a), 2)
+  t.is(drive.compare(c, a), 1)
 })
 
 async function testenv (teardown) {

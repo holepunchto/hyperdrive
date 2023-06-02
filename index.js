@@ -218,7 +218,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   compare (a, b) {
-    return a.seq - b.seq
+    const diff = a.seq - b.seq
+    return diff > 0 ? 1 : (diff < 0 ? -1 : 0)
   }
 
   async clear (name, opts) {
