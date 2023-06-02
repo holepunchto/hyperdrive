@@ -1023,6 +1023,26 @@ test('basic writable option', async function (t) {
   }
 })
 
+test('basic compare', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/file.txt', 'hi')
+  const a = await drive.entry('/file.txt')
+
+  await drive.put('/file.txt', 'hi')
+  const b = await drive.entry('/file.txt')
+
+  await drive.put('/file.txt', 'hi')
+  const c = await drive.entry('/file.txt')
+
+  t.is(drive.compare(a, c), -2)
+  t.is(drive.compare(a, b), -1)
+  t.is(drive.compare(a, a), 0)
+  t.is(drive.compare(b, a), 1)
+  t.is(drive.compare(c, a), 2)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()

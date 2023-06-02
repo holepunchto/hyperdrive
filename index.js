@@ -217,6 +217,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.files.del(normalizePath(name))
   }
 
+  compare (a, b) {
+    return a.seq - b.seq
+  }
+
   async clear (name, opts) {
     if (!this.opened) await this.ready()
 
