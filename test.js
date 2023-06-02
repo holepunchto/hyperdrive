@@ -1039,6 +1039,7 @@ test('basic compare', async function (t) {
   t.is(drive.compare(a, c), -1)
   t.is(drive.compare(a, b), -1)
   t.is(drive.compare(a, a), 0)
+  t.is(drive.compare(c, c), 0)
   t.is(drive.compare(b, a), 1)
   t.is(drive.compare(c, a), 1)
 })
