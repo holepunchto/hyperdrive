@@ -217,6 +217,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.files.del(normalizePath(name))
   }
 
+  compare (a, b) {
+    const diff = a.seq - b.seq
+    return diff > 0 ? 1 : (diff < 0 ? -1 : 0)
+  }
+
   async clear (name, opts) {
     if (!this.opened) await this.ready()
 

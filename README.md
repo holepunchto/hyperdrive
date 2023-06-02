@@ -151,6 +151,10 @@ Returns `true` if the entry at `path` does exists, otherwise `false`.
 
 Deletes the file at `path` from the drive.
 
+#### `const comparison = drive.compare(entryA, entryB)`
+
+Returns `0` if entries are the same, `1` if `entryA` is older, and `-1` if `entryB` is older.
+
 #### `const cleared = await drive.clear(path, [options])`
 
 Deletes the blob from storage to free up space, but the file structure reference is kept.
