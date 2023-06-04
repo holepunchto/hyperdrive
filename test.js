@@ -58,7 +58,7 @@ test('Hyperdrive(corestore, key)', async (t) => {
   await drive.put(__filename, diskbuf)
   const bndlbuf = await drive.get(__filename)
   t.is(b4a.compare(diskbuf, bndlbuf), 0)
-  const mirror = new Hyperdrive(corestore, drive.core.key)
+  const mirror = new Hyperdrive(corestore.session({ writable: false }), drive.core.key)
   await mirror.ready()
   const mrrrbuf = await mirror.get(__filename)
   t.is(b4a.compare(bndlbuf, mrrrbuf), 0)

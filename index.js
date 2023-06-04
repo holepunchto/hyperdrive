@@ -548,8 +548,8 @@ function shallowReadStream (files, folder, keys) {
 
 function makeBee (key, corestore, onwait) {
   const metadataOpts = key
-    ? { key, cache: true, onwait }
-    : { name: 'db', cache: true, onwait }
+    ? { key, cache: true, exclusive: true, onwait }
+    : { name: 'db', cache: true, exclusive: true, onwait }
   const core = corestore.get(metadataOpts)
   const metadata = { contentFeed: null }
   return new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json', metadata })
