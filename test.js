@@ -485,6 +485,38 @@ test('drive.entries()', async (t) => {
   t.is(entries.size, 0)
 })
 
+test('drive.entries() with explicit range, no opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/bFile', '/zFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(expected, expected)
+})
+
+test('drive.entries() with explicit range and opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/zFile', '/bFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' }, { reverse: true })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(observed, expected)
+})
+
 test('drive.list(folder, { recursive })', async (t) => {
   {
     const { drive, paths: { root } } = await testenv(t.teardown)
@@ -739,6 +771,7 @@ test('drive.batch() & drive.flush()', async (t) => {
 })
 
 test('batch.list()', async (t) => {
+  t.plan(1)
   const { drive } = await testenv(t.teardown)
   const nil = b4a.from('nil')
   await drive.put('/x', nil)
@@ -770,6 +803,18 @@ test('drive.close() on snapshots--does not close parent', async (t) => {
   // Main test is that there is no session_closed error on drive.get
   const res = await drive.get('/foo')
   t.alike(res, b4a.from('bar'))
+})
+
+test('drive.batch() on non-ready drive', async (t) => {
+  const drive = new Hyperdrive(new Corestore(RAM))
+  const batch = drive.batch()
+  await batch.put('/x', 'something')
+  await batch.flush()
+  t.ok(await drive.get('/x'))
+
+  await batch.close()
+  // TODO: uncomment when blobs session leaks fix is in
+  // t.is(batch.blobs.core.closed, true)
 })
 
 test('drive.close() for future checkout', async (t) => {

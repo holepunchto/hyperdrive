@@ -210,11 +210,11 @@ Returns a stream of all entries in the drive at paths prefixed with `folder`.
 
 Returns a stream of all subpaths of entries in drive stored at paths prefixed by `folder`.
 
-#### `const stream = await drive.entries([options])`
+#### `const stream = await drive.entries([range], [options])`
 
 Returns a read stream of entries in the drive.
 
-`options` are the same as the `options` to `Hyperbee().createReadStream(options)`.
+`range` and `options` are the same as the `range` and `options` in `Hyperbee().createReadStream(options)`.
 
 #### `const mirror = drive.mirror(out, [options])`
 

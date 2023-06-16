@@ -8,6 +8,9 @@ const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
 
+const DB_KEY_ENCODING = 'utf-8'
+const FILES_SUB = new SubEncoder('files', DB_KEY_ENCODING)
+
 module.exports = class Hyperdrive extends ReadyResource {
   constructor (corestore, key, opts = {}) {
     super()
@@ -16,19 +19,19 @@ module.exports = class Hyperdrive extends ReadyResource {
       opts = key
       key = null
     }
-    const { _checkout, _db, _files, onwait } = opts
+    const { _checkout, _db, onwait, _batch } = opts
     this._onwait = onwait || null
 
     this.corestore = corestore
     this.db = _db || makeBee(key, corestore, this._onwait)
-    this.files = _files || this.db.sub('files')
-    this.core = this.db.core
+    this._batch = _batch
+
     this.blobs = null
     this.supportsMetadata = true
 
     this._openingBlobs = null
     this._checkout = _checkout || null
-    this._batching = !!_files
+    this._batching = !!_batch
 
     this.ready().catch(safetyCatch)
   }
@@ -81,8 +84,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       _checkout: this._checkout || this,
-      _db: snapshot,
-      _files: null
+      _db: snapshot
     })
   }
 
@@ -95,22 +97,21 @@ module.exports = class Hyperdrive extends ReadyResource {
       onwait: this._onwait,
       _checkout: null,
       _db: this.db,
-      _files: this.files.batch()
+      _batch: this.db.batch()
     })
   }
 
-  async flush () {
-    await this.files.flush()
-    return this.close()
+  flush () {
+    return this.db.flush()
   }
 
   async _close () {
+    if (this._batching) return this.db.close()
     try {
       if (this.blobs !== null && (this._checkout === null || this.blobs !== this._checkout.blobs)) {
         await this.blobs.core.close()
       }
-      if (!this._batching) await this.db.close()
-      await this.files.close() // workaround to flush the batches for now. TODO: kill the sub!
+      await this.db.close()
     } catch (e) {
       safetyCatch(e)
     }
@@ -185,6 +186,11 @@ module.exports = class Hyperdrive extends ReadyResource {
       this._openingBlobs = this._openBlobsFromHeader()
       this._openingBlobs.catch(safetyCatch)
     }
+
+    if (this._batching) {
+      // original db no longer needed, since blobs already open
+      this.db = this._batch
+    }
   }
 
   async getBlobs () {
@@ -210,11 +216,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   async put (name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const id = await this.blobs.put(buf)
-    return this.files.put(normalizePath(name), { executable, linkname: null, blob: id, metadata })
+    return this.db.put(
+      normalizePath(name),
+      { executable, linkname: null, blob: id, metadata },
+      { keyEncoding: FILES_SUB }
+    )
   }
 
   async del (name) {
-    return this.files.del(normalizePath(name))
+    return this.db.del(normalizePath(name), { keyEncoding: FILES_SUB })
   }
 
   compare (a, b) {
@@ -264,12 +274,18 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
-    return this.files.put(normalizePath(name), { executable: false, linkname: dst, blob: null, metadata })
+    return this.db.put(
+      normalizePath(name),
+      { executable: false, linkname: dst, blob: null, metadata },
+      { keyEncoding: FILES_SUB }
+    )
   }
 
   entry (name, opts) {
+    opts = { ...opts, keyEncoding: FILES_SUB }
+
     return typeof name === 'string'
-      ? this.files.get(normalizePath(name), opts)
+      ? this.db.get(normalizePath(name), opts)
       : Promise.resolve(name)
   }
 
@@ -282,21 +298,23 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
 
-    const encoder = new SubEncoder()
-    const files = encoder.sub('files', this.db.keyEncoding)
     const options = { map: (snap) => this._makeCheckout(snap) }
-
-    return this.db.watch({ gt: files.encode(folder + '/'), lt: files.encode(folder + '0') }, options)
+    return this.db.watch({ gt: FILES_SUB.encode(folder + '/'), lt: FILES_SUB.encode(folder + '0') }, options)
   }
 
-  diff (length, folder, opts) {
+  diff (length, folder, opts = {}) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
+
+    const range = {}
     if (folder) {
       if (folder.endsWith('/')) folder = folder.slice(0, -1)
       if (folder) folder = normalizePath(folder)
-      opts = { gt: folder + '/', lt: folder + '0', ...opts }
+      range.gt = folder + '/'
+      range.lt = folder + '0'
     }
-    return this.files.createDiffStream(length, opts)
+
+    opts = { ...opts, keyEncoding: FILES_SUB }
+    return this.db.createDiffStream(length, range, opts)
   }
 
   async downloadDiff (length, folder, opts) {
@@ -337,8 +355,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.allSettled(proms)
   }
 
-  entries (opts) {
-    return this.files.createReadStream(opts)
+  entries (range = {}, opts = {}) {
+    if (opts) opts.keyEncoding = FILES_SUB
+    else range.keyEncoding = FILES_SUB // backward compat
+
+    return this.db.createReadStream(range, opts)
   }
 
   async download (folder = '/', opts) {
@@ -367,7 +388,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
     if (folder) folder = normalizePath(folder)
 
-    if (recursive === false) return shallowReadStream(this.files, folder, false)
+    if (recursive === false) return shallowReadStream(this.db, folder, false, FILES_SUB)
     // '0' is binary +1 of /
     return folder ? this.entries({ gt: folder + '/', lt: folder + '0' }) : this.entries()
   }
@@ -376,7 +397,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (folder.endsWith('/')) folder = folder.slice(0, -1)
     if (folder) folder = normalizePath(folder)
 
-    return shallowReadStream(this.files, folder, true)
+    return shallowReadStream(this.db, folder, true, FILES_SUB)
   }
 
   mirror (out, opts) {
@@ -497,7 +518,11 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.files.put(normalizePath(name), { executable, linkname: null, blob: ws.id, metadata }).then(() => cb(null), cb)
+      self.db.put(
+        normalizePath(name),
+        { executable, linkname: null, blob: ws.id, metadata },
+        { keyEncoding: FILES_SUB }
+      ).then(() => cb(null), cb)
     }
 
     function callOndrain (err) {
@@ -514,17 +539,17 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 }
 
-function shallowReadStream (files, folder, keys) {
+function shallowReadStream (files, folder, keys, keyEncoding) {
   let prev = '/'
   return new Readable({
     async read (cb) {
       let node = null
 
       try {
-        node = await files.peek({
-          gt: folder + prev,
-          lt: folder + '0'
-        })
+        node = await files.peek(
+          { gt: folder + prev, lt: folder + '0' },
+          { keyEncoding }
+        )
       } catch (err) {
         return cb(err)
       }
@@ -552,7 +577,7 @@ function makeBee (key, corestore, onwait) {
     : { name: 'db', cache: true, exclusive: true, onwait }
   const core = corestore.get(metadataOpts)
   const metadata = { contentFeed: null }
-  return new Hyperbee(core, { keyEncoding: 'utf-8', valueEncoding: 'json', metadata })
+  return new Hyperbee(core, { keyEncoding: DB_KEY_ENCODING, valueEncoding: 'json', metadata })
 }
 
 function normalizePath (name) {
