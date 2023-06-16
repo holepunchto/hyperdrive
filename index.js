@@ -276,7 +276,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     }, { map: (snap) => this._makeCheckout(snap) })
   }
 
-  diff (length, folder, opts = {}) {
+  diff (length, folder, opts) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
 
     folder = std(folder || '/', true)
