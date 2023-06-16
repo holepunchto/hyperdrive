@@ -490,7 +490,6 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-
       self.db.put(std(name), { executable, linkname: null, blob: ws.id, metadata }, ENC).then(() => cb(null), cb)
     }
 
