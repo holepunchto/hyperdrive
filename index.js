@@ -116,8 +116,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _openBlobsFromHeader (opts) {
     if (this.blobs) return true
 
-    // Hack until adding .getHeader() to Hyperbee Batch
-    const header = await (this.db.tree || this.db).getHeader(opts)
+    const db = this.db.tree || this.db
+    const header = await db.getHeader(opts)
     if (!header) return false
 
     if (this.blobs) return true
@@ -163,8 +163,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       await blobsCore.ready()
 
       this.blobs = new Hyperblobs(blobsCore)
-      const parent = this.db.tree || this.db // Hack until adding .getHeader() to Hyperbee Batch
-      parent.metadata.contentFeed = this.blobs.core.key
+      const db = this.db.tree || this.db
+      db.metadata.contentFeed = this.blobs.core.key
 
       this.emit('blobs', this.blobs)
       this.emit('content-key', blobsCore.key)
