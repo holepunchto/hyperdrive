@@ -282,8 +282,8 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     const range = {}
     if (folder) {
-      if (folder) folder = std(folder)
       if (folder.endsWith('/')) folder = folder.slice(0, -1)
+      if (folder) folder = std(folder)
       range.gt = folder + '/'
       range.lt = folder + '0'
     }
