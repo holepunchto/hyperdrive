@@ -214,7 +214,7 @@ Returns a stream of all subpaths of entries in drive stored at paths prefixed by
 
 Returns a read stream of entries in the drive.
 
-`range` and `options` are the same as the `range` and `options` in `Hyperbee().createReadStream(options)`.
+`range` and `options` are the same as `Hyperbee().createReadStream([range], [options])`.
 
 #### `const mirror = drive.mirror(out, [options])`
 

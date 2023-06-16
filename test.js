@@ -752,22 +752,20 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
 
 test('drive.batch() & drive.flush()', async (t) => {
   const { drive } = await testenv(t.teardown)
-  const batch = drive.batch()
-  const nil = b4a.from('nil')
-  await batch.put('/x', nil)
-  t.ok(!(await drive.get('/x')))
-  await batch.put('/y', nil)
-  await batch.flush()
-  t.ok(await drive.get('/x'))
 
-  // No session leaks
+  const batch = drive.batch()
+
+  await batch.put('/file.txt', b4a.from('abc'))
+  t.absent(await drive.get('/file.txt'))
+
+  await batch.flush()
+  t.ok(await drive.get('/file.txt'))
+
   await batch.close()
   t.ok(batch.blobs.core.closed)
-
-  // Sanity check: nothing else closed
-  t.is(drive.blobs.core.closed, false)
-  t.is(drive.db.closed, false)
-  t.is(drive.files.core.closed, false)
+  t.absent(drive.blobs.core.closed)
+  t.absent(drive.db.closed)
+  t.absent(drive.db.core.closed)
 })
 
 test('batch.list()', async (t) => {
@@ -813,8 +811,7 @@ test('drive.batch() on non-ready drive', async (t) => {
   t.ok(await drive.get('/x'))
 
   await batch.close()
-  // TODO: uncomment when blobs session leaks fix is in
-  // t.is(batch.blobs.core.closed, true)
+  t.is(batch.blobs.core.closed, true)
 })
 
 test('drive.close() for future checkout', async (t) => {
