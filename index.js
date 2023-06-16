@@ -268,8 +268,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   watch (folder) {
-    folder = std(folder || '/')
-    if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    folder = std(folder || '/', true)
 
     return this.db.watch({
       gt: ENC.keyEncoding.encode(folder + '/'),
@@ -280,15 +279,9 @@ module.exports = class Hyperdrive extends ReadyResource {
   diff (length, folder, opts = {}) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
 
-    const range = {}
-    if (folder) {
-      if (folder.endsWith('/')) folder = folder.slice(0, -1)
-      if (folder) folder = std(folder)
-      range.gt = folder + '/'
-      range.lt = folder + '0'
-    }
+    folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, range, { ...opts, ...ENC })
+    return this.db.createDiffStream(length, folder ? { gt: folder + '/', lt: folder + '0' } : null, { ...opts, ...ENC })
   }
 
   async downloadDiff (length, folder, opts) {
@@ -353,22 +346,19 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   // atm always recursive, but we should add some depth thing to it
-  list (folder = '/', { recursive = true } = {}) {
+  list (folder, opts) {
     if (typeof folder === 'object') return this.list(undefined, folder)
 
-    if (folder) folder = std(folder)
-    if (folder.endsWith('/')) folder = folder.slice(0, -1)
+    folder = std(folder || '/', true)
 
-    if (recursive === false) return shallowReadStream(this.db, folder, false)
+    if (opts && opts.recursive === false) return shallowReadStream(this.db, folder, false)
 
     // '0' is binary +1 of /
     return folder ? this.entries({ gt: folder + '/', lt: folder + '0' }) : this.entries()
   }
 
-  readdir (folder = '/') {
-    if (folder) folder = std(folder)
-    if (folder.endsWith('/')) folder = folder.slice(0, -1)
-
+  readdir (folder) {
+    folder = std(folder || '/', true)
     return shallowReadStream(this.db, folder, true)
   }
 
@@ -547,7 +537,8 @@ function makeBee (key, corestore, opts) {
   })
 }
 
-function std (name) {
-  return unixPathResolve('/', name)
-  // TODO: Fix repetitiveness of doing "if (folder.endsWith('/')) folder = folder.slice(0, -1)"
+function std (name, removeSlash) {
+  name = unixPathResolve('/', name)
+  if (removeSlash && name.endsWith('/')) name = name.slice(0, -1)
+  return name
 }
