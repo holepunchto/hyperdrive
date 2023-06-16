@@ -21,6 +21,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     this.corestore = corestore
     this.db = opts._db || makeBee(key, corestore, opts)
+    this.core = this.db.core
     this.blobs = null
     this.supportsMetadata = true
 
@@ -34,10 +35,6 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   [Symbol.asyncIterator] () {
     return this.entries()[Symbol.asyncIterator]()
-  }
-
-  get core () {
-    return this.db.core
   }
 
   get id () {
