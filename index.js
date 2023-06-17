@@ -8,7 +8,7 @@ const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
 
-const ENC = { keyEncoding: new SubEncoder('files', 'utf-8') }
+const keyEncoding = new SubEncoder('files', 'utf-8')
 
 module.exports = class Hyperdrive extends ReadyResource {
   constructor (corestore, key, opts = {}) {
@@ -200,11 +200,11 @@ module.exports = class Hyperdrive extends ReadyResource {
   async put (name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    return this.db.put(std(name), { executable, linkname: null, blob, metadata }, ENC)
+    return this.db.put(std(name), { executable, linkname: null, blob, metadata }, { keyEncoding })
   }
 
   async del (name) {
-    return this.db.del(std(name), ENC)
+    return this.db.del(std(name), { keyEncoding })
   }
 
   compare (a, b) {
@@ -252,13 +252,13 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
-    return this.db.put(std(name), { executable: false, linkname: dst, blob: null, metadata }, ENC)
+    return this.db.put(std(name), { executable: false, linkname: dst, blob: null, metadata }, { keyEncoding })
   }
 
   async entry (name, opts) {
     if (typeof name !== 'string') return Promise.resolve(name)
 
-    return this.db.get(std(name), { ...opts, ...ENC })
+    return this.db.get(std(name), { ...opts, keyEncoding })
   }
 
   async exists (name) {
@@ -268,7 +268,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   watch (folder) {
     folder = std(folder || '/', true)
 
-    return this.db.watch(binaryRange(folder), { ...ENC, map: (snap) => this._makeCheckout(snap) })
+    return this.db.watch(binaryRange(folder), { keyEncoding, map: (snap) => this._makeCheckout(snap) })
   }
 
   diff (length, folder, opts) {
@@ -276,7 +276,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, binaryRange(folder), { ...opts, ...ENC })
+    return this.db.createDiffStream(length, binaryRange(folder), { ...opts, keyEncoding })
   }
 
   async downloadDiff (length, folder, opts) {
@@ -318,7 +318,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   entries (range, opts) {
-    return this.db.createReadStream(range, { ...opts, ...ENC })
+    return this.db.createReadStream(range, { ...opts, keyEncoding })
   }
 
   async download (folder = '/', opts) {
@@ -474,7 +474,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.db.put(std(name), { executable, linkname: null, blob: ws.id, metadata }, ENC).then(() => cb(null), cb)
+      self.db.put(std(name), { executable, linkname: null, blob: ws.id, metadata }, { keyEncoding }).then(() => cb(null), cb)
     }
 
     function callOndrain (err) {
@@ -498,7 +498,7 @@ function shallowReadStream (files, folder, keys) {
       let node = null
 
       try {
-        node = await files.peek({ gt: folder + prev, lt: folder + '0' }, ENC)
+        node = await files.peek({ gt: folder + prev, lt: folder + '0' }, { keyEncoding })
       } catch (err) {
         return cb(err)
       }
