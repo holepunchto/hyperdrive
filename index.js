@@ -498,7 +498,7 @@ function shallowReadStream (files, folder, keys) {
       let node = null
 
       try {
-        node = await files.peek({ gt: folder + prev, lt: folder + '0' }, { keyEncoding })
+        node = await files.peek(binaryRange(folder, prev), { keyEncoding })
       } catch (err) {
         return cb(err)
       }
@@ -542,8 +542,8 @@ function std (name, removeSlash) {
   return name
 }
 
-function binaryRange (name) {
+function binaryRange (name, prev = '/') {
   if (!name) return null
   // '0' is binary +1 of /
-  return { gt: name + '/', lt: name + '0' }
+  return { gt: name + prev, lt: name + '0' }
 }
