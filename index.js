@@ -116,8 +116,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _openBlobsFromHeader (opts) {
     if (this.blobs) return true
 
-    const db = this.db.tree || this.db
-    const header = await db.getHeader(opts)
+    const header = await getBee(this.db).getHeader(opts)
     if (!header) return false
 
     if (this.blobs) return true
@@ -163,8 +162,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       await blobsCore.ready()
 
       this.blobs = new Hyperblobs(blobsCore)
-      const db = this.db.tree || this.db
-      db.metadata.contentFeed = this.blobs.core.key
+      getBee(this.db).metadata.contentFeed = this.blobs.core.key
 
       this.emit('blobs', this.blobs)
       this.emit('content-key', blobsCore.key)
@@ -270,10 +268,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   watch (folder) {
     folder = std(folder || '/', true)
 
-    return this.db.watch({
-      gt: ENC.keyEncoding.encode(folder + '/'),
-      lt: ENC.keyEncoding.encode(folder + '0')
-    }, { map: (snap) => this._makeCheckout(snap) })
+    return this.db.watch(binaryRange(folder), { ...ENC, map: (snap) => this._makeCheckout(snap) })
   }
 
   diff (length, folder, opts) {
@@ -281,7 +276,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, folder ? { gt: folder + '/', lt: folder + '0' } : null, { ...opts, ...ENC })
+    return this.db.createDiffStream(length, binaryRange(folder), { ...opts, ...ENC })
   }
 
   async downloadDiff (length, folder, opts) {
@@ -353,8 +348,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (opts && opts.recursive === false) return shallowReadStream(this.db, folder, false)
 
-    // '0' is binary +1 of /
-    return folder ? this.entries({ gt: folder + '/', lt: folder + '0' }) : this.entries()
+    return this.entries(binaryRange(folder))
   }
 
   readdir (folder) {
@@ -537,8 +531,19 @@ function makeBee (key, corestore, opts) {
   })
 }
 
+function getBee (bee) {
+  // A Batch instance will have a .tree property for the actual Hyperbee
+  return bee.tree || bee
+}
+
 function std (name, removeSlash) {
   name = unixPathResolve('/', name)
   if (removeSlash && name.endsWith('/')) name = name.slice(0, -1)
   return name
+}
+
+function binaryRange (name) {
+  if (!name) return null
+  // '0' is binary +1 of /
+  return { gt: name + '/', lt: name + '0' }
 }
