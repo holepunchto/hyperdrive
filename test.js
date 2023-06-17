@@ -312,6 +312,15 @@ test('get(key) resolve key path', async function (t) {
   t.alike(await drive.get('\\examples\\more\\c.txt'), c)
 })
 
+test('entry(key) resolves object', async function (t) {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/README.md', b4a.from('# title'))
+
+  const entry = await drive.entry('/README.md')
+  t.alike(entry, await drive.entry(entry))
+})
+
 test('del(key) resolve key path', async function (t) {
   const { drive } = await testenv(t.teardown)
 

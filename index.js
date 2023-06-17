@@ -256,7 +256,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async entry (name, opts) {
-    if (typeof name !== 'string') return Promise.resolve(name)
+    if (typeof name !== 'string') return name
 
     return this.db.get(std(name), { ...opts, keyEncoding })
   }
