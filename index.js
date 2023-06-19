@@ -103,13 +103,13 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   async _close () {
     if (this.blobs && (!this._checkout || this.blobs !== this._checkout.blobs)) {
-      await this.blobs.core.close().catch(safetyCatch)
+      await this.blobs.core.close()
     }
 
-    await this.db.close().catch(safetyCatch)
+    await this.db.close()
 
     if (!this._checkout && !this._batching) {
-      await this.corestore.close().catch(safetyCatch)
+      await this.corestore.close()
     }
   }
 
@@ -268,7 +268,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   watch (folder) {
     folder = std(folder || '/', true)
 
-    return this.db.watch(binaryRange(folder), { keyEncoding, map: (snap) => this._makeCheckout(snap) })
+    return this.db.watch(prefixRange(folder), { keyEncoding, map: (snap) => this._makeCheckout(snap) })
   }
 
   diff (length, folder, opts) {
@@ -276,7 +276,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, binaryRange(folder), { ...opts, keyEncoding })
+    return this.db.createDiffStream(length, prefixRange(folder), { ...opts, keyEncoding })
   }
 
   async downloadDiff (length, folder, opts) {
@@ -348,7 +348,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (opts && opts.recursive === false) return shallowReadStream(this.db, folder, false)
 
-    return this.entries(binaryRange(folder))
+    return this.entries(prefixRange(folder))
   }
 
   readdir (folder) {
@@ -498,7 +498,7 @@ function shallowReadStream (files, folder, keys) {
       let node = null
 
       try {
-        node = await files.peek(binaryRange(folder, prev), { keyEncoding })
+        node = await files.peek(prefixRange(folder, prev), { keyEncoding })
       } catch (err) {
         return cb(err)
       }
@@ -542,7 +542,7 @@ function std (name, removeSlash) {
   return name
 }
 
-function binaryRange (name, prev = '/') {
+function prefixRange (name, prev = '/') {
   if (!name) return null
   // '0' is binary +1 of /
   return { gt: name + prev, lt: name + '0' }
