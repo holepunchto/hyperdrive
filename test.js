@@ -768,13 +768,17 @@ test('drive.batch() & drive.flush()', async (t) => {
   t.absent(await drive.get('/file.txt'))
 
   await batch.flush()
-  t.ok(await drive.get('/file.txt'))
-
-  await batch.close()
   t.ok(batch.blobs.core.closed)
   t.absent(drive.blobs.core.closed)
   t.absent(drive.db.closed)
   t.absent(drive.db.core.closed)
+
+  t.ok(await drive.get('/file.txt'))
+
+  await drive.close()
+  t.ok(drive.blobs.core.closed)
+  t.ok(drive.db.closed)
+  t.ok(drive.db.core.closed)
 })
 
 test('batch.list()', async (t) => {
@@ -814,13 +818,14 @@ test('drive.close() on snapshots--does not close parent', async (t) => {
 
 test('drive.batch() on non-ready drive', async (t) => {
   const drive = new Hyperdrive(new Corestore(RAM))
+
   const batch = drive.batch()
   await batch.put('/x', 'something')
-  await batch.flush()
-  t.ok(await drive.get('/x'))
 
-  await batch.close()
+  await batch.flush()
   t.is(batch.blobs.core.closed, true)
+
+  t.ok(await drive.get('/x'))
 })
 
 test('drive.close() for future checkout', async (t) => {

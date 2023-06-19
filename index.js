@@ -97,8 +97,9 @@ module.exports = class Hyperdrive extends ReadyResource {
     })
   }
 
-  flush () {
-    return this.db.flush()
+  async flush () {
+    await this.db.flush()
+    return this.close()
   }
 
   async _close () {
