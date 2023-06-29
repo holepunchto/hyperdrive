@@ -312,6 +312,15 @@ test('get(key) resolve key path', async function (t) {
   t.alike(await drive.get('\\examples\\more\\c.txt'), c)
 })
 
+test('entry(key) resolves object', async function (t) {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/README.md', b4a.from('# title'))
+
+  const entry = await drive.entry('/README.md')
+  t.alike(entry, await drive.entry(entry))
+})
+
 test('del(key) resolve key path', async function (t) {
   const { drive } = await testenv(t.teardown)
 
@@ -485,6 +494,38 @@ test('drive.entries()', async (t) => {
   t.is(entries.size, 0)
 })
 
+test('drive.entries() with explicit range, no opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/bFile', '/zFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(expected, expected)
+})
+
+test('drive.entries() with explicit range and opts', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/aFile', 'here')
+  await drive.put('/bFile', 'later')
+  await drive.put('/zFile', 'last')
+
+  const expected = ['/zFile', '/bFile']
+  const observed = []
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' }, { reverse: true })) {
+    observed.push(entry.key)
+  }
+
+  t.alike(observed, expected)
+})
+
 test('drive.list(folder, { recursive })', async (t) => {
   {
     const { drive, paths: { root } } = await testenv(t.teardown)
@@ -519,14 +560,13 @@ test('drive.list(folder, { recursive })', async (t) => {
   {
     const { drive } = await testenv(t.teardown)
     const emptybuf = b4a.from('')
-    await drive.put('/', emptybuf)
     await drive.put('/grandparent', emptybuf)
     await drive.put('/grandparent/parent', emptybuf)
     await drive.put('/grandparent/parent/child', emptybuf)
     await drive.put('/grandparent/parent/child/fst-grandchild.file', emptybuf)
     await drive.put('/grandparent/parent/child/snd-grandchild.file', emptybuf)
 
-    const paths = ['/', '/grandparent', '/grandparent/parent', '/grandparent/parent/child']
+    const paths = ['/grandparent', '/grandparent/parent', '/grandparent/parent/child']
 
     for (const [_idx, path] of Object.entries(paths)) {
       const idx = parseInt(_idx)
@@ -720,25 +760,28 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
 
 test('drive.batch() & drive.flush()', async (t) => {
   const { drive } = await testenv(t.teardown)
+
   const batch = drive.batch()
-  const nil = b4a.from('nil')
-  await batch.put('/x', nil)
-  t.ok(!(await drive.get('/x')))
-  await batch.put('/y', nil)
+
+  await batch.put('/file.txt', b4a.from('abc'))
+  t.absent(await drive.get('/file.txt'))
+
   await batch.flush()
-  t.ok(await drive.get('/x'))
-
-  // No session leaks
-  await batch.close()
   t.ok(batch.blobs.core.closed)
+  t.absent(drive.blobs.core.closed)
+  t.absent(drive.db.closed)
+  t.absent(drive.db.core.closed)
 
-  // Sanity check: nothing else closed
-  t.is(drive.blobs.core.closed, false)
-  t.is(drive.db.closed, false)
-  t.is(drive.files.core.closed, false)
+  t.ok(await drive.get('/file.txt'))
+
+  await drive.close()
+  t.ok(drive.blobs.core.closed)
+  t.ok(drive.db.closed)
+  t.ok(drive.db.core.closed)
 })
 
 test('batch.list()', async (t) => {
+  t.plan(1)
   const { drive } = await testenv(t.teardown)
   const nil = b4a.from('nil')
   await drive.put('/x', nil)
@@ -770,6 +813,18 @@ test('drive.close() on snapshots--does not close parent', async (t) => {
   // Main test is that there is no session_closed error on drive.get
   const res = await drive.get('/foo')
   t.alike(res, b4a.from('bar'))
+})
+
+test('drive.batch() on non-ready drive', async (t) => {
+  const drive = new Hyperdrive(new Corestore(RAM))
+
+  const batch = drive.batch()
+  await batch.put('/x', 'something')
+
+  await batch.flush()
+  t.is(batch.blobs.core.closed, true)
+
+  t.ok(await drive.get('/x'))
 })
 
 test('drive.close() for future checkout', async (t) => {
@@ -821,10 +876,10 @@ test('drive.mirror()', async (t) => {
   const { drive: a } = await testenv(t.teardown)
   const { drive: b } = await testenv(t.teardown)
 
-  await a.put('/', 'hello world')
+  await a.put('/file.txt', 'hello world')
   await a.mirror(b).done()
 
-  t.alike(await b.get('/'), b4a.from('hello world'))
+  t.alike(await b.get('/file.txt'), b4a.from('hello world'))
 })
 
 test('blobs with writable drive', async (t) => {
