@@ -201,11 +201,11 @@ module.exports = class Hyperdrive extends ReadyResource {
   async put (name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    return this.db.put(std(name), { executable, linkname: null, blob, metadata }, { keyEncoding })
+    return this.db.put(std(name, false), { executable, linkname: null, blob, metadata }, { keyEncoding })
   }
 
   async del (name) {
-    return this.db.del(std(name), { keyEncoding })
+    return this.db.del(std(name, false), { keyEncoding })
   }
 
   compare (a, b) {
@@ -253,13 +253,13 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async symlink (name, dst, { metadata = null } = {}) {
-    return this.db.put(std(name), { executable: false, linkname: dst, blob: null, metadata }, { keyEncoding })
+    return this.db.put(std(name, false), { executable: false, linkname: dst, blob: null, metadata }, { keyEncoding })
   }
 
   async entry (name, opts) {
     if (typeof name !== 'string') return name
 
-    return this.db.get(std(name), { ...opts, keyEncoding })
+    return this.db.get(std(name, false), { ...opts, keyEncoding })
   }
 
   async exists (name) {
@@ -475,7 +475,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.db.put(std(name), { executable, linkname: null, blob: ws.id, metadata }, { keyEncoding }).then(() => cb(null), cb)
+      self.db.put(std(name, false), { executable, linkname: null, blob: ws.id, metadata }, { keyEncoding }).then(() => cb(null), cb)
     }
 
     function callOndrain (err) {
@@ -488,7 +488,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   static normalizePath (name) {
-    return std(name)
+    return std(name, false)
   }
 }
 
