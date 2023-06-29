@@ -560,14 +560,13 @@ test('drive.list(folder, { recursive })', async (t) => {
   {
     const { drive } = await testenv(t.teardown)
     const emptybuf = b4a.from('')
-    await drive.put('/', emptybuf)
     await drive.put('/grandparent', emptybuf)
     await drive.put('/grandparent/parent', emptybuf)
     await drive.put('/grandparent/parent/child', emptybuf)
     await drive.put('/grandparent/parent/child/fst-grandchild.file', emptybuf)
     await drive.put('/grandparent/parent/child/snd-grandchild.file', emptybuf)
 
-    const paths = ['/', '/grandparent', '/grandparent/parent', '/grandparent/parent/child']
+    const paths = ['/grandparent', '/grandparent/parent', '/grandparent/parent/child']
 
     for (const [_idx, path] of Object.entries(paths)) {
       const idx = parseInt(_idx)
@@ -877,10 +876,10 @@ test('drive.mirror()', async (t) => {
   const { drive: a } = await testenv(t.teardown)
   const { drive: b } = await testenv(t.teardown)
 
-  await a.put('/', 'hello world')
+  await a.put('/file.txt', 'hello world')
   await a.mirror(b).done()
 
-  t.alike(await b.get('/'), b4a.from('hello world'))
+  t.alike(await b.get('/file.txt'), b4a.from('hello world'))
 })
 
 test('blobs with writable drive', async (t) => {

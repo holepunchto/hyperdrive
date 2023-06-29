@@ -538,13 +538,18 @@ function getBee (bee) {
 }
 
 function std (name, removeSlash) {
+  // Note: only remove slash if you're going to use it as prefix range
   name = unixPathResolve('/', name)
   if (removeSlash && name.endsWith('/')) name = name.slice(0, -1)
+  validateFilename(name)
   return name
 }
 
+function validateFilename (name) {
+  if (name === '/') throw new Error('Invalid filename: ' + name)
+}
+
 function prefixRange (name, prev = '/') {
-  if (!name) return null
   // '0' is binary +1 of /
   return { gt: name + prev, lt: name + '0' }
 }
