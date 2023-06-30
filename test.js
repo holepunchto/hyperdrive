@@ -1099,6 +1099,88 @@ test('basic compare', async function (t) {
   t.is(drive.compare(c, a), 1)
 })
 
+test('basic follow entry', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/file.txt', 'hi')
+  await drive.symlink('/file.shortcut', '/file.txt')
+
+  t.is((await drive.entry('/file.shortcut')).value.linkname, '/file.txt')
+
+  t.alike(await drive.entry('/file.shortcut', { follow: true }), {
+    seq: 1,
+    key: '/file.txt',
+    value: {
+      executable: false,
+      linkname: null,
+      blob: { byteOffset: 0, blockOffset: 0, blockLength: 1, byteLength: 2 },
+      metadata: null
+    }
+  })
+
+  await drive.close()
+})
+
+test('multiple follow entry', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/file.txt', 'hi')
+  await drive.symlink('/file.shortcut', '/file.txt')
+  await drive.symlink('/file.shortcut.shortcut', '/file.shortcut')
+
+  t.is((await drive.entry('/file.shortcut.shortcut')).value.linkname, '/file.shortcut')
+
+  t.alike(await drive.entry('/file.shortcut.shortcut', { follow: true }), {
+    seq: 1,
+    key: '/file.txt',
+    value: {
+      executable: false,
+      linkname: null,
+      blob: { byteOffset: 0, blockOffset: 0, blockLength: 1, byteLength: 2 },
+      metadata: null
+    }
+  })
+
+  await drive.close()
+})
+
+test('max follow entry', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/file.0.txt', 'hi')
+
+  for (let i = 1; i <= 17; i++) {
+    await drive.symlink('/file.' + i + '.txt', '/file.' + (i - 1) + '.txt')
+  }
+
+  t.is((await drive.entry('/file.0.txt')).value.linkname, null)
+  t.is((await drive.entry('/file.1.txt')).value.linkname, '/file.0.txt')
+  t.is((await drive.entry('/file.16.txt')).value.linkname, '/file.15.txt')
+
+  try {
+    await drive.entry('/file.16.txt', { follow: true })
+    t.fail('Should have failed')
+  } catch {
+    t.pass()
+  }
+
+  await drive.close()
+})
+
+test('non-existing follow entry', async function (t) {
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/file.txt', 'hi')
+
+  t.is(await drive.entry('/file.random.shortcut', { follow: true }), null)
+
+  await drive.close()
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
