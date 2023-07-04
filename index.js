@@ -257,6 +257,19 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async entry (name, opts) {
+    if (!opts || !opts.follow) return this._entry(name, opts)
+
+    for (let i = 0; i < 16; i++) {
+      const node = await this._entry(name, opts)
+      if (!node || !node.value.linkname) return node
+
+      name = unixPathResolve(node.key, node.value.linkname)
+    }
+
+    throw new Error('Recursive symlink')
+  }
+
+  async _entry (name, opts) {
     if (typeof name !== 'string') return name
 
     return this.db.get(std(name, false), { ...opts, keyEncoding })
