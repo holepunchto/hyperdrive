@@ -1078,6 +1078,24 @@ test('basic writable option', async function (t) {
   }
 })
 
+test('readdir filenames with dashes', async function (t) {
+  t.plan(2)
+
+  const store = new Corestore(RAM)
+  const drive = new Hyperdrive(store)
+
+  await drive.put('/one', 'hi')
+  await drive.put('/one-two', 'hi')
+
+  const expected = ['one', 'one-two']
+
+  for await (const name of drive.readdir('/')) {
+   t.is(name, expected.shift())
+  }
+
+  await drive.close()
+})
+
 test('basic compare', async function (t) {
   const store = new Corestore(RAM)
   const drive = new Hyperdrive(store)
