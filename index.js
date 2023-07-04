@@ -494,6 +494,8 @@ module.exports = class Hyperdrive extends ReadyResource {
 
 function shallowReadStream (files, folder, keys) {
   let prev = '/'
+  let prevName = ''
+
   return new Readable({
     async read (cb) {
       let node = null
@@ -513,8 +515,15 @@ function shallowReadStream (files, folder, keys) {
       const i = suffix.indexOf('/')
       const name = i === -1 ? suffix : suffix.slice(0, i)
 
-      prev = '/' + name + '0'
+      prev = '/' + name + (i === -1 ? '' : '0')
 
+      // just in case someone does /foo + /foo/bar, but we should prop not even support that
+      if (name === prevName) {
+        this._read(cb)
+        return
+      }
+
+      prevName = name
       this.push(keys ? name : node)
       cb(null)
     }
