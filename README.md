@@ -116,11 +116,19 @@ Boolean indicating if the drive handles or not metadata. Always `true`.
 
 Creates a file at `path` in the drive. `options` are the same as in `createWriteStream`.
 
-#### `const buffer = await drive.get(path)`
+#### `const buffer = await drive.get(path, [options])`
 
 Returns the blob at `path` in the drive. If no blob exists, returns `null`.
 
 It also returns `null` for symbolic links.
+
+`options` include:
+```js
+{
+  wait: true, // Wait for block to be downloaded
+  timeout: 0 // Wait at max some milliseconds (0 means no timeout)
+}
+```
 
 #### `const entry = await drive.entry(path, [options])`
 
@@ -146,7 +154,9 @@ Returns the entry at `path` in the drive. It looks like this:
 `options` include:
 ```js
 {
-  follow: false // Follow symlinks, 16 max or throws an error
+  follow: false, // Follow symlinks, 16 max or throws an error
+  wait: true, // Wait for block to be downloaded
+  timeout: 0 // Wait at max some milliseconds (0 means no timeout)
 }
 ```
 
@@ -221,7 +231,7 @@ Returns a stream of all subpaths of entries in drive stored at paths prefixed by
 
 Returns a read stream of entries in the drive.
 
-`range` and `options` are the same as `Hyperbee().createReadStream([range], [options])`.
+`options` are the same as `Hyperbee().createReadStream([range], [options])`.
 
 #### `const mirror = drive.mirror(out, [options])`
 
