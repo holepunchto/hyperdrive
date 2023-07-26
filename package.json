@@ -9,7 +9,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/holepunchto/hyperdrive-next.git"
+    "url": "git+https://github.com/holepunchto/hyperdrive.git"
   },
   "scripts": {
     "test": "standard && brittle test.js"
@@ -17,9 +17,9 @@
   "author": "Holepunch",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/holepunchto/hyperdrive-next/issues"
+    "url": "https://github.com/holepunchto/hyperdrive/issues"
   },
-  "homepage": "https://github.com/holepunchto/hyperdrive-next#readme",
+  "homepage": "https://github.com/holepunchto/hyperdrive#readme",
   "dependencies": {
     "hyperbee": "^2.11.1",
     "hyperblobs": "^2.3.0",
