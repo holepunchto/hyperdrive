@@ -1266,8 +1266,12 @@ test('drive.entry(key, { wait })', async (t) => {
   await swarm.destroy()
   await drive.close()
 
-  const entry = await mirror.drive.entry('/file.txt', { wait: false })
-  t.is(entry, null)
+  try {
+    await mirror.drive.entry('/file.txt', { wait: false })
+    t.fail('should have failed')
+  } catch (error) {
+    t.is(error.code, 'BLOCK_NOT_AVAILABLE')
+  }
 })
 
 test('drive.get(key, { timeout })', async (t) => {
@@ -1294,7 +1298,7 @@ test('drive.get(key, { timeout })', async (t) => {
   }
 })
 
-test('drive.get(key, { wait }) with entry', async (t) => {
+test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   t.plan(3)
 
   const { drive, swarm, mirror } = await testenv(t.teardown)
@@ -1326,8 +1330,12 @@ test('drive.get(key, { wait }) without entry', async (t) => {
   await swarm.destroy()
   await drive.close()
 
-  const blob = await mirror.drive.get('/file.txt', { wait: false })
-  t.is(blob, null)
+  try {
+    await mirror.drive.get('/file.txt', { wait: false })
+    t.fail('should have failed')
+  } catch (error) {
+    t.is(error.code, 'BLOCK_NOT_AVAILABLE')
+  }
 })
 
 test('drive peek with get() and timeout', async (t) => {
