@@ -1314,8 +1314,12 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   await swarm.destroy()
   await drive.close()
 
-  const blob = await mirror.drive.get('/file.txt', { wait: false })
-  t.is(blob, null)
+  try {
+    await mirror.drive.get('/file.txt', { wait: false })
+    t.fail('should have failed')
+  } catch (error) {
+    t.is(error.code, 'BLOCK_NOT_AVAILABLE')
+  }
 })
 
 test('drive.get(key, { wait }) without entry', async (t) => {
