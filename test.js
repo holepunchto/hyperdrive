@@ -87,6 +87,23 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
   }
 })
 
+test('drive.get(path, { wait: false }) throws if entry exists but not found', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  const otherDrive = new Hyperdrive(new Corestore(RAM.reusable()), drive.core.key)
+  const s1 = drive.corestore.replicate(true)
+  const s2 = otherDrive.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  await drive.put('/file', 'content')
+  await eventFlush()
+
+  await otherDrive.entry('/file') // Ensure in bee
+
+  await t.exception(() => otherDrive.get('/file', { wait: false }), /BLOCK_NOT_AVAILABLE/)
+  t.is(b4a.toString((await otherDrive.get('/file'))), 'content', 'sanity check: can actually get content')
+})
+
 test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t) => {
   {
     const { drive } = await testenv(t.teardown)
