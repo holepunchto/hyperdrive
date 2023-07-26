@@ -276,12 +276,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _entry (name, opts) {
     if (typeof name !== 'string') return name
 
-    try {
-      return await this.db.get(std(name, false), { ...opts, keyEncoding })
-    } catch (err) {
-      if (err.message === 'Block not available locally') return null
-      throw err
-    }
+    return this.db.get(std(name, false), { ...opts, keyEncoding })
   }
 
   async exists (name) {
