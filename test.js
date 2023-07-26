@@ -88,9 +88,9 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
 })
 
 test('drive.get(path, { wait: false }) throws if entry exists but not found', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive, mirror } = await testenv(t.teardown)
 
-  const otherDrive = new Hyperdrive(new Corestore(RAM.reusable()), drive.core.key)
+  const otherDrive = mirror.drive
   const s1 = drive.corestore.replicate(true)
   const s2 = otherDrive.corestore.replicate(false)
   s1.pipe(s2).pipe(s1)
@@ -1240,6 +1240,7 @@ async function testenv (teardown) {
 
   const drive = new Hyperdrive(corestore)
   await drive.ready()
+  teardown(drive.close.bind(drive))
 
   const net = await testnet(2, { teardown })
   const { bootstrap } = net
@@ -1252,6 +1253,7 @@ async function testenv (teardown) {
   mirror.corestore = new Corestore(RAM)
   mirror.drive = new Hyperdrive(mirror.corestore, drive.key)
   await mirror.drive.ready()
+  teardown(mirror.drive.close.bind(mirror.drive))
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperdrive-test-'))
   const root = __dirname
