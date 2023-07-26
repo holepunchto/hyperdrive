@@ -7,6 +7,7 @@ const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
+const { BLOCK_NOT_AVAILABLE } = require('hypercore/errors')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -195,7 +196,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     const node = await this.entry(name, opts)
     if (!node?.value.blob) return null
     await this.getBlobs()
-    return this.blobs.get(node.value.blob, opts)
+    const res = await this.blobs.get(node.value.blob, opts)
+
+    if (res === null) throw BLOCK_NOT_AVAILABLE()
+    return res
   }
 
   async put (name, buf, { executable = false, metadata = null } = {}) {
