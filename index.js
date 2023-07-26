@@ -191,11 +191,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.blobs
   }
 
-  async get (name) {
-    const node = await this.entry(name)
+  async get (name, opts) {
+    const node = await this.entry(name, opts)
     if (!node?.value.blob) return null
     await this.getBlobs()
-    return this.blobs.get(node.value.blob)
+    return this.blobs.get(node.value.blob, opts)
   }
 
   async put (name, buf, { executable = false, metadata = null } = {}) {
