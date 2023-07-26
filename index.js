@@ -7,7 +7,7 @@ const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
-const { BLOCK_NOT_AVAILABLE } = require('hypercore/errors')
+const { BLOCK_NOT_AVAILABLE } = require('hypercore-errors')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
