@@ -157,7 +157,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (this.db.core.writable && !this.blobs) {
       const blobsCore = this.corestore.get({
-        name: 'blobs',
+        name: this.db.core.id + '/blobs', // simple trick to avoid blobs clashing if no namespace is provided...
         cache: false,
         onwait: this._onwait
       })
