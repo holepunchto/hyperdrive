@@ -540,6 +540,10 @@ function shallowReadStream (files, folder, keys) {
         return
       }
 
+      if (i !== -1) {
+        node = { key: node.key.slice(0, folder.length + i + 1)}
+      }
+
       prevName = name
       this.push(keys ? name : node)
       cb(null)
