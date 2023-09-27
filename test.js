@@ -1363,6 +1363,16 @@ test('drive peek with get() and timeout', async (t) => {
   }
 })
 
+test('non-compat making of cores', async (t) => {
+  const corestore = new Corestore(RAM)
+  const drive = new Hyperdrive(corestore, { compat: false })
+
+  await drive.ready()
+
+  t.absent(drive.core.core.compat)
+  t.absent(drive.blobs.core.core.compat)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
