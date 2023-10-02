@@ -696,6 +696,28 @@ test('drive.download(folder, [options])', async (t) => {
   t.is(count, _count + 1)
 })
 
+test.solo('drive.download()', async (t) => {
+  const store1 = new Corestore(RAM)
+  const store2 = new Corestore(RAM)
+  const drive1 = new Hyperdrive(store1)
+  await drive1.ready()
+  const drive2 = new Hyperdrive(store2, drive1.key)
+  await drive2.ready()
+
+  const nil = b4a.from('nil')
+
+  await drive1.put('/foo', nil)
+
+  const s = store1.replicate(true)
+  s.pipe(store2.replicate(false)).pipe(s)
+
+  // Must do this in order for this test to pass
+  // await drive2.db.core.update({ wait: true })
+  await drive2.download()
+
+  t.alike(await drive2.get('/foo'), nil)
+})
+
 test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
