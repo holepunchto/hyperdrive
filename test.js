@@ -1373,6 +1373,25 @@ test('non-compat making of cores', async (t) => {
   t.absent(drive.blobs.core.core.compat)
 })
 
+test('symlink and get with follow', async function (t) {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/examples/more/c.txt', b4a.from('3rd'))
+  await drive.symlink('/examples/README.shortcut', 'more/c.txt')
+
+  const entry = await drive.entry('/examples/README.shortcut')
+
+  t.is(entry.key, '/examples/README.shortcut')
+  t.alike(entry.value, {
+    executable: false,
+    linkname: 'more/c.txt',
+    blob: null,
+    metadata: null
+  })
+
+  t.alike(await drive.get('/examples/README.shortcut', { follow: true }), Buffer.from('3rd'))
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
