@@ -1013,7 +1013,9 @@ for (let i = 0; i < 1000; i++) {
     await a.put('/file', 'I am content')
 
     const coresDir = path.join(storage, 'cores')
-    t.ok(fs.readdirSync(coresDir).length === 2) // db and blobs core
+    const dirLength = fs.readdirSync(coresDir).length
+    console.log('dir length:', dirLength)
+    t.ok(dirLength === 2) // db and blobs core
 
     await a.purge()
     t.is(fs.existsSync(coresDir), false) // Was empty, so removed by purge
