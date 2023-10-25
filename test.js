@@ -1004,20 +1004,22 @@ test('drive.clearAll() with diff', async (t) => {
   await b.close()
 })
 
-test('drive.purge()', async (t) => {
-  const storage = createTmpDir(t)
-  const store = new Corestore(storage)
+for (let i = 0; i < 1000; i++) {
+  test('drive.purge()', async (t) => {
+    const storage = createTmpDir(t)
+    const store = new Corestore(storage)
 
-  const a = new Hyperdrive(store)
-  await a.put('/file', 'I am content')
+    const a = new Hyperdrive(store)
+    await a.put('/file', 'I am content')
 
-  const coresDir = path.join(storage, 'cores')
-  t.ok(fs.readdirSync(coresDir).length === 2) // db and blobs core
+    const coresDir = path.join(storage, 'cores')
+    t.ok(fs.readdirSync(coresDir).length === 2) // db and blobs core
 
-  await a.purge()
-  t.is(fs.existsSync(coresDir), false) // Was empty, so removed by purge
-  t.ok(a.closed)
-})
+    await a.purge()
+    t.is(fs.existsSync(coresDir), false) // Was empty, so removed by purge
+    t.ok(a.closed)
+  })
+}
 
 test('entry(key) cancelled when checkout closes', async function (t) {
   const { drive } = await testenv(t.teardown)
