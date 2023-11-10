@@ -350,6 +350,16 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     const dls = []
 
+    const entry = await this.entry(folder)
+
+    if (entry) {
+      const b = entry.value.blob
+      if (!b) return
+      const blobs = await this.getBlobs()
+      await blobs.core.download({ start: b.blockOffset, length: b.blockLength }).downloaded()
+      return
+    }
+
     for await (const entry of this.list(folder, opts)) {
       const b = entry.value.blob
       if (!b) continue

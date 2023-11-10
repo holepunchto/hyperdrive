@@ -696,6 +696,35 @@ test('drive.download(folder, [options])', async (t) => {
   t.is(count, _count + 1)
 })
 
+test('drive.download(filname, [options])', async (t) => {
+  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const nil = b4a.from('nil')
+
+  await drive.put('/parent/grandchild1', nil)
+  await drive.put('/file', nil)
+  await drive.put('/parent/grandchild2', nil)
+
+  await mirror.drive.getBlobs()
+
+  await mirror.drive.download('/file')
+
+  t.ok(await mirror.drive.get('/file', { wait: false }))
+
+  try {
+    await mirror.drive.get('/file1', { wait: false })
+  } catch {
+    t.pass('not downloaded')
+  }
+})
+
 test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
