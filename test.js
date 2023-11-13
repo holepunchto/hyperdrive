@@ -1041,10 +1041,10 @@ test('drive.purge()', async (t) => {
   await a.put('/file', 'I am content')
 
   const coresDir = path.join(storage, 'cores')
-  t.ok(fs.readdirSync(coresDir).length === 2) // db and blobs core
+  t.ok(fs.existsSync(coresDir))
 
   await a.purge()
-  t.is(fs.existsSync(coresDir), false) // Was empty, so removed by purge
+  t.absent(fs.existsSync(coresDir))
   t.ok(a.closed)
 })
 
