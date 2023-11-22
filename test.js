@@ -462,6 +462,23 @@ test('watch(folder) should normalize folder', async function (t) {
   onchange = null
 })
 
+test('watch(file) basic', async function (t) {
+  t.plan(1)
+  t.timeout(1000)
+
+  const { drive } = await testenv(t.teardown)
+  const buf = b4a.from('hi')
+
+  await drive.put('/a.txt', buf)
+
+  const watcher = drive.watch('/a.txt')
+  watcher.next().then(data => {
+    t.ok(data)
+  })
+
+  await drive.put('/a.txt', buf)
+})
+
 test('drive.diff(length)', async (t) => {
   const { drive, paths: { root, tmp } } = await testenv(t.teardown)
   const paths = []
