@@ -349,8 +349,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (typeof folder === 'object') return this.download(undefined, folder)
 
     const dls = []
-
-    const entry = await this.entry(folder)
+    const entry = (!folder || folder.endsWith('/')) ? null : await this.entry(folder)
 
     if (entry) {
       const b = entry.value.blob

@@ -696,7 +696,7 @@ test('drive.download(folder, [options])', async (t) => {
   t.is(count, _count + 1)
 })
 
-test('drive.download(filname, [options])', async (t) => {
+test('drive.download(filename, [options])', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
