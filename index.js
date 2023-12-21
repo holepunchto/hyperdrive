@@ -32,6 +32,18 @@ module.exports = class Hyperdrive extends ReadyResource {
     this._batching = !!(opts._checkout === null && opts._db)
     this._checkout = opts._checkout || null
 
+    // Autostore.get() has to be called synchronously in Autobase.open()
+    this._blobsCore = null
+    if (this.db.core.isAutobase && !(opts._checkout || opts._db)) {
+      this._blobsCore = this.corestore.get({
+        name: this.db.core.id + '/blobs',
+        cache: false,
+        onwait: this._onwait,
+        encryptionKey: this.encryptionKey,
+        compat: false
+      })
+    }
+
     this.ready().catch(safetyCatch)
   }
 
@@ -113,13 +125,15 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     await this.db.close()
 
-    if (!this._checkout && !this._batching) {
+    // Autostore doesn't have close()
+    if (!this._checkout && !this._batching && !this.db.core.isAutobase) {
       await this.corestore.close()
     }
   }
 
   async _openBlobsFromHeader (opts) {
     if (this.blobs) return true
+    if (this.db.core.isAutobase) return false
 
     const header = await getBee(this.db).getHeader(opts)
     if (!header) return false
@@ -160,13 +174,18 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this._openBlobsFromHeader({ wait: false })
 
     if (this.db.core.writable && !this.blobs) {
-      const blobsCore = this.corestore.get({
-        name: this.db.core.id + '/blobs', // simple trick to avoid blobs clashing if no namespace is provided...
-        cache: false,
-        onwait: this._onwait,
-        encryptionKey: this.encryptionKey,
-        compat: this.db.core.core.compat
-      })
+      let blobsCore
+      if (this._blobsCore) {
+        blobsCore = this._blobsCore
+      } else {
+        blobsCore = this.corestore.get({
+          name: this.db.core.id + '/blobs', // simple trick to avoid blobs clashing if no namespace is provided...
+          cache: false,
+          onwait: this._onwait,
+          encryptionKey: this.encryptionKey,
+          compat: this.db.core.core.compat
+        })
+      }
       await blobsCore.ready()
 
       this.blobs = new Hyperblobs(blobsCore)
@@ -565,6 +584,17 @@ function shallowReadStream (files, folder, keys) {
 function makeBee (key, corestore, opts) {
   const name = key ? undefined : 'db'
   const core = corestore.get({ key, name, cache: true, exclusive: true, onwait: opts.onwait, encryptionKey: opts.encryptionKey, compat: opts.compat })
+
+  // Passing { extension: true } explicitely errors out on get(),
+  // Might be a hyperbee bug
+  if (core.isAutobase) {
+    return new Hyperbee(core, {
+      keyEncoding: 'utf-8',
+      valueEncoding: 'json',
+      metadata: { contentFeed: null },
+      extension: false
+    })
+  }
 
   return new Hyperbee(core, {
     keyEncoding: 'utf-8',
