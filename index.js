@@ -7,9 +7,13 @@ const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
 const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
+const crypto = require('hypercore-crypto')
+const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE } = require('hypercore-errors')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
+
+const [BLOBS] = crypto.namespace('hyperdrive', 1)
 
 module.exports = class Hyperdrive extends ReadyResource {
   constructor (corestore, key, opts = {}) {
@@ -37,6 +41,27 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   [Symbol.asyncIterator] () {
     return this.entries()[Symbol.asyncIterator]()
+  }
+
+  _generateBlobsManifest () {
+    const m = this.db.core.manifest
+    if (m.version < 1 || this.db.core.core.compat) return null
+
+    const signers = []
+
+    for (const s of m.signers) {
+      const namespace = crypto.hash([BLOBS, this.core.key, s.namespace])
+      signers.push({ ...s, namespace })
+    }
+
+    return {
+      version: m.version,
+      hash: 'blake2b',
+      allowPatch: m.allowPatch,
+      quorum: m.quorum,
+      signers,
+      prologue: null // TODO: could be configurable through the header still...
+    }
   }
 
   get id () {
@@ -126,14 +151,16 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (this.blobs) return true
 
-    const blobsKey = header.metadata && header.metadata.contentFeed.subarray(0, 32)
+    const contentKey = header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
+    const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
     if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
     const blobsCore = this.corestore.get({
       key: blobsKey,
       cache: false,
       onwait: this._onwait,
-      encryptionKey: this.encryptionKey
+      encryptionKey: this.encryptionKey,
+      keyPair: (!contentKey && this.db.core.writable) ? this.db.core.keyPair : null
     })
     await blobsCore.ready()
 
@@ -160,17 +187,21 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this._openBlobsFromHeader({ wait: false })
 
     if (this.db.core.writable && !this.blobs) {
+      const m = this._generateBlobsManifest()
       const blobsCore = this.corestore.get({
-        name: this.db.core.id + '/blobs', // simple trick to avoid blobs clashing if no namespace is provided...
+        manifest: m,
+        name: m ? null : this.db.core.id + '/blobs', // simple trick to avoid blobs clashing if no namespace is provided...
         cache: false,
         onwait: this._onwait,
         encryptionKey: this.encryptionKey,
-        compat: this.db.core.core.compat
+        compat: this.db.core.core.compat,
+        keyPair: (m && this.db.core.writable) ? this.db.core.keyPair : null
       })
       await blobsCore.ready()
 
       this.blobs = new Hyperblobs(blobsCore)
-      getBee(this.db).metadata.contentFeed = this.blobs.core.key
+
+      if (!m) getBee(this.db).metadata.contentFeed = this.blobs.core.key
 
       this.emit('blobs', this.blobs)
       this.emit('content-key', blobsCore.key)

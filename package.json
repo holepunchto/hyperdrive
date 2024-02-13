@@ -23,6 +23,7 @@
   "dependencies": {
     "hyperbee": "^2.11.1",
     "hyperblobs": "^2.3.0",
+    "hypercore": "^10.33.0",
     "hypercore-errors": "^1.0.0",
     "is-options": "^1.0.2",
     "mirror-drive": "^1.2.0",
@@ -36,7 +37,7 @@
     "b4a": "^1.6.0",
     "brittle": "^3.1.0",
     "corestore": "^6.8.1",
-    "hypercore-crypto": "^3.2.1",
+    "hypercore-crypto": "^3.4.0",
     "hyperdht": "^6.6.0",
     "hyperswarm": "^4.0.0",
     "random-access-memory": "^6.0.0",
