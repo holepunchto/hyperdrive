@@ -55,9 +55,12 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
 
     return {
-      version: this.core.manifest.version,
+      version: m.version,
       hash: 'blake2b',
-      signers
+      allowPatch: m.allowPatch,
+      quorum: m.quorum,
+      signers,
+      prologue: null // TODO: could be configurable through the header still...
     }
   }
 
