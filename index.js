@@ -43,25 +43,23 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.entries()[Symbol.asyncIterator]()
   }
 
+  static getContentKey (m, key) {
+    if (m instanceof Hypercore) {
+      if (m.core.compat) return null
+      return Hyperdrive.getContentKey(m.manifest, m.key)
+    }
+
+    const manifest = generateContentManifest(m, key)
+    if (!manifest) return null
+
+    return Hypercore.key(manifest)
+  }
+
   _generateBlobsManifest () {
     const m = this.db.core.manifest
-    if (m.version < 1 || this.db.core.core.compat) return null
+    if (this.db.core.core.compat) return null
 
-    const signers = []
-
-    for (const s of m.signers) {
-      const namespace = crypto.hash([BLOBS, this.core.key, s.namespace])
-      signers.push({ ...s, namespace })
-    }
-
-    return {
-      version: m.version,
-      hash: 'blake2b',
-      allowPatch: m.allowPatch,
-      quorum: m.quorum,
-      signers,
-      prologue: null // TODO: could be configurable through the header still...
-    }
+    return generateContentManifest(m, this.core.key)
   }
 
   get id () {
@@ -624,4 +622,26 @@ function validateFilename (name) {
 function prefixRange (name, prev = '/') {
   // '0' is binary +1 of /
   return { gt: name + prev, lt: name + '0' }
+}
+
+function generateContentManifest (m, key) {
+  if (m.version < 1) return null
+
+  const signers = []
+
+  if (!key) key = Hypercore.key(m)
+
+  for (const s of m.signers) {
+    const namespace = crypto.hash([BLOBS, key, s.namespace])
+    signers.push({ ...s, namespace })
+  }
+
+  return {
+    version: m.version,
+    hash: 'blake2b',
+    allowPatch: m.allowPatch,
+    quorum: m.quorum,
+    signers,
+    prologue: null // TODO: could be configurable through the header still...
+  }
 }
