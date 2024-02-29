@@ -239,9 +239,9 @@ Efficiently mirror this drive into another. Returns a [`MirrorDrive`](https://gi
 
 Call `await mirror.done()` to wait for the mirroring to finish.
 
-#### `const watcher = db.watch([folder])`
+#### `const watcher = db.watch([file|folder])`
 
-Returns an iterator that listens on `folder` to yield changes, by default on `/`.
+Returns an iterator that listens on a `file` or `folder` to yield changes, by default on `/`.
 
 Usage example:
 ```js
