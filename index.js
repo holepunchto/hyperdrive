@@ -106,7 +106,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     await bl.core.truncate(blobsVersion)
   }
 
-  async getBlobsLength (checkout = this.version) {
+  async getBlobsLength (checkout) {
+    await this.ready()
+    if (!checkout) checkout = this.version
+
     const c = this.db.checkout(checkout)
 
     try {

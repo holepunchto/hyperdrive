@@ -1402,6 +1402,23 @@ test('non-compat making of cores', async (t) => {
   t.absent(drive.blobs.core.core.compat)
 })
 
+test('getBlobsLength when not ready', async t => {
+  const corestore = new Corestore(RAM.reusable())
+  {
+    const drive = new Hyperdrive(corestore.session())
+    await drive.put('./file', 'here')
+    await drive.put('./more', 'here')
+    await drive.close()
+  }
+
+  {
+    const drive = new Hyperdrive(corestore)
+    const length = await drive.getBlobsLength()
+    t.is(length, 2, 'correct blobs length')
+    await drive.close()
+  }
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
