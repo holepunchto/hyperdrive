@@ -1441,6 +1441,38 @@ test('getBlobsLength of empty drive', async t => {
   t.is(length, 0, 'empty drive has blobsLength 0')
 })
 
+test('truncate happy path', async t => {
+  const corestore = new Corestore(RAM.reusable())
+  const drive = new Hyperdrive(corestore.session())
+  await drive.ready()
+
+  t.is(drive.db.core.fork, 0, 'sanity check')
+  t.is(drive.blobs.core.fork, 0, 'sanity check')
+
+  await drive.put('file1', 'here1')
+  await drive.put('file2', 'here2')
+  await drive.put('file3', 'here3')
+
+  t.is(drive.version, 4, 'sanity check')
+  t.is(await drive.getBlobsLength(), 3, 'sanity check')
+
+  await drive.truncate(3)
+  t.is(drive.version, 3, 'truncated db correctly')
+  t.is(await drive.getBlobsLength(), 2, 'truncated blobs correctly')
+
+  await drive.put('file3', 'here file 3 post truncation')
+  t.is(drive.version, 4, 'correct version when putting after truncate')
+  t.is(await drive.getBlobsLength(), 3, 'correct blobsLength when putting after truncate')
+  t.is(
+    b4a.toString(await drive.get('file3')),
+    'here file 3 post truncation',
+    'Sanity check'
+  )
+
+  t.is(drive.db.core.fork, 1, 'sanity check on db fork')
+  t.is(drive.blobs.core.fork, 1, 'sanity check on blobs fork')
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
