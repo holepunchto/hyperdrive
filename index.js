@@ -668,16 +668,6 @@ function generateContentManifest (m, key) {
   }
 }
 
-async function getBlobsLengthFromCheckout (drive, checkout) {
-  const c = drive.db.checkout(checkout)
-
-  try {
-    return await getBlobsLength(c)
-  } finally {
-    await c.close()
-  }
-}
-
 async function getBlobsLength (db) {
   let length = 0
 
