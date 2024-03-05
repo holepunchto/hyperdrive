@@ -95,10 +95,16 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async truncate (version, { blobs = -1 } = {}) {
+    if (!this.opened) await this.ready()
+
+    if (version > this.core.length) {
+      throw BAD_ARGUMENT('Bad truncation length')
+    }
+
     const blobsVersion = blobs === -1 ? await this.getBlobsLength(version) : blobs
     const bl = await this.getBlobs()
 
-    if (version > this.core.length || blobsVersion > bl.core.length) {
+    if (blobsVersion > bl.core.length) {
       throw BAD_ARGUMENT('Bad truncation length')
     }
 
@@ -107,7 +113,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async getBlobsLength (checkout) {
-    await this.ready()
+    if (!this.opened) await this.ready()
+
     if (!checkout) checkout = this.version
 
     const c = this.db.checkout(checkout)

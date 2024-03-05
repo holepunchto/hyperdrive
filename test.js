@@ -1473,6 +1473,18 @@ test('truncate happy path', async t => {
   t.is(drive.blobs.core.fork, 1, 'sanity check on blobs fork')
 })
 
+test('truncate throws when truncating future version)', async t => {
+  const corestore = new Corestore(RAM.reusable())
+  const drive = new Hyperdrive(corestore)
+
+  await drive.put('./file', 'here')
+  await t.exception(
+    () => drive.truncate(10),
+    /Bad truncation length/,
+    'throws when truncating the future'
+  )
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
