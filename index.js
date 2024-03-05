@@ -9,7 +9,7 @@ const ReadyResource = require('ready-resource')
 const safetyCatch = require('safety-catch')
 const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
-const { BLOCK_NOT_AVAILABLE } = require('hypercore-errors')
+const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -92,6 +92,28 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   findingPeers () {
     return this.corestore.findingPeers()
+  }
+
+  async truncate (version, { blobs = -1 } = {}) {
+    const blobsVersion = blobs === -1 ? await this.getBlobsLength(version) : blobs
+    const bl = await this.getBlobs()
+
+    if (version > this.core.length || blobsVersion > bl.core.length) {
+      throw BAD_ARGUMENT('Bad truncation length')
+    }
+
+    await this.core.truncate(version)
+    await bl.core.truncate(blobsVersion)
+  }
+
+  async getBlobsLength (checkout = this.version) {
+    const c = this.db.checkout(checkout)
+
+    try {
+      return await getBlobsLength(c)
+    } finally {
+      await c.close()
+    }
   }
 
   replicate (isInitiator, opts) {
@@ -644,4 +666,27 @@ function generateContentManifest (m, key) {
     signers,
     prologue: null // TODO: could be configurable through the header still...
   }
+}
+
+async function getBlobsLengthFromCheckout (drive, checkout) {
+  const c = drive.db.checkout(checkout)
+
+  try {
+    return await getBlobsLength(c)
+  } finally {
+    await c.close()
+  }
+}
+
+async function getBlobsLength (db) {
+  let length = 0
+
+  for await (const { value } of db.createReadStream()) {
+    const b = value && value.blob
+    if (!b) continue
+    const len = b.blockOffset + b.blockLength
+    if (len > length) length = len
+  }
+
+  return length
 }
