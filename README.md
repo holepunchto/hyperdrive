@@ -194,6 +194,12 @@ Deletes all the blobs from storage to free up space, similar to how `drive.clear
 }
 ```
 
+#### `await drive.truncate(version, [options] })`
+
+Truncates the Hyperdrive to a previous version (both the file-structure reference and the blobs).
+
+A `blobs: <length>` option can be passed in if you know the corresponding blobs length, but it is recommended to let the method figure it out for you.
+
 #### `await drive.purge()`
 
 Purge both cores (db and blobs) from your storage, completely removing all the drive's data.
@@ -374,6 +380,10 @@ const buffer2 = await blobs.get(entry.value.blob)
 
 [core-range-docs]: https://github.com/holepunchto/hypercore#const-range--coredownloadrange
 [store-replicate-docs]: https://github.com/holepunchto/corestore#const-stream--storereplicateoptsorstream
+
+#### `const blobsLength = await drive.getBlobsLength(checkout)`
+
+Returns the length of the Hyperblobs instance at the time of the specified Hyperdrive version (defaults to the current version).
 
 ## License
 
