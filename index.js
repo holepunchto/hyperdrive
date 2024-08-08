@@ -31,6 +31,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.supportsMetadata = true
     this.encryptionKey = opts.encryptionKey || null
 
+    this._active = opts.active !== false
     this._openingBlobs = null
     this._onwait = opts.onwait || null
     this._batching = !!(opts._checkout === null && opts._db)
@@ -156,6 +157,14 @@ module.exports = class Hyperdrive extends ReadyResource {
     })
   }
 
+  setActive (bool) {
+    const active = !!bool
+    if (active === this._active) return
+    this._active = active
+    this.core.setActive(active)
+    if (this.blobs) this.blobs.core.setActive(active)
+  }
+
   async flush () {
     await this.db.flush()
     return this.close()
@@ -190,7 +199,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       cache: false,
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
-      keyPair: (!contentKey && this.db.core.writable) ? this.db.core.keyPair : null
+      keyPair: (!contentKey && this.db.core.writable) ? this.db.core.keyPair : null,
+      active: this._active
     })
     await blobsCore.ready()
 
@@ -225,6 +235,7 @@ module.exports = class Hyperdrive extends ReadyResource {
         onwait: this._onwait,
         encryptionKey: this.encryptionKey,
         compat: this.db.core.core.compat,
+        active: this._active,
         keyPair: (m && this.db.core.writable) ? this.db.core.keyPair : null
       })
       await blobsCore.ready()
@@ -625,7 +636,7 @@ function shallowReadStream (files, folder, keys) {
 
 function makeBee (key, corestore, opts) {
   const name = key ? undefined : 'db'
-  const core = corestore.get({ key, name, exclusive: true, onwait: opts.onwait, encryptionKey: opts.encryptionKey, compat: opts.compat })
+  const core = corestore.get({ key, name, exclusive: true, onwait: opts.onwait, encryptionKey: opts.encryptionKey, compat: opts.compat, active: opts.active })
 
   return new Hyperbee(core, {
     keyEncoding: 'utf-8',
