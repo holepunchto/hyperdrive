@@ -1485,6 +1485,22 @@ test('truncate throws when truncating future version)', async t => {
   )
 })
 
+test('get drive key without using the constructor', async (t) => {
+  t.plan(1)
+  const corestore = new Corestore(RAM.reusable())
+  const key = await Hyperdrive.getDriveKey(corestore.session())
+  const drive = new Hyperdrive(corestore.session())
+
+  t.teardown(() => {
+    corestore.close()
+    drive.close()
+  })
+
+  await drive.ready()
+
+  t.is(key.toString('hex'), drive.key.toString('hex'))
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
