@@ -44,6 +44,14 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.entries()[Symbol.asyncIterator]()
   }
 
+  static async getDriveKey (corestore) {
+    const core = makeBee(undefined, corestore)
+    await core.ready()
+    const key = core.key
+    await core.close()
+    return key
+  }
+
   static getContentKey (m, key) {
     if (m instanceof Hypercore) {
       if (m.core.compat) return null
@@ -634,7 +642,7 @@ function shallowReadStream (files, folder, keys) {
   })
 }
 
-function makeBee (key, corestore, opts) {
+function makeBee (key, corestore, opts = {}) {
   const name = key ? undefined : 'db'
   const core = corestore.get({ key, name, exclusive: true, onwait: opts.onwait, encryptionKey: opts.encryptionKey, compat: opts.compat, active: opts.active })
 
