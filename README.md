@@ -219,7 +219,8 @@ Returns a stream of all entries in the drive at paths prefixed with `folder`.
 `options` include:
 ```js
 {
-  recursive: true | false // Whether to descend into all subfolders or not
+  recursive: true | false // Whether to descend into all subfolders or not,
+  ignore: String || Array // Ignore files and folders by name.
 }
 ```
 

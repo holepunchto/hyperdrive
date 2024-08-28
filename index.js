@@ -1,7 +1,7 @@
 const Hyperbee = require('hyperbee')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
-const { Writable, Readable } = require('streamx')
+const { Writable, Readable, Transform } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
@@ -454,14 +454,14 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   // atm always recursive, but we should add some depth thing to it
-  list (folder, opts) {
+  list (folder, opts = {}) {
     if (typeof folder === 'object') return this.list(undefined, folder)
 
     folder = std(folder || '/', true)
 
-    if (opts && opts.recursive === false) return shallowReadStream(this.db, folder, false)
-
-    return this.entries(prefixRange(folder))
+    const ignore = opts.ignore ? ignoreTransform(opts.ignore) : null
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false) : this.entries(prefixRange(folder))
+    return ignore ? stream.pipe(ignore) : stream
   }
 
   readdir (folder) {
@@ -708,4 +708,18 @@ async function getBlobsLength (db) {
   }
 
   return length
+}
+
+function ignoreTransform (ignore) {
+  ignore = [].concat(ignore).map(e => unixPathResolve('/', e))
+  return new Transform({
+    transform (data, cb) {
+      const key = unixPathResolve(data.key)
+      if (ignore.find(e => e === key || key.startsWith(e + '/'))) {
+        cb(null)
+      } else {
+        cb(null, data)
+      }
+    }
+  })
 }
