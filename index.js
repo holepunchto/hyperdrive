@@ -1,7 +1,7 @@
 const Hyperbee = require('hyperbee')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
-const { Writable, Readable, Transform } = require('streamx')
+const { Writable, Readable } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
@@ -422,7 +422,9 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   entries (range, opts) {
-    return this.db.createReadStream(range, { ...opts, keyEncoding })
+    const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
+    if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
+    return stream
   }
 
   async download (folder = '/', opts) {
@@ -459,14 +461,14 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     folder = std(folder || '/', true)
 
-    const ignore = opts.ignore ? ignoreTransform(opts.ignore) : null
-    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false) : this.entries(prefixRange(folder))
-    return ignore ? stream.pipe(ignore) : stream
+    const ignore = opts.ignore ? normalizeIgnore(opts.ignore) : null
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore) : this.entries(prefixRange(folder), { ignore })
+    return stream
   }
 
   readdir (folder) {
     folder = std(folder || '/', true)
-    return shallowReadStream(this.db, folder, true)
+    return shallowReadStream(this.db, folder, true, null)
   }
 
   mirror (out, opts) {
@@ -604,7 +606,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 }
 
-function shallowReadStream (files, folder, keys) {
+function shallowReadStream (files, folder, keys, ignore) {
   let prev = '/'
   let prevName = ''
 
@@ -636,6 +638,12 @@ function shallowReadStream (files, folder, keys) {
       }
 
       prevName = name
+
+      if (ignore && isIgnored(node.key, ignore)) {
+        this._read(cb)
+        return
+      }
+
       this.push(keys ? name : node)
       cb(null)
     }
@@ -710,16 +718,16 @@ async function getBlobsLength (db) {
   return length
 }
 
-function ignoreTransform (ignore) {
-  ignore = [].concat(ignore).map(e => unixPathResolve('/', e))
-  return new Transform({
-    transform (data, cb) {
-      const key = unixPathResolve(data.key)
-      if (ignore.find(e => e === key || key.startsWith(e + '/'))) {
-        cb(null)
-      } else {
-        cb(null, data)
-      }
-    }
-  })
+function normalizeIgnore (ignore) {
+  return [].concat(ignore).map(e => unixPathResolve('/', e))
+}
+
+function isIgnored (key, ignore) {
+  return ignore.some(e => e === key || key.startsWith(e + '/'))
+}
+
+function createStreamMapIgnore (ignore) {
+  return (node) => {
+    return isIgnored(node.key, ignore) ? null : node
+  }
 }
