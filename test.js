@@ -1501,6 +1501,67 @@ test('get drive key without using the constructor', async (t) => {
   t.is(key.toString('hex'), drive.key.toString('hex'))
 })
 
+test('drive.list ignore', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/file_A', b4a.alloc(0))
+  await drive.put('/file_B', b4a.alloc(0))
+
+  await drive.put('/folder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/file_B', b4a.alloc(0))
+
+  await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_B/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
+
+  const ignore = ['file_A',
+    'folder_A',
+    'folder_B/file_A',
+    'folder_B/subfolder_A',
+    'folder_B/subfolder_B/file_A'
+  ]
+
+  const expectedEntries = ['/file_B',
+    '/folder_B/file_B',
+    '/folder_B/subfolder_B/file_B'
+  ]
+
+  const entries = []
+  for await (const entry of drive.list({ ignore })) {
+    entries.push(entry.key)
+  }
+
+  t.alike(entries, expectedEntries)
+})
+
+test('drive.list (recursive false) ignore', async (t) => {
+  const { drive } = await testenv(t.teardown)
+
+  await drive.put('/file_A', b4a.alloc(0))
+  await drive.put('/file_B', b4a.alloc(0))
+  await drive.put('/folder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
+
+  const ignore = ['file_A', 'folder_A']
+  const expectedEntries = [
+    '/file_B'
+  ]
+
+  const entries = []
+  for await (const entry of drive.list({ ignore, recursive: false })) {
+    entries.push(entry.key)
+  }
+
+  t.alike(entries, expectedEntries)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()

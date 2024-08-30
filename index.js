@@ -422,7 +422,9 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   entries (range, opts) {
-    return this.db.createReadStream(range, { ...opts, keyEncoding })
+    const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
+    if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
+    return stream
   }
 
   async download (folder = '/', opts) {
@@ -454,19 +456,19 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   // atm always recursive, but we should add some depth thing to it
-  list (folder, opts) {
+  list (folder, opts = {}) {
     if (typeof folder === 'object') return this.list(undefined, folder)
 
     folder = std(folder || '/', true)
 
-    if (opts && opts.recursive === false) return shallowReadStream(this.db, folder, false)
-
-    return this.entries(prefixRange(folder))
+    const ignore = opts.ignore ? normalizeIgnore(opts.ignore) : null
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore) : this.entries(prefixRange(folder), { ignore })
+    return stream
   }
 
   readdir (folder) {
     folder = std(folder || '/', true)
-    return shallowReadStream(this.db, folder, true)
+    return shallowReadStream(this.db, folder, true, null)
   }
 
   mirror (out, opts) {
@@ -604,7 +606,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 }
 
-function shallowReadStream (files, folder, keys) {
+function shallowReadStream (files, folder, keys, ignore) {
   let prev = '/'
   let prevName = ''
 
@@ -636,6 +638,12 @@ function shallowReadStream (files, folder, keys) {
       }
 
       prevName = name
+
+      if (ignore && isIgnored(node.key, ignore)) {
+        this._read(cb)
+        return
+      }
+
       this.push(keys ? name : node)
       cb(null)
     }
@@ -708,4 +716,18 @@ async function getBlobsLength (db) {
   }
 
   return length
+}
+
+function normalizeIgnore (ignore) {
+  return [].concat(ignore).map(e => unixPathResolve('/', e))
+}
+
+function isIgnored (key, ignore) {
+  return ignore.some(e => e === key || key.startsWith(e + '/'))
+}
+
+function createStreamMapIgnore (ignore) {
+  return (node) => {
+    return isIgnored(node.key, ignore) ? null : node
+  }
 }
