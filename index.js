@@ -10,6 +10,7 @@ const safetyCatch = require('safety-catch')
 const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
+const Monitor = require('./lib/monitor')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -276,6 +277,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
 
     return this.blobs
+  }
+
+  monitor (name, opts = {}) {
+    return new Monitor(this, { name, ...opts })
   }
 
   async get (name, opts) {
