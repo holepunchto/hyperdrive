@@ -1562,6 +1562,65 @@ test('drive.list (recursive false) ignore', async (t) => {
   t.alike(entries, expectedEntries)
 })
 
+test('upload/download can be monitored', async (t) => {
+  t.plan(23)
+  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const file = '/example.md'
+  const bytes = 1024 * 100 // big enough to trigger more than one update event
+  const buffer = Buffer.alloc(bytes, '0')
+
+  {
+    // Start monitoring upload
+    const monitor = drive.monitor(file)
+    await monitor.ready()
+    t.is(monitor.name, file)
+    const expectedBlocks = [2, 1]
+    const expectedBytes = [bytes, 65536]
+    monitor.on('update', () => {
+      t.is(monitor.stats.blocks, expectedBlocks.pop())
+      t.is(monitor.stats.bytes, expectedBytes.pop())
+      t.is(monitor.stats.totalBlocks, 2)
+      t.is(monitor.stats.totalBytes, bytes)
+    })
+    monitor.on('done', () => {
+      t.is(monitor.stats.blocks, 2)
+      t.is(monitor.stats.bytes, bytes)
+    })
+    monitor.on('close', () => t.pass('Monitor is closed after its done'))
+  }
+
+  await drive.put(file, buffer)
+
+  {
+    // Start monitoring download
+    const monitor = mirror.drive.monitor(file)
+    await monitor.ready()
+    const expectedBlocks = [2, 1]
+    const expectedBytes = [bytes, 65536]
+    monitor.on('update', () => {
+      t.is(monitor.stats.blocks, expectedBlocks.pop())
+      t.is(monitor.stats.bytes, expectedBytes.pop())
+      t.is(monitor.stats.totalBlocks, 2)
+      t.is(monitor.stats.totalBytes, bytes)
+    })
+    monitor.on('done', () => {
+      t.is(monitor.stats.blocks, 2)
+      t.is(monitor.stats.bytes, bytes)
+    })
+    monitor.on('close', () => t.pass('Monitor is closed after its done'))
+  }
+
+  await mirror.drive.get(file)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
