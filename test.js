@@ -1586,9 +1586,9 @@ test('upload/download can be monitored', async (t) => {
     const expectedBytes = [bytes, 65536]
     monitor.on('update', () => {
       t.is(monitor.stats.blocks, expectedBlocks.pop())
-      t.is(monitor.stats.bytes, expectedBytes.pop())
-      t.is(monitor.stats.totalBlocks, 2)
-      t.is(monitor.stats.totalBytes, bytes)
+      t.is(monitor.stats.monitoringBytes, expectedBytes.pop())
+      t.is(monitor.stats.targetBlocks, 2)
+      t.is(monitor.stats.targetBytes, bytes)
     })
   }
 
@@ -1602,13 +1602,45 @@ test('upload/download can be monitored', async (t) => {
     const expectedBytes = [bytes, 65536]
     monitor.on('update', () => {
       t.is(monitor.stats.blocks, expectedBlocks.pop())
-      t.is(monitor.stats.bytes, expectedBytes.pop())
-      t.is(monitor.stats.totalBlocks, 2)
-      t.is(monitor.stats.totalBytes, bytes)
+      t.is(monitor.stats.monitoringBytes, expectedBytes.pop())
+      t.is(monitor.stats.targetBlocks, 2)
+      t.is(monitor.stats.targetBytes, bytes)
     })
   }
 
   await mirror.drive.get(file)
+})
+
+test('monitor loads the local state on download', async (t) => {
+  t.plan(3)
+  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const file = '/example.md'
+  const bytes = 1234
+  const buffer = Buffer.alloc(bytes, '0')
+  await drive.put(file, buffer)
+
+  observe()
+  async function observe () {
+    for await (const _ of mirror.drive.watch()) { /* eslint-disable-line */ 
+      await mirror.drive.get(file)
+      // Start monitoring after we've downloaded the file
+      const monitor = mirror.drive.monitor(file, { download: true })
+      monitor.on('update', () => {
+        t.is(monitor.stats.percentage, 100)
+        t.is(monitor.stats.totalBytes, bytes)
+        t.is(monitor.stats.targetBytes, bytes)
+      })
+      await monitor.ready()
+    }
+  }
 })
 
 async function testenv (teardown) {
