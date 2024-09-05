@@ -1563,7 +1563,7 @@ test('drive.list (recursive false) ignore', async (t) => {
 })
 
 test('upload/download can be monitored', async (t) => {
-  t.plan(21)
+  t.plan(25)
   const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1589,6 +1589,7 @@ test('upload/download can be monitored', async (t) => {
       t.is(monitor.uploadStats.monitoringBytes, expectedBytes.pop())
       t.is(monitor.uploadStats.targetBlocks, 2)
       t.is(monitor.uploadStats.targetBytes, bytes)
+      t.is(monitor.uploadSpeed(), monitor.uploadStats.speed)
       t.absent(monitor.downloadStats.blocks)
     })
   }
@@ -1606,6 +1607,7 @@ test('upload/download can be monitored', async (t) => {
       t.is(monitor.downloadStats.monitoringBytes, expectedBytes.pop())
       t.is(monitor.downloadStats.targetBlocks, 2)
       t.is(monitor.downloadStats.targetBytes, bytes)
+      t.is(monitor.downloadSpeed(), monitor.downloadStats.speed)
       t.absent(monitor.uploadStats.blocks)
     })
   }
