@@ -31,6 +31,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.blobs = null
     this.supportsMetadata = true
     this.encryptionKey = opts.encryptionKey || null
+    this.monitors = new Set()
 
     this._active = opts.active !== false
     this._openingBlobs = null
@@ -189,6 +190,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (!this._checkout && !this._batching) {
       await this.corestore.close()
     }
+
+    await this.closeMonitors()
   }
 
   async _openBlobsFromHeader (opts) {
@@ -280,7 +283,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   monitor (name, opts = {}) {
-    return new Monitor(this, { name, ...opts })
+    const monitor = new Monitor(this, { name, ...opts })
+    this.monitors.add(monitor)
+    return monitor
+  }
+
+  async closeMonitors () {
+    const closing = []
+    for (const monitor of this.monitors) closing.push(monitor.close())
+    await Promise.allSettled(closing)
   }
 
   async get (name, opts) {
