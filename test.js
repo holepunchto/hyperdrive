@@ -1615,6 +1615,15 @@ test('upload/download can be monitored', async (t) => {
   await mirror.drive.get(file)
 })
 
+test('monitor is removed from the Set on close', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const monitor = drive.monitor('/example.md')
+  await monitor.ready()
+  t.is(drive.monitors.size, 1)
+  await monitor.close()
+  t.is(drive.monitors.size, 0)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
