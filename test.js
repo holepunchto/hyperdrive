@@ -1563,7 +1563,7 @@ test('drive.list (recursive false) ignore', async (t) => {
 })
 
 test('upload/download can be monitored', async (t) => {
-  t.plan(25)
+  t.plan(27)
   const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1576,6 +1576,7 @@ test('upload/download can be monitored', async (t) => {
   const file = '/example.md'
   const bytes = 1024 * 100 // big enough to trigger more than one update event
   const buffer = Buffer.alloc(bytes, '0')
+  await drive.put(file, buffer)
 
   {
     // Start monitoring upload
@@ -1590,11 +1591,10 @@ test('upload/download can be monitored', async (t) => {
       t.is(monitor.uploadStats.targetBlocks, 2)
       t.is(monitor.uploadStats.targetBytes, bytes)
       t.is(monitor.uploadSpeed(), monitor.uploadStats.speed)
+      if (!expectedBlocks.length) t.is(monitor.uploadStats.percentage, 100)
       t.absent(monitor.downloadStats.blocks)
     })
   }
-
-  await drive.put(file, buffer)
 
   {
     // Start monitoring download
@@ -1608,6 +1608,7 @@ test('upload/download can be monitored', async (t) => {
       t.is(monitor.downloadStats.targetBlocks, 2)
       t.is(monitor.downloadStats.targetBytes, bytes)
       t.is(monitor.downloadSpeed(), monitor.downloadStats.speed)
+      if (!expectedBlocks.length) t.is(monitor.downloadStats.percentage, 100)
       t.absent(monitor.uploadStats.blocks)
     })
   }

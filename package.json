@@ -21,7 +21,6 @@
   },
   "homepage": "https://github.com/holepunchto/hyperdrive#readme",
   "dependencies": {
-    "debounceify": "^1.1.0",
     "hyperbee": "^2.11.1",
     "hyperblobs": "^2.3.0",
     "hypercore": "^10.33.0",
