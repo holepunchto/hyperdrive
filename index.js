@@ -10,6 +10,7 @@ const safetyCatch = require('safety-catch')
 const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
+const Monitor = require('./lib/monitor')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -30,6 +31,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.blobs = null
     this.supportsMetadata = true
     this.encryptionKey = opts.encryptionKey || null
+    this.monitors = new Set()
 
     this._active = opts.active !== false
     this._openingBlobs = null
@@ -188,6 +190,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (!this._checkout && !this._batching) {
       await this.corestore.close()
     }
+
+    await this.closeMonitors()
   }
 
   async _openBlobsFromHeader (opts) {
@@ -276,6 +280,18 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
 
     return this.blobs
+  }
+
+  monitor (name, opts = {}) {
+    const monitor = new Monitor(this, { name, ...opts })
+    this.monitors.add(monitor)
+    return monitor
+  }
+
+  async closeMonitors () {
+    const closing = []
+    for (const monitor of this.monitors) closing.push(monitor.close())
+    await Promise.allSettled(closing)
   }
 
   async get (name, opts) {

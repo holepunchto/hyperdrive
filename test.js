@@ -1562,6 +1562,69 @@ test('drive.list (recursive false) ignore', async (t) => {
   t.alike(entries, expectedEntries)
 })
 
+test('upload/download can be monitored', async (t) => {
+  t.plan(27)
+  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const file = '/example.md'
+  const bytes = 1024 * 100 // big enough to trigger more than one update event
+  const buffer = Buffer.alloc(bytes, '0')
+  await drive.put(file, buffer)
+
+  {
+    // Start monitoring upload
+    const monitor = drive.monitor(file)
+    await monitor.ready()
+    t.is(monitor.name, file)
+    const expectedBlocks = [2, 1]
+    const expectedBytes = [bytes, 65536]
+    monitor.on('update', () => {
+      t.is(monitor.uploadStats.blocks, expectedBlocks.pop())
+      t.is(monitor.uploadStats.monitoringBytes, expectedBytes.pop())
+      t.is(monitor.uploadStats.targetBlocks, 2)
+      t.is(monitor.uploadStats.targetBytes, bytes)
+      t.is(monitor.uploadSpeed(), monitor.uploadStats.speed)
+      if (!expectedBlocks.length) t.is(monitor.uploadStats.percentage, 100)
+      t.absent(monitor.downloadStats.blocks)
+    })
+  }
+
+  {
+    // Start monitoring download
+    const monitor = mirror.drive.monitor(file)
+    await monitor.ready()
+    const expectedBlocks = [2, 1]
+    const expectedBytes = [bytes, 65536]
+    monitor.on('update', () => {
+      t.is(monitor.downloadStats.blocks, expectedBlocks.pop())
+      t.is(monitor.downloadStats.monitoringBytes, expectedBytes.pop())
+      t.is(monitor.downloadStats.targetBlocks, 2)
+      t.is(monitor.downloadStats.targetBytes, bytes)
+      t.is(monitor.downloadSpeed(), monitor.downloadStats.speed)
+      if (!expectedBlocks.length) t.is(monitor.downloadStats.percentage, 100)
+      t.absent(monitor.uploadStats.blocks)
+    })
+  }
+
+  await mirror.drive.get(file)
+})
+
+test('monitor is removed from the Set on close', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const monitor = drive.monitor('/example.md')
+  await monitor.ready()
+  t.is(drive.monitors.size, 1)
+  await monitor.close()
+  t.is(drive.monitors.size, 0)
+})
+
 async function testenv (teardown) {
   const corestore = new Corestore(RAM)
   await corestore.ready()
