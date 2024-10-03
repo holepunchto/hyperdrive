@@ -226,13 +226,21 @@ Returns a stream of all entries in the drive at paths prefixed with `folder`.
 ```js
 {
   recursive: true | false // Whether to descend into all subfolders or not,
-  ignore: String || Array // Ignore files and folders by name.
+  ignore: String || Array // Ignore files and folders by name,
+  wait: true, // Wait for block to be downloaded.
 }
 ```
 
-#### `const stream = drive.readdir(folder)`
+#### `const stream = drive.readdir(folder, [options])`
 
 Returns a stream of all subpaths of entries in drive stored at paths prefixed by `folder`.
+
+`options` include:
+```js
+{
+  wait: true, // Wait for block to be downloaded
+}
+```
 
 #### `const stream = await drive.entries([range], [options])`
 
