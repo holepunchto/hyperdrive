@@ -185,6 +185,17 @@ test('drive.del() deletes entry at path', async (t) => {
   t.is(entry, null)
 })
 
+test('drive.rename(oldPath, newPath) updates the entry at <oldPath> to use <newPath> as a key', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const buf = fs.readFileSync(__filename)
+  await drive.put(__filename, buf)
+  await drive.rename(__filename, 'new-file')
+  const resultOld = await drive.get(__filename)
+  t.is(resultOld, null)
+  const resultNew = await drive.get('new-file')
+  t.is(b4a.compare(buf, resultNew), 0)
+})
+
 test('drive.symlink(from, to) updates the entry at <from> to include a reference for <to>', async (t) => {
   const { drive } = await testenv(t.teardown)
   const buf = fs.readFileSync(__filename)
