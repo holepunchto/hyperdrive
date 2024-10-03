@@ -478,13 +478,13 @@ module.exports = class Hyperdrive extends ReadyResource {
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? normalizeIgnore(opts.ignore) : null
-    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore) : this.entries(prefixRange(folder), { ignore })
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore })
     return stream
   }
 
-  readdir (folder) {
+  readdir (folder, opts) {
     folder = std(folder || '/', true)
-    return shallowReadStream(this.db, folder, true, null)
+    return shallowReadStream(this.db, folder, true, null, opts)
   }
 
   mirror (out, opts) {
@@ -622,7 +622,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 }
 
-function shallowReadStream (files, folder, keys, ignore) {
+function shallowReadStream (files, folder, keys, ignore, opts) {
   let prev = '/'
   let prevName = ''
 
@@ -631,7 +631,7 @@ function shallowReadStream (files, folder, keys, ignore) {
       let node = null
 
       try {
-        node = await files.peek(prefixRange(folder, prev), { keyEncoding })
+        node = await files.peek(prefixRange(folder, prev), { ...opts, keyEncoding })
       } catch (err) {
         return cb(err)
       }
