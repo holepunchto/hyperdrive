@@ -315,6 +315,10 @@ Downloads the blobs corresponding to all entries in the drive at paths prefixed 
 
 Get a read-only snapshot of a previous version.
 
+#### `const snapshot = drive.snapshot()`
+
+Shorthand for getting a checkout for the current version.
+
 #### `const stream = drive.diff(version, folder, [options])`
 
 Efficiently create a stream of the shallow changes to `folder` between `version` and `drive.version`.
