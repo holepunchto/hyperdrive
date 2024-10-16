@@ -207,6 +207,17 @@ test('drive.rename(oldPath, newPath) does nothing if renaming a non-existing <ol
   t.is(resultNew, null)
 })
 
+test('drive.rename(oldPath, newPath) can rename a symlink', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const buf = fs.readFileSync(__filename)
+  await drive.put(__filename, buf)
+  await drive.symlink('pointer', __filename)
+  await drive.rename('pointer', 'new-pointer')
+  const entry = await drive.entry('new-pointer')
+  t.is(entry.value.linkname, __filename)
+  t.is(b4a.compare(buf, await drive.get(entry.value.linkname)), 0)
+})
+
 test('drive.symlink(from, to) updates the entry at <from> to include a reference for <to>', async (t) => {
   const { drive } = await testenv(t.teardown)
   const buf = fs.readFileSync(__filename)
