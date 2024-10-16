@@ -208,7 +208,7 @@ Purge both cores (db and blobs) from your storage, completely removing all the d
 
 #### `await drive.rename(oldPath, newPath, [options])`
 
-Renames the `oldPath` entry in the drive to be `newPath`. `options` are the same as in `get`.
+Renames a single `oldPath` entry in the drive to be `newPath`. `options` are the same as in `get`.
 
 #### `await drive.symlink(path, linkname)`
 
