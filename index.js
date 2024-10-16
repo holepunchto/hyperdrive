@@ -361,6 +361,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   async rename (oldPath, newPath, opts) {
     const b = this.batch()
     const existingEntry = await b.entry(oldPath, opts)
+    if (existingEntry === null) return b.flush()
+
     await b.db.del(std(oldPath, false), { keyEncoding })
     await b.db.put(std(newPath, false), existingEntry.value, { keyEncoding })
     return b.flush()
