@@ -457,6 +457,12 @@ module.exports = class Hyperdrive extends ReadyResource {
       return
     }
 
+    // first preload the list so we can use the full power afterwards to actually preload everything
+    // eslint-disable-next-line
+    for await (const _ of this.list(folder, opts)) {
+      // ignore
+    }
+
     for await (const entry of this.list(folder, opts)) {
       const b = entry.value.blob
       if (!b) continue
