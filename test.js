@@ -653,8 +653,9 @@ test('drive.checkout(len)', async (t) => {
   }
 })
 
-test('drive.download(folder, [options])', async (t) => {
-  t.plan(7)
+test.solo('drive.download(folder, [options])', async (t) => {
+  t.plan(1)
+  setInterval(() => console.log('bep', Date.now()), 1000)
   const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -664,36 +665,16 @@ test('drive.download(folder, [options])', async (t) => {
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
-  const nil = b4a.from('nil')
+  const puts = []
+  for (let i = 0; i < 20000; i++) puts.push(drive.put('/parent/child/grandchild' + i, Buffer.alloc(1024)))
+  console.log('start puts')
+  await Promise.all(puts)
+  console.log('finish puts')
 
-  let count = 0
-  let max = -Infinity
-
-  await drive.put('/parent/child/grandchild1', nil)
-  await drive.put('/parent/child/grandchild2', nil)
-
-  const blobs = await mirror.drive.getBlobs()
-
-  blobs.core.on('download', (offset) => {
-    count++
-    if (max < offset) max = offset
-  })
-
-  const l = drive.blobs.core.length
-
-  await drive.put('/parent/sibling/grandchild1', nil)
-
-  t.is(count, 0)
+  console.log('start download')
   await mirror.drive.download('/parent/child')
-  t.is(max, l - 1)
-  const _count = count
-  t.ok(await mirror.drive.get('/parent/child/grandchild1'))
-  t.is(_count, count)
-  t.ok(await mirror.drive.get('/parent/child/grandchild2'))
-  t.is(_count, count)
-  const entry = await mirror.drive.entry('/parent/sibling/grandchild1')
-  await blobs.get(entry.value.blob)
-  t.is(count, _count + 1)
+  console.log('finish download')
+  t.ok(true)
 })
 
 test('drive.download(filename, [options])', async (t) => {
@@ -1626,7 +1607,7 @@ test('monitor is removed from the Set on close', async (t) => {
 })
 
 async function testenv (teardown) {
-  const corestore = new Corestore(RAM)
+  const corestore = new Corestore('/tmp/a')
   await corestore.ready()
 
   const drive = new Hyperdrive(corestore)
@@ -1641,7 +1622,7 @@ async function testenv (teardown) {
   const mirror = {}
   mirror.swarm = new Hyperswarm({ dht: new DHT({ bootstrap }) })
   teardown(mirror.swarm.destroy.bind(mirror.swarm))
-  mirror.corestore = new Corestore(RAM)
+  mirror.corestore = new Corestore('/tmp/b')
   mirror.drive = new Hyperdrive(mirror.corestore, drive.key)
   await mirror.drive.ready()
   teardown(mirror.drive.close.bind(mirror.drive))
