@@ -75,8 +75,7 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
 
   {
     const { drive } = await testenv(t.teardown)
-    const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
-    const dirpath = fs.mkdtempSync(tmppath)
+    const dirpath = createTmpDir(t)
     const filepath = path.join(dirpath, 'hello-world.js')
     const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
     await drive.put(filepath, bndlbuf)
@@ -128,8 +127,7 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
 
   {
     const { drive } = await testenv(t.teardown)
-    const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
-    const dirpath = fs.mkdtempSync(tmppath)
+    const dirpath = createTmpDir(t)
     const filepath = path.join(dirpath, 'hello-world.js')
     const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
     await pipeline(
@@ -1647,6 +1645,7 @@ async function testenv (teardown) {
   teardown(mirror.drive.close.bind(mirror.drive))
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperdrive-test-'))
+  teardown(() => fs.promises.rm(tmp, { recursive: true }))
   const root = __dirname
   const paths = { tmp, root }
 
