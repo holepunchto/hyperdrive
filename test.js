@@ -11,49 +11,49 @@ const testnet = require('hyperdht/testnet')
 const DHT = require('hyperdht')
 const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
-
+const getTmpDir = require('test-tmp')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   t.is(drive.db.feed, drive.core)
 })
 
 test('drive.version', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put(__filename, fs.readFileSync(__filename))
   t.is(drive.db.feed.length, drive.version)
 })
 
 test('drive.key', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   t.is(b4a.compare(drive.db.feed.key, drive.key), 0)
 })
 
 test('drive.discoveryKey', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   t.is(b4a.compare(drive.discoveryKey, discoveryKey(drive.key)), 0)
 })
 
 test('drive.contentKey', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   t.is(b4a.compare(drive.blobs.core.key, drive.contentKey), 0)
 })
 
 test('drive.getBlobs()', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const blobs = await drive.getBlobs()
   t.is(blobs, drive.blobs)
 })
 
 test('drive.supportsMetadata', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   t.is(true, drive.supportsMetadata)
 })
 
 test('Hyperdrive(corestore, key)', async (t) => {
   t.plan(2)
-  const { corestore, drive } = await testenv(t.teardown)
+  const { corestore, drive } = await testenv(t)
   const diskbuf = fs.readFileSync(__filename)
   await drive.put(__filename, diskbuf)
   const bndlbuf = await drive.get(__filename)
@@ -66,7 +66,7 @@ test('Hyperdrive(corestore, key)', async (t) => {
 
 test('drive.put(path, buf) and drive.get(path)', async (t) => {
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const diskbuf = fs.readFileSync(__filename)
     await drive.put(__filename, diskbuf)
     const bndlbuf = await drive.get(__filename)
@@ -74,7 +74,7 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
     const dirpath = fs.mkdtempSync(tmppath)
     const filepath = path.join(dirpath, 'hello-world.js')
@@ -88,7 +88,7 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
 })
 
 test('drive.get(path, { wait: false }) throws if entry exists but not found', async (t) => {
-  const { drive, mirror } = await testenv(t.teardown)
+  const { drive, mirror } = await testenv(t)
 
   const otherDrive = mirror.drive
   const s1 = drive.corestore.replicate(true)
@@ -106,7 +106,7 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
 
 test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t) => {
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const diskbuf = await fs.readFileSync(__filename)
     await pipeline(
       fs.createReadStream(__filename),
@@ -127,7 +127,7 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
     const dirpath = fs.mkdtempSync(tmppath)
     const filepath = path.join(dirpath, 'hello-world.js')
@@ -147,7 +147,7 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
 })
 
 test('drive.createReadStream() with start/end options', async (t) => {
-  const { drive, paths } = await testenv(t.teardown)
+  const { drive, paths } = await testenv(t)
   const filepath = path.join(paths.tmp, 'hello-world.js')
   const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
   await pipeline(
@@ -174,7 +174,7 @@ test('drive.createReadStream() with start/end options', async (t) => {
 
 test('drive.del() deletes entry at path', async (t) => {
   t.plan(3)
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put(__filename, fs.readFileSync(__filename))
   let buf = await drive.get(__filename)
   t.ok(b4a.isBuffer(buf))
@@ -186,7 +186,7 @@ test('drive.del() deletes entry at path', async (t) => {
 })
 
 test('drive.symlink(from, to) updates the entry at <from> to include a reference for <to>', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const buf = fs.readFileSync(__filename)
   await drive.put(__filename, buf)
   await drive.symlink('pointer', __filename)
@@ -201,7 +201,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   const linkname = 'linkname'
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const buf = fs.readFileSync(__filename)
     await drive.put(__filename, buf)
     const { value: entry } = await drive.entry(__filename)
@@ -211,7 +211,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const buf = fs.readFileSync(__filename)
     await drive.put(__filename, buf, { executable: false })
     const { value: entry } = await drive.entry(__filename)
@@ -221,7 +221,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const buf = fs.readFileSync(__filename)
     await drive.put(__filename, buf, { executable: true })
     const { value: entry } = await drive.entry(__filename)
@@ -231,7 +231,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const buf = fs.readFileSync(__filename)
     await drive.put(__filename, buf, { executable: false })
     await drive.symlink(__filename, linkname)
@@ -242,7 +242,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const buf = fs.readFileSync(__filename)
     await drive.put(__filename, buf, { executable: true })
     await drive.symlink(__filename, linkname)
@@ -253,7 +253,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     await drive.symlink(linkname, __filename)
     const { value: entry } = await drive.entry(linkname)
     t.is(entry.blob, null)
@@ -262,7 +262,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const ws = drive.createWriteStream(__filename)
     ws.write(fs.readFileSync(__filename))
     ws.end()
@@ -274,7 +274,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const ws = drive.createWriteStream(__filename, { executable: false })
     ws.write(fs.readFileSync(__filename))
     ws.end()
@@ -286,7 +286,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const ws = drive.createWriteStream(__filename, { executable: true })
     ws.write(fs.readFileSync(__filename))
     ws.end()
@@ -299,7 +299,7 @@ test('drive.entry(path) gets entry at path', async (t) => {
 })
 
 test('entry(key) resolve key path', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/README.md', b4a.from('# title'))
   await drive.put('/examples/a.txt', b4a.from('a text'))
@@ -311,7 +311,7 @@ test('entry(key) resolve key path', async function (t) {
 })
 
 test('get(key) resolve key path', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/README.md', b4a.from('# title'))
   await drive.put('/examples/a.txt', b4a.from('a text'))
@@ -330,7 +330,7 @@ test('get(key) resolve key path', async function (t) {
 })
 
 test('entry(key) resolves object', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/README.md', b4a.from('# title'))
 
@@ -339,7 +339,7 @@ test('entry(key) resolves object', async function (t) {
 })
 
 test('del(key) resolve key path', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   const delAndEntry = async (key, expectedKey) => {
     await drive.put(expectedKey, b4a.from('')) // pre-create
@@ -355,7 +355,7 @@ test('del(key) resolve key path', async function (t) {
 })
 
 test('put(key, buffer) resolve key path', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   const putAndEntry = async (key, expectedKey) => {
     t.absent(await drive.entry(expectedKey))
@@ -369,7 +369,7 @@ test('put(key, buffer) resolve key path', async function (t) {
 })
 
 test('symlink(key, linkname) resolve key path', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/README.md', b4a.from('# title'))
 
@@ -387,7 +387,7 @@ test('symlink(key, linkname) resolve key path', async function (t) {
 test('watch() basic', async function (t) {
   t.plan(5)
 
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const buf = b4a.from('hi')
 
   const watcher = drive.watch()
@@ -409,7 +409,7 @@ test('watch() basic', async function (t) {
 test('watch(folder) basic', async function (t) {
   t.plan(1)
 
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const buf = b4a.from('hi')
 
   await drive.put('/README.md', buf)
@@ -439,7 +439,7 @@ test('watch(folder) basic', async function (t) {
 test('watch(folder) should normalize folder', async function (t) {
   t.plan(1)
 
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const buf = b4a.from('hi')
 
   const watcher = drive.watch('examples//more//')
@@ -463,7 +463,7 @@ test('watch(folder) should normalize folder', async function (t) {
 })
 
 test('drive.diff(length)', async (t) => {
-  const { drive, paths: { root, tmp } } = await testenv(t.teardown)
+  const { drive, paths: { root, tmp } } = await testenv(t)
   const paths = []
 
   for await (const _path of readdirator(root, { filter })) {
@@ -491,7 +491,7 @@ test('drive.diff(length)', async (t) => {
 })
 
 test('drive.entries()', async (t) => {
-  const { drive, paths: { root } } = await testenv(t.teardown)
+  const { drive, paths: { root } } = await testenv(t)
   const entries = new Set()
 
   for await (const path of readdirator(root, { filter })) {
@@ -512,7 +512,7 @@ test('drive.entries()', async (t) => {
 })
 
 test('drive.entries() with explicit range, no opts', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/aFile', 'here')
   await drive.put('/bFile', 'later')
@@ -528,7 +528,7 @@ test('drive.entries() with explicit range, no opts', async (t) => {
 })
 
 test('drive.entries() with explicit range and opts', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/aFile', 'here')
   await drive.put('/bFile', 'later')
@@ -545,7 +545,7 @@ test('drive.entries() with explicit range and opts', async (t) => {
 
 test('drive.list(folder, { recursive })', async (t) => {
   {
-    const { drive, paths: { root } } = await testenv(t.teardown)
+    const { drive, paths: { root } } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -555,7 +555,7 @@ test('drive.list(folder, { recursive })', async (t) => {
   }
 
   {
-    const { drive, paths: { root } } = await testenv(t.teardown)
+    const { drive, paths: { root } } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -565,7 +565,7 @@ test('drive.list(folder, { recursive })', async (t) => {
   }
 
   {
-    const { drive, paths: { root } } = await testenv(t.teardown)
+    const { drive, paths: { root } } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -575,7 +575,7 @@ test('drive.list(folder, { recursive })', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     const emptybuf = b4a.from('')
     await drive.put('/grandparent', emptybuf)
     await drive.put('/grandparent/parent', emptybuf)
@@ -597,7 +597,7 @@ test('drive.list(folder, { recursive })', async (t) => {
 
 test('drive.readdir(path)', async (t) => {
   {
-    const { drive, paths: { root } } = await testenv(t.teardown)
+    const { drive, paths: { root } } = await testenv(t)
     const files = new Map()
     for await (const path of readdirator(root, { filter })) {
       const buf = fs.readFileSync(path)
@@ -612,7 +612,7 @@ test('drive.readdir(path)', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     await drive.put('/parent/child', b4a.from('child'))
     await drive.put('/parent/sibling', b4a.from('sibling'))
     await drive.put('/parent/sibling/grandchild', b4a.from('grandchild'))
@@ -624,7 +624,7 @@ test('drive.readdir(path)', async (t) => {
   }
 
   {
-    const { drive } = await testenv(t.teardown)
+    const { drive } = await testenv(t)
     await drive.put('/parent/child', b4a.from('child'))
     await drive.put('/parent/sibling', b4a.from('sibling'))
     await drive.put('/parent/sibling/grandchild', b4a.from('grandchild'))
@@ -636,7 +636,7 @@ test('drive.readdir(path)', async (t) => {
 })
 
 test('drive.checkout(len)', async (t) => {
-  const { drive, paths: { root } } = await testenv(t.teardown)
+  const { drive, paths: { root } } = await testenv(t)
   const lens = new Map()
   for await (const path of readdirator(root, { filter })) {
     const buf = fs.readFileSync(path)
@@ -655,7 +655,7 @@ test('drive.checkout(len)', async (t) => {
 
 test('drive.download(folder, [options])', async (t) => {
   t.plan(7)
-  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -697,7 +697,7 @@ test('drive.download(folder, [options])', async (t) => {
 })
 
 test('drive.download(filename, [options])', async (t) => {
-  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -726,7 +726,7 @@ test('drive.download(filename, [options])', async (t) => {
 })
 
 test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
-  const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
+  const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -760,7 +760,7 @@ test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
 })
 
 test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
-  const { drive, swarm, mirror, corestore } = await testenv(t.teardown)
+  const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -805,7 +805,7 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
 })
 
 test('drive.batch() & drive.flush()', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   const batch = drive.batch()
 
@@ -828,7 +828,7 @@ test('drive.batch() & drive.flush()', async (t) => {
 
 test('batch.list()', async (t) => {
   t.plan(1)
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const nil = b4a.from('nil')
   await drive.put('/x', nil)
   const batch = drive.batch()
@@ -840,7 +840,7 @@ test('batch.list()', async (t) => {
 
 test('drive.close()', async (t) => {
   t.plan(2)
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const blobs = await drive.getBlobs()
   blobs.core.on('close', () => t.ok(true))
   drive.core.on('close', () => t.ok(true))
@@ -848,7 +848,7 @@ test('drive.close()', async (t) => {
 })
 
 test('drive.close() on snapshots--does not close parent', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/foo', b4a.from('bar'))
 
@@ -874,7 +874,7 @@ test('drive.batch() on non-ready drive', async (t) => {
 })
 
 test('drive.close() for future checkout', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put('some', 'thing')
   const checkout = drive.checkout(drive.length + 1)
   await checkout.close()
@@ -904,7 +904,7 @@ test('drive.close() with openBlobsFromHeader waiting in the background', async (
 })
 
 test.skip('drive.findingPeers()', async (t) => {
-  const { drive, corestore, swarm, mirror } = await testenv(t.teardown)
+  const { drive, corestore, swarm, mirror } = await testenv(t)
   await drive.put('/', b4a.from('/'))
 
   swarm.on('connection', (conn) => corestore.replicate(conn))
@@ -919,8 +919,8 @@ test.skip('drive.findingPeers()', async (t) => {
 })
 
 test('drive.mirror()', async (t) => {
-  const { drive: a } = await testenv(t.teardown)
-  const { drive: b } = await testenv(t.teardown)
+  const { drive: a } = await testenv(t)
+  const { drive: b } = await testenv(t)
 
   await a.put('/file.txt', 'hello world')
   await a.mirror(b).done()
@@ -948,7 +948,7 @@ test('blobs with writable drive', async (t) => {
 })
 
 test('drive.clear(path)', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put('/loc', 'hello world')
 
   const entry = await drive.entry('/loc')
@@ -968,7 +968,7 @@ test('drive.clear(path)', async (t) => {
 })
 
 test('drive.clear(path) with diff', async (t) => {
-  const storage = createTmpDir(t)
+  const storage = await getTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
   await a.put('/file', b4a.alloc(4 * 1024))
@@ -989,7 +989,7 @@ test('drive.clear(path) with diff', async (t) => {
 })
 
 test('drive.clear(path) on a checkout', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put('/loc', 'hello world')
 
   const entry = await drive.entry('/loc')
@@ -1011,7 +1011,7 @@ test('drive.clear(path) on a checkout', async (t) => {
 })
 
 test('drive.clearAll() with diff', async (t) => {
-  const storage = createTmpDir(t)
+  const storage = await getTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
   await a.put('/file-1', b4a.alloc(4 * 1024))
@@ -1034,7 +1034,7 @@ test('drive.clearAll() with diff', async (t) => {
 })
 
 test('drive.purge()', async (t) => {
-  const storage = createTmpDir(t)
+  const storage = await getTmpDir(t)
   const store = new Corestore(storage)
 
   const a = new Hyperdrive(store)
@@ -1049,7 +1049,7 @@ test('drive.purge()', async (t) => {
 })
 
 test('entry(key) cancelled when checkout closes', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   await drive.put('some', '1')
 
   const snap = drive.checkout(3) // Future
@@ -1062,7 +1062,7 @@ test('entry(key) cancelled when checkout closes', async function (t) {
 })
 
 test('drive.exists(key)', async function (t) {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   t.is(await drive.exists('/file'), false)
 
@@ -1266,7 +1266,7 @@ test('non-existing follow entry', async function (t) {
 test('drive.entry(key, { timeout })', async (t) => {
   t.plan(1)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1286,7 +1286,7 @@ test('drive.entry(key, { timeout })', async (t) => {
 test('drive.entry(key, { wait })', async (t) => {
   t.plan(1)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1306,7 +1306,7 @@ test('drive.entry(key, { wait })', async (t) => {
 test('drive.get(key, { timeout })', async (t) => {
   t.plan(3)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1330,7 +1330,7 @@ test('drive.get(key, { timeout })', async (t) => {
 test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   t.plan(3)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1354,7 +1354,7 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
 test('drive.get(key, { wait }) without entry', async (t) => {
   t.plan(1)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1374,7 +1374,7 @@ test('drive.get(key, { wait }) without entry', async (t) => {
 test('drive peek with get() and timeout', async (t) => {
   t.plan(3)
 
-  const { drive, swarm, mirror } = await testenv(t.teardown)
+  const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
@@ -1502,7 +1502,7 @@ test('get drive key without using the constructor', async (t) => {
 })
 
 test('drive.list ignore', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/file_A', b4a.alloc(0))
   await drive.put('/file_B', b4a.alloc(0))
@@ -1542,7 +1542,7 @@ test('drive.list ignore', async (t) => {
 })
 
 test('drive.list (recursive false) ignore', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
 
   await drive.put('/file_A', b4a.alloc(0))
   await drive.put('/file_B', b4a.alloc(0))
@@ -1564,7 +1564,7 @@ test('drive.list (recursive false) ignore', async (t) => {
 
 test('upload/download can be monitored', async (t) => {
   t.plan(27)
-  const { corestore, drive, swarm, mirror } = await testenv(t.teardown)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -1617,7 +1617,7 @@ test('upload/download can be monitored', async (t) => {
 })
 
 test('monitor is removed from the Set on close', async (t) => {
-  const { drive } = await testenv(t.teardown)
+  const { drive } = await testenv(t)
   const monitor = drive.monitor('/example.md')
   await monitor.ready()
   t.is(drive.monitors.size, 1)
@@ -1625,7 +1625,9 @@ test('monitor is removed from the Set on close', async (t) => {
   t.is(drive.monitors.size, 0)
 })
 
-async function testenv (teardown) {
+async function testenv (t) {
+  const { teardown } = t
+
   const corestore = new Corestore(RAM)
   await corestore.ready()
 
@@ -1646,7 +1648,7 @@ async function testenv (teardown) {
   await mirror.drive.ready()
   teardown(mirror.drive.close.bind(mirror.drive))
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperdrive-test-'))
+  const tmp = await getTmpDir(t)
   const root = __dirname
   const paths = { tmp, root }
 
@@ -1683,13 +1685,6 @@ async function streamToBuffer (stream) {
     chunks.push(chunk)
   }
   return b4a.concat(chunks)
-}
-
-function createTmpDir (t) {
-  const tmpdir = path.join(os.tmpdir(), 'hyperdrive-test-')
-  const dir = fs.mkdtempSync(tmpdir)
-  t.teardown(() => fs.promises.rm(dir, { recursive: true }))
-  return dir
 }
 
 function eventFlush () {
