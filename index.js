@@ -514,6 +514,7 @@ module.exports = class Hyperdrive extends ReadyResource {
         function onnode (node) {
           if (destroyed) return cb(null)
           if (!node) return cb(new Error('Blob does not exist'))
+          if (self.closing) return cb(new Error('Closed'))
 
           if (!node.value.blob) {
             stream.push(null)
