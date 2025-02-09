@@ -1,6 +1,6 @@
 # Hyperdrive
 
-[See API docs at docs.holepunch.to](https://docs.holepunch.to/building-blocks/hyperdrive)
+[See API docs at docs.pears.com](https://docs.pears.com/building-blocks/hyperdrive)
 
 Hyperdrive is a secure, real-time distributed file system
 
