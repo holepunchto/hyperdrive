@@ -873,6 +873,8 @@ test('drive.batch() on non-ready drive', async (t) => {
   t.is(batch.blobs.core.closed, true)
 
   t.ok(await drive.get('/x'))
+
+  await drive.close()
 })
 
 test('drive.close() for future checkout', async (t) => {
@@ -947,6 +949,7 @@ test('blobs with writable drive', async (t) => {
   t.absent(drive.blobs)
   await drive.ready()
   t.ok(drive.blobs)
+  await drive.close()
 })
 
 test('drive.clear(path)', async (t) => {
@@ -1046,6 +1049,8 @@ test('entry(key) cancelled when checkout closes', async function (t) {
 
   t.is(a.status, 'fulfilled')
   t.is(b.status, 'rejected')
+
+  await snap.close()
 })
 
 test('drive.exists(key)', async function (t) {
@@ -1088,6 +1093,8 @@ test('basic properties', async function (t) {
   t.is(drive.id, drive.core.id)
   t.is(drive.key, drive.core.key)
   t.is(drive.discoveryKey, drive.core.discoveryKey)
+
+  await drive.close()
 })
 
 test('basic writable option', async function (t) {
@@ -1109,6 +1116,9 @@ test('basic writable option', async function (t) {
   } catch (err) {
     t.is(err.code, 'SESSION_NOT_WRITABLE')
   }
+
+  await a.close()
+  await b.close()
 })
 
 test('readdir filenames with dashes', async function (t) {
@@ -1166,6 +1176,8 @@ test('basic compare', async function (t) {
   t.is(drive.compare(c, c), 0)
   t.is(drive.compare(b, a), 1)
   t.is(drive.compare(c, a), 1)
+
+  await drive.close()
 })
 
 test('basic follow entry', async function (t) {
@@ -1387,6 +1399,8 @@ test('non-compat making of cores', async (t) => {
 
   t.absent(drive.core.core.compat)
   t.absent(drive.blobs.core.core.compat)
+
+  await drive.close()
 })
 
 test('getBlobsLength happy paths', async t => {
@@ -1402,6 +1416,8 @@ test('getBlobsLength happy paths', async t => {
   t.is(drive.version, 3, 'sanity check')
   t.is(await drive.getBlobsLength(2), 1, 'Correct blobs length on explicit checkout')
   t.is(await drive.getBlobsLength(3), 2, 'Correct blobs length on explicit checkout to latest')
+
+  await corestore.close()
 })
 
 test('getBlobsLength when not ready', async t => {
@@ -1426,6 +1442,9 @@ test('getBlobsLength of empty drive', async t => {
   const drive = new Hyperdrive(corestore.session())
   const length = await drive.getBlobsLength()
   t.is(length, 0, 'empty drive has blobsLength 0')
+
+  await drive.close()
+  await corestore.close()
 })
 
 test('truncate happy path', async t => {
@@ -1458,6 +1477,9 @@ test('truncate happy path', async t => {
 
   t.is(drive.db.core.fork, 1, 'sanity check on db fork')
   t.is(drive.blobs.core.fork, 1, 'sanity check on blobs fork')
+
+  await drive.close()
+  await corestore.close()
 })
 
 test('truncate throws when truncating future version)', async t => {
@@ -1470,6 +1492,9 @@ test('truncate throws when truncating future version)', async t => {
     /Bad truncation length/,
     'throws when truncating the future'
   )
+
+  await drive.close()
+  await corestore.close()
 })
 
 test('get drive key without using the constructor', async (t) => {
@@ -1486,6 +1511,9 @@ test('get drive key without using the constructor', async (t) => {
   await drive.ready()
 
   t.is(key.toString('hex'), drive.key.toString('hex'))
+
+  await drive.close()
+  await corestore.close()
 })
 
 test('drive.list ignore', async (t) => {
