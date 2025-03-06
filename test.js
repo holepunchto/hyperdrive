@@ -806,7 +806,7 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
   t.is(blobscount + 1, blobstelem.count)
 })
 
-test.solo('drive.has(folder)', async (t) => {
+test('drive.has(folder)', async (t) => {
   t.plan(4)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
@@ -829,7 +829,7 @@ test.solo('drive.has(folder)', async (t) => {
   await drive.put('/parent/sibling/grandchild1', nil)
 
   await mirror.drive.download('/parent/child/')
-  
+
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
 
