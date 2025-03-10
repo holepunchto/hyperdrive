@@ -477,6 +477,20 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.allSettled(proms)
   }
 
+  hasBlock (start, end) {
+    return this.blobs.core.has(start, end)
+  }
+
+  async has (folder = '/') {
+    const entries = this.list(folder)
+    for await (const entry of entries) {
+      const b = entry.value.blob
+      const has = await this.hasBlock(b.blockOffset, b.blockOffset + b.blockLength)
+      if (!has) return false
+    }
+    return true
+  }
+
   // atm always recursive, but we should add some depth thing to it
   list (folder, opts = {}) {
     if (typeof folder === 'object') return this.list(undefined, folder)
