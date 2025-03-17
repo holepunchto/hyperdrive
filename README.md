@@ -339,13 +339,9 @@ In other words, downloads all the blobs added to `folder` up to `version` of the
 
 Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
 
-#### `await drive.has(start, end)`
+#### `await drive.has(path)`
 
-Checks if block is saved to local store already.
-
-#### `await drive.has(folder)`
-
-Checks if folder is saved to local store already.
+Checks if path is saved to local store already.
 
 #### `const done = drive.findingPeers()`
 
