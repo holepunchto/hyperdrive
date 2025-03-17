@@ -477,23 +477,18 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.allSettled(proms)
   }
 
-  _hasBlock (start, end) {
-    return this.blobs.core.has(start, end)
-  }
-
   async has (path) {
-    await this.getBlobs()
+    const blobs = await this.getBlobs()
     const entry = (!path || path.endsWith('/')) ? null : await this.entry(path)
     if (entry) {
-      const b = entry?.value?.blob
+      const b = entry.value.blob
       if (!b) return false
-      return await this._hasBlock(b.blockOffset, b.blockOffset + b.blockLength)
+      return await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
     }
-    const entries = this.list(path)
-    for await (const entry of entries) {
+    for await (const entry of this.list(path)) {
       const b = entry.value.blob
       if (!b) continue
-      const has = await this._hasBlock(b.blockOffset, b.blockOffset + b.blockLength)
+      const has = await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
       if (!has) return false
     }
     return true
