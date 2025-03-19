@@ -339,6 +339,10 @@ In other words, downloads all the blobs added to `folder` up to `version` of the
 
 Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
 
+#### `await drive.has(path)`
+
+Checks if path is saved to local store already.
+
 #### `const done = drive.findingPeers()`
 
 Indicate to Hyperdrive that you're finding peers in the background, requests will be on hold until this is done.
