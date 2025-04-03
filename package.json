@@ -12,7 +12,8 @@
     "url": "git+https://github.com/holepunchto/hyperdrive.git"
   },
   "scripts": {
-    "test": "standard && brittle test.js"
+    "test": "standard && brittle test.js",
+    "test:bare": "bare test.js"
   },
   "author": "Holepunch",
   "license": "Apache-2.0",
@@ -36,6 +37,9 @@
   },
   "devDependencies": {
     "b4a": "^1.6.0",
+    "bare-events": "^2.5.4",
+    "bare-fs": "^4.1.2",
+    "bare-path": "^3.0.0",
     "brittle": "^3.1.0",
     "corestore": "^7.0.0",
     "hypercore-crypto": "^3.4.0",
@@ -43,5 +47,19 @@
     "hyperswarm": "^4.0.0",
     "standard": "^17.0.0",
     "test-tmp": "^1.3.0"
+  },
+  "imports": {
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
+    },
+    "events": {
+      "bare": "bare-events",
+      "default": "events"
+    }
   }
 }

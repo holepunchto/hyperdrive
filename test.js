@@ -1,5 +1,4 @@
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 const { once } = require('events')
 const test = require('brittle')
@@ -74,8 +73,7 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
 
   {
     const { drive } = await testenv(t)
-    const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
-    const dirpath = fs.mkdtempSync(tmppath)
+    const dirpath = await t.tmp()
     const filepath = path.join(dirpath, 'hello-world.js')
     const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
     await drive.put(filepath, bndlbuf)
@@ -127,8 +125,7 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
 
   {
     const { drive } = await testenv(t)
-    const tmppath = path.join(os.tmpdir(), 'hyperdrive-test-')
-    const dirpath = fs.mkdtempSync(tmppath)
+    const dirpath = await t.tmp()
     const filepath = path.join(dirpath, 'hello-world.js')
     const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
     await pipeline(
