@@ -439,7 +439,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   entries (range, opts) {
     const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
-    if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
+    if (opts && opts.ignore) stream._readableState.map = createStreamMapFilter(opts.ignore, opts.unignore)
     return stream
   }
 
@@ -501,13 +501,14 @@ module.exports = class Hyperdrive extends ReadyResource {
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? normalizeIgnore(opts.ignore) : null
-    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore })
+    const unignore = opts.unignore ? normalizeUnignore(opts.unignore) : null
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, unignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore, unignore })
     return stream
   }
 
   readdir (folder, opts) {
     folder = std(folder || '/', true)
-    return shallowReadStream(this.db, folder, true, null, opts)
+    return shallowReadStream(this.db, folder, true, null, null, opts)
   }
 
   mirror (out, opts) {
@@ -646,7 +647,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 }
 
-function shallowReadStream (files, folder, keys, ignore, opts) {
+function shallowReadStream (files, folder, keys, ignore, unignore, opts) {
   let prev = '/'
   let prevName = ''
 
@@ -679,7 +680,7 @@ function shallowReadStream (files, folder, keys, ignore, opts) {
 
       prevName = name
 
-      if (ignore && isIgnored(node.key, ignore)) {
+      if (ignore && isIgnored(node.key, ignore) && (!unignore || !isUnignored(node.key, unignore))) {
         this._read(cb)
         return
       }
@@ -766,8 +767,22 @@ function isIgnored (key, ignore) {
   return ignore.some(e => e === key || key.startsWith(e + '/'))
 }
 
-function createStreamMapIgnore (ignore) {
+function createStreamMapFilter (ignore, unignore) {
   return (node) => {
-    return isIgnored(node.key, ignore) ? null : node
+    const key = node.key
+
+    const ignored = ignore ? isIgnored(key, ignore) : false
+    const unignored = unignore ? isUnignored(key, unignore) : false
+
+    if (ignored && !unignored) return null
+    return node
   }
+}
+
+function normalizeUnignore (unignore) {
+  return normalizeIgnore(unignore)
+}
+
+function isUnignored (key, unignore) {
+  return isIgnored(key, unignore)
 }

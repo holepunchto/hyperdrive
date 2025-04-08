@@ -1550,7 +1550,7 @@ test('get drive key without using the constructor', async (t) => {
   await corestore.close()
 })
 
-test('drive.list ignore', async (t) => {
+test('drive.list ignore/unignore', async (t) => {
   const { drive } = await testenv(t)
 
   await drive.put('/file_A', b4a.alloc(0))
@@ -1577,34 +1577,44 @@ test('drive.list ignore', async (t) => {
     'folder_B/subfolder_B/file_A'
   ]
 
+  const unignore = [
+    'folder_A/subfolder_A/file_A',
+    'folder_B/subfolder_B/file_A'
+  ]
+
   const expectedEntries = ['/file_B',
+    '/folder_A/subfolder_A/file_A',
     '/folder_B/file_B',
+    '/folder_B/subfolder_B/file_A',
     '/folder_B/subfolder_B/file_B'
   ]
 
   const entries = []
-  for await (const entry of drive.list({ ignore })) {
+  for await (const entry of drive.list({ ignore, unignore })) {
     entries.push(entry.key)
   }
 
   t.alike(entries, expectedEntries)
 })
 
-test('drive.list (recursive false) ignore', async (t) => {
+test('drive.list (recursive false) ignore/unignore', async (t) => {
   const { drive } = await testenv(t)
 
   await drive.put('/file_A', b4a.alloc(0))
   await drive.put('/file_B', b4a.alloc(0))
+  await drive.put('/file_C', b4a.alloc(0))
   await drive.put('/folder_A/file_A', b4a.alloc(0))
   await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
 
-  const ignore = ['file_A', 'folder_A']
+  const ignore = ['file_A', 'folder_A', 'file_C']
+  const unignore = ['file_C']
   const expectedEntries = [
-    '/file_B'
+    '/file_B',
+    '/file_C'
   ]
 
   const entries = []
-  for await (const entry of drive.list({ ignore, recursive: false })) {
+  for await (const entry of drive.list({ ignore, unignore, recursive: false })) {
     entries.push(entry.key)
   }
 
