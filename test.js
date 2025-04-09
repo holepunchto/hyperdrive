@@ -1619,6 +1619,27 @@ test('drive.list (recursive false) ignore', async (t) => {
   t.alike(entries, expectedEntries)
 })
 
+test('drive.list (recursive false) ignore array', async (t) => {
+  const { drive } = await testenv(t)
+
+  await drive.put('/file_A', b4a.alloc(0))
+  await drive.put('/file_B', b4a.alloc(0))
+  await drive.put('/folder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
+
+  const ignore = ['file_A', 'folder_A']
+  const expectedEntries = [
+    '/file_B'
+  ]
+
+  const entries = []
+  for await (const entry of drive.list({ ignore, recursive: false })) {
+    entries.push(entry.key)
+  }
+
+  t.alike(entries, expectedEntries)
+})
+
 // VERY TIMING DEPENDENT, NEEDS FIX
 test.skip('upload/download can be monitored', async (t) => {
   t.plan(27)
