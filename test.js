@@ -10,6 +10,7 @@ const DHT = require('hyperdht')
 const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
 const getTmpDir = require('test-tmp')
+const unixPathResolve = require('unix-path-resolve')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
@@ -1570,12 +1571,16 @@ test('drive.list ignore', async (t) => {
   await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
   await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
 
-  const ignore = ['file_A',
+  const filter = ['file_A',
     'folder_A',
     'folder_B/file_A',
     'folder_B/subfolder_A',
     'folder_B/subfolder_B/file_A'
   ]
+
+  const ignore = (key) => {
+    return filter.some(e => unixPathResolve('/', e) === key || key.startsWith(unixPathResolve('/', e) + '/'))
+  }
 
   const expectedEntries = ['/file_B',
     '/folder_B/file_B',
@@ -1598,7 +1603,10 @@ test('drive.list (recursive false) ignore', async (t) => {
   await drive.put('/folder_A/file_A', b4a.alloc(0))
   await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
 
-  const ignore = ['file_A', 'folder_A']
+  const filter = ['file_A', 'folder_A']
+  const ignore = (key) => {
+    return filter.some(e => unixPathResolve('/', e) === key || key.startsWith(unixPathResolve('/', e) + '/'))
+  }
   const expectedEntries = [
     '/file_B'
   ]
