@@ -1677,7 +1677,7 @@ test('drive.list ignore and unignore', async (t) => {
   }
 
   const expectedEntries = ['/file_B',
-    'folder_A/subfolder_A/file_A',
+    '/folder_A/subfolder_A/file_A',
     '/folder_B/file_B',
     '/folder_B/subfolder_B/file_B'
   ]
