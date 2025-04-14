@@ -501,7 +501,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? toIgnoreFunction(opts.ignore) : null
-    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore})
+    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore })
     return stream
   }
 
@@ -758,11 +758,11 @@ async function getBlobsLength (db) {
   return length
 }
 
-function toIgnoreFunction (ignore) { 
+function toIgnoreFunction (ignore) {
   if (typeof ignore === 'function') return ignore
-  
+
   const all = [].concat(ignore).map(e => unixPathResolve('/', e))
-  return key => all.includes(key) 
+  return key => all.some(path => path === key || key.startsWith(path + '/'))
 }
 
 function isIgnored (key, ignore) {

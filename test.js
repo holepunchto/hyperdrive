@@ -1633,7 +1633,7 @@ test('drive.list (recursive false) ignore array', async (t) => {
   t.alike(entries, expectedEntries)
 })
 
-test('drive.list ignore function', async (t) => {
+test('drive.list ignore and unignore', async (t) => {
   const { drive } = await testenv(t)
 
   await drive.put('/file_A', b4a.alloc(0))
@@ -1653,18 +1653,31 @@ test('drive.list ignore function', async (t) => {
   await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
   await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
 
-  const filter = ['file_A',
+  const ignores = ['file_A',
     'folder_A',
     'folder_B/file_A',
     'folder_B/subfolder_A',
     'folder_B/subfolder_B/file_A'
   ]
 
+  const unignores = ['folder_A/subfolder_A/file_A']
+
   const ignore = (key) => {
-    return filter.some(e => unixPathResolve('/', e) === key || key.startsWith(unixPathResolve('/', e) + '/'))
+    for (const u of unignores) {
+      const path = unixPathResolve('/', u)
+      if (path === key) return false
+      if (path.startsWith(key + '/')) return false
+    }
+    for (const i of ignores) {
+      const path = unixPathResolve('/', i)
+      if (path === key) return true
+      if (key.startsWith(path + '/')) return true
+    }
+    return false
   }
 
   const expectedEntries = ['/file_B',
+    'folder_A/subfolder_A/file_A',
     '/folder_B/file_B',
     '/folder_B/subfolder_B/file_B'
   ]
