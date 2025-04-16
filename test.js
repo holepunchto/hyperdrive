@@ -10,6 +10,7 @@ const DHT = require('hyperdht')
 const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
 const getTmpDir = require('test-tmp')
+const unixPathResolve = require('unix-path-resolve')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
@@ -1605,6 +1606,84 @@ test('drive.list (recursive false) ignore', async (t) => {
 
   const entries = []
   for await (const entry of drive.list({ ignore, recursive: false })) {
+    entries.push(entry.key)
+  }
+
+  t.alike(entries, expectedEntries)
+})
+
+test('drive.list (recursive false) ignore array', async (t) => {
+  const { drive } = await testenv(t)
+
+  await drive.put('/file_A', b4a.alloc(0))
+  await drive.put('/file_B', b4a.alloc(0))
+  await drive.put('/folder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
+
+  const ignore = ['file_A', 'folder_A']
+  const expectedEntries = [
+    '/file_B'
+  ]
+
+  const entries = []
+  for await (const entry of drive.list({ ignore, recursive: false })) {
+    entries.push(entry.key)
+  }
+
+  t.alike(entries, expectedEntries)
+})
+
+test('drive.list ignore and unignore', async (t) => {
+  const { drive } = await testenv(t)
+
+  await drive.put('/file_A', b4a.alloc(0))
+  await drive.put('/file_B', b4a.alloc(0))
+
+  await drive.put('/folder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/file_B', b4a.alloc(0))
+
+  await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_A/subfolder_B/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_A/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_A/file_B', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
+  await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
+
+  const ignores = ['file_A',
+    'folder_A',
+    'folder_B/file_A',
+    'folder_B/subfolder_A',
+    'folder_B/subfolder_B/file_A'
+  ]
+
+  const unignores = ['folder_A/subfolder_A/file_A']
+
+  const ignore = (key) => {
+    for (const u of unignores) {
+      const path = unixPathResolve('/', u)
+      if (path === key) return false
+      if (path.startsWith(key + '/')) return false
+    }
+    for (const i of ignores) {
+      const path = unixPathResolve('/', i)
+      if (path === key) return true
+      if (key.startsWith(path + '/')) return true
+    }
+    return false
+  }
+
+  const expectedEntries = ['/file_B',
+    '/folder_A/subfolder_A/file_A',
+    '/folder_B/file_B',
+    '/folder_B/subfolder_B/file_B'
+  ]
+
+  const entries = []
+  for await (const entry of drive.list({ ignore })) {
     entries.push(entry.key)
   }
 
