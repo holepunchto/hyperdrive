@@ -439,7 +439,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   entries (range, opts) {
     const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
-    if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
+    if (opts && opts.ignore) stream._readableState.map = (node) => opts.ignore(node.key) ? null : node
     return stream
   }
 
@@ -679,7 +679,7 @@ function shallowReadStream (files, folder, keys, ignore, opts) {
 
       prevName = name
 
-      if (ignore && isIgnored(node.key, ignore)) {
+      if (ignore && ignore(node.key)) {
         this._read(cb)
         return
       }
@@ -763,15 +763,4 @@ function toIgnoreFunction (ignore) {
 
   const all = [].concat(ignore).map(e => unixPathResolve('/', e))
   return key => all.some(path => path === key || key.startsWith(path + '/'))
-}
-
-function isIgnored (key, ignore) {
-  if (typeof ignore === 'function') return ignore(key)
-  return ignore.some(e => unixPathResolve('/', e) === key || key.startsWith(unixPathResolve('/', e) + '/'))
-}
-
-function createStreamMapIgnore (ignore) {
-  return (node) => {
-    return isIgnored(node.key, ignore) ? null : node
-  }
 }
