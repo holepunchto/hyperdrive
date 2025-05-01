@@ -11,6 +11,7 @@ const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 const Monitor = require('./lib/monitor')
+const Download = require('./lib/download')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -410,10 +411,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(dls)
   }
 
   async downloadRange (dbRanges, blobRanges) {
@@ -431,10 +429,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download(range))
     }
 
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(dls)
   }
 
   entries (range, opts) {
@@ -453,8 +448,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       const b = entry.value.blob
       if (!b) return
       const blobs = await this.getBlobs()
-      await blobs.core.download({ start: b.blockOffset, length: b.blockLength }).downloaded()
-      return
+      const download = await blobs.core.download({ start: b.blockOffset, length: b.blockLength })
+      return new Download(download)
     }
 
     // first preload the list so we can use the full power afterwards to actually preload everything
@@ -471,10 +466,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(dls)
   }
 
   async has (path) {

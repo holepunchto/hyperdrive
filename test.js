@@ -683,7 +683,8 @@ test('drive.download(folder, [options])', async (t) => {
   await drive.put('/parent/sibling/grandchild1', nil)
 
   t.is(count, 0)
-  await mirror.drive.download('/parent/child')
+  const download = await mirror.drive.download('/parent/child')
+  await download.done()
   t.is(max, l - 1)
   const _count = count
   t.ok(await mirror.drive.get('/parent/child/grandchild1'))
@@ -714,7 +715,8 @@ test('drive.download(filename, [options])', async (t) => {
   await eventFlush()
 
   await mirror.drive.getBlobs()
-  await mirror.drive.download('/file')
+  const download = await mirror.drive.download('/file')
+  await download.done()
 
   t.ok(await mirror.drive.get('/file', { wait: false }))
 
@@ -779,7 +781,8 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
   const filestelem = downloadShark(mirror.drive.core)
   const blobstelem = downloadShark((await mirror.drive.getBlobs()).core)
 
-  await mirror.drive.downloadDiff(version, '/parent/child')
+  const downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  await downloadDiff.done()
 
   let filescount = filestelem.count
   let blobscount = blobstelem.count
@@ -827,14 +830,16 @@ test('drive.has(path)', async (t) => {
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
-  await mirror.drive.download('/parent/child/')
+  const downloadChild = await mirror.drive.download('/parent/child/')
+  await downloadChild.done()
 
   await eventFlush()
 
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
 
-  await mirror.drive.download('/parent/sibling/')
+  const downloadSibling = await mirror.drive.download('/parent/sibling/')
+  await downloadSibling.done()
 
   await eventFlush()
   t.ok(await mirror.drive.has('/parent/'))
@@ -1688,6 +1693,29 @@ test('drive.list ignore and unignore', async (t) => {
   }
 
   t.alike(entries, expectedEntries)
+})
+
+test('download can be destroyed', async (t) => {
+  t.plan(1)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  await drive.put('/file', b4a.allocUnsafe(1024 * 1024 * 10))
+
+  await eventFlush()
+
+  const download = await mirror.drive.download('/file')
+  download.destroy()
+
+  await eventFlush()
+
+  t.is((await mirror.drive.blobs.core.info()).contiguousLength, 0)
 })
 
 // VERY TIMING DEPENDENT, NEEDS FIX
