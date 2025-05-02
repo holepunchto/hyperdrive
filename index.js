@@ -449,7 +449,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       if (!b) return
       const blobs = await this.getBlobs()
       const download = await blobs.core.download({ start: b.blockOffset, length: b.blockLength })
-      return new Download(download)
+      return new Download(toArray(download))
     }
 
     // first preload the list so we can use the full power afterwards to actually preload everything
@@ -759,4 +759,8 @@ function toIgnoreFunction (ignore) {
 
 function createStreamMapIgnore (ignore) {
   return (node) => ignore(node.key) ? null : node
+}
+
+function toArray (value) {
+  return Array.isArray(value) ? value : [value]
 }

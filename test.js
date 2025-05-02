@@ -1706,7 +1706,7 @@ test('download can be destroyed', async (t) => {
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
-  await drive.put('/file', b4a.allocUnsafe(1024 * 1024 * 10))
+  await drive.put('/file', b4a.allocUnsafe(1024 * 1024 * 30))
 
   await eventFlush()
 
