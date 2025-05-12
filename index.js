@@ -66,6 +66,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return Hypercore.key(manifest)
   }
 
+  static getContentManifest (m, key) {
+    return generateContentManifest(m, key)
+  }
+
   _generateBlobsManifest () {
     const m = this.db.core.manifest
     if (this.db.core.core.compat) return null
