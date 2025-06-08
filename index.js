@@ -351,6 +351,40 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.blobs.core.clear(0, this.blobs.core.length, opts)
   }
 
+  async gc () {
+    if (!this.opened) await this.ready()
+
+    // TODO: Cleanup database also i.e. this.db.gc()
+
+    const blobs = await this.getBlobs()
+    const used = []
+
+    for await (const entry of this.db.createReadStream()) {
+      const b = entry.value.blob
+
+      if (b) {
+        used.push([b.blockOffset, b.blockOffset + b.blockLength])
+      }
+    }
+
+    used.sort((a, b) => a[0] - b[0])
+
+    const total = blobs.core.length
+    let cursor = 0
+
+    for (const [start, end] of used) {
+      if (cursor < start) {
+        await blobs.core.clear(cursor, start)
+      }
+
+      cursor = end
+    }
+
+    if (cursor < total) {
+      await blobs.core.clear(cursor, total)
+    }
+  }
+
   async purge () {
     if (this._checkout || this._batch) throw new Error('Can only purge the main session')
 

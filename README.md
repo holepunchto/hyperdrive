@@ -194,6 +194,10 @@ Deletes all the blobs from storage to free up space, similar to how `drive.clear
 }
 ```
 
+#### `await drive.gc()`
+
+Deletes unused old blobs and file references from storage to free up space.
+
 #### `await drive.truncate(version, [options] })`
 
 Truncates the Hyperdrive to a previous version (both the file-structure reference and the blobs).
