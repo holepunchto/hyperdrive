@@ -1754,6 +1754,42 @@ test('monitor is removed from the Set on close', async (t) => {
   t.is(drive.monitors.size, 0)
 })
 
+test('gc', async (t) => {
+  const { drive } = await testenv(t)
+
+  await drive.put('/file', b4a.alloc(1))
+
+  const oldEntry = await drive.entry('/file')
+
+  await drive.put('/file', b4a.from('Hello World!'))
+
+  await drive.gc()
+
+  t.alike(await drive.get('/file'), b4a.from('Hello World!'))
+
+  t.absent(await drive.blobs.get(oldEntry.value.blob, { wait: false }))
+})
+
+test('gc deleted files', async (t) => {
+  const { drive } = await testenv(t)
+
+  await drive.put('/first', b4a.alloc(1))
+
+  await drive.put('/file', b4a.alloc(1))
+
+  const oldEntry = await drive.entry('/file')
+
+  await drive.del('/file')
+
+  await drive.put('/final', b4a.alloc(1))
+
+  await drive.gc()
+
+  t.absent(await drive.entry('/file'))
+  t.absent(await drive.get('/file'))
+  t.absent(await drive.blobs.get(oldEntry.value.blob, { wait: false }))
+})
+
 async function testenv (t) {
   const { teardown } = t
 
