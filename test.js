@@ -182,6 +182,39 @@ test('drive.del() deletes entry at path', async (t) => {
   t.is(entry, null)
 })
 
+test('drive.rename(oldPath, newPath) updates the entry at <oldPath> to use <newPath> as a key', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const buf = fs.readFileSync(__filename)
+  await drive.put(__filename, buf)
+  await drive.rename(__filename, 'new-file')
+  const resultOld = await drive.get(__filename)
+  t.is(resultOld, null)
+  const resultNew = await drive.get('new-file')
+  t.is(b4a.compare(buf, resultNew), 0)
+})
+
+test('drive.rename(oldPath, newPath) does nothing if renaming a non-existing <oldPath>', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const buf = fs.readFileSync(__filename)
+  await drive.put(__filename, buf)
+  await drive.rename('non-existing', 'new-file')
+  const resultOld = await drive.get(__filename)
+  t.is(b4a.compare(buf, resultOld), 0)
+  const resultNew = await drive.get('new-file')
+  t.is(resultNew, null)
+})
+
+test('drive.rename(oldPath, newPath) can rename a symlink', async (t) => {
+  const { drive } = await testenv(t.teardown)
+  const buf = fs.readFileSync(__filename)
+  await drive.put(__filename, buf)
+  await drive.symlink('pointer', __filename)
+  await drive.rename('pointer', 'new-pointer')
+  const entry = await drive.entry('new-pointer')
+  t.is(entry.value.linkname, __filename)
+  t.is(b4a.compare(buf, await drive.get(entry.value.linkname)), 0)
+})
+
 test('drive.symlink(from, to) updates the entry at <from> to include a reference for <to>', async (t) => {
   const { drive } = await testenv(t)
   const buf = fs.readFileSync(__filename)
