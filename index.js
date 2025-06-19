@@ -11,6 +11,7 @@ const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 const Monitor = require('./lib/monitor')
+const Download = require('./lib/download')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -414,10 +415,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(dls)
   }
 
   async downloadRange (dbRanges, blobRanges) {
@@ -435,10 +433,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download(range))
     }
 
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(dls)
   }
 
   entries (range, opts) {
@@ -447,38 +442,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return stream
   }
 
-  async download (folder = '/', opts) {
+  download (folder = '/', opts) {
     if (typeof folder === 'object') return this.download(undefined, folder)
 
-    const dls = []
-    const entry = (!folder || folder.endsWith('/')) ? null : await this.entry(folder)
-
-    if (entry) {
-      const b = entry.value.blob
-      if (!b) return
-      const blobs = await this.getBlobs()
-      await blobs.core.download({ start: b.blockOffset, length: b.blockLength }).downloaded()
-      return
-    }
-
-    // first preload the list so we can use the full power afterwards to actually preload everything
-    // eslint-disable-next-line
-    for await (const _ of this.list(folder, opts)) {
-      // ignore
-    }
-
-    for await (const entry of this.list(folder, opts)) {
-      const b = entry.value.blob
-      if (!b) continue
-
-      const blobs = await this.getBlobs()
-      dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
-    }
-
-    const proms = []
-    for (const r of dls) proms.push(r.downloaded())
-
-    await Promise.allSettled(proms)
+    return new Download(this, folder, opts)
   }
 
   async has (path) {

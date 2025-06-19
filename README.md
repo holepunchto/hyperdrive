@@ -305,9 +305,20 @@ Stream a blob into the drive at `path`.
 }
 ```
 
-#### `await drive.download(folder, [options])`
+#### `const download = drive.download(folder, [options])`
 
-Downloads the blobs corresponding to all entries in the drive at paths prefixed with `folder`.
+Downloads the blobs corresponding to all entries in the drive at paths prefixed with `folder`. Returns a `Download` object that resolves once all data has been downloaded:
+
+```js
+const download = await drive.download(key)
+await download.done()
+```
+
+You can also cancel an ongoing download using `destroy()`.
+
+```js
+download.destroy()
+```
 
 `options` are the same as those for `drive.list(folder, [options])`.
 
@@ -331,13 +342,36 @@ If an entry exists in `drive.version` of the `folder` but not in `version`, then
 
 #### `await drive.downloadDiff(version, folder, [options])`
 
-Downloads all the blobs in `folder` corresponding to entries in `drive.checkout(version)` that are not in `drive.version`.
+Downloads all the blobs in `folder` corresponding to entries in `drive.checkout(version)` that are not in `drive.version`. Returns a `Download` object that resolves once all data has been downloaded:
+
+```js
+const download = await drive.downloadDiff(version, folder)
+await download.done()
+```
+
+You can also cancel an ongoing download using `destroy()`.
+
+```js
+download.destroy()
+```
 
 In other words, downloads all the blobs added to `folder` up to `version` of the drive.
 
 #### `await drive.downloadRange(dbRanges, blobRanges)`
 
-Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`.
+Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`. Returns a `Download` object that resolves once all data has been downloaded:
+
+
+```js
+const download = await drive.downloadRange(dbRanges, blobRanges)
+await download.done()
+```
+
+You can also cancel an ongoing download using `destroy()`.
+
+```js
+download.destroy()
+```
 
 #### `await drive.has(path)`
 
