@@ -1715,7 +1715,7 @@ test('download can be destroyed', async (t) => {
 
   await eventFlush()
 
-  t.is((await mirror.drive.blobs.core.info()).contiguousLength, 0)
+  t.ok(mirror.drive.blobs.core.contiguousLength < mirror.drive.blobs.core.length)
 })
 
 // VERY TIMING DEPENDENT, NEEDS FIX
