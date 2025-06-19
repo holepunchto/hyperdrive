@@ -1713,7 +1713,8 @@ test('download can be destroyed', async (t) => {
   const download = mirror.drive.download('/file')
   download.destroy()
 
-  await eventFlush()
+  // not needed, just for test timing
+  await download.close()
 
   t.ok(mirror.drive.blobs.core.contiguousLength < mirror.drive.blobs.core.length)
 })
