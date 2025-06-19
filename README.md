@@ -305,7 +305,7 @@ Stream a blob into the drive at `path`.
 }
 ```
 
-#### `const download = await drive.download(folder, [options])`
+#### `const download = drive.download(folder, [options])`
 
 Downloads the blobs corresponding to all entries in the drive at paths prefixed with `folder`. Returns a `Download` object that resolves once all data has been downloaded:
 
