@@ -438,35 +438,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return stream
   }
 
-  async download (folder = '/', opts) {
+  download (folder = '/', opts) {
     if (typeof folder === 'object') return this.download(undefined, folder)
 
-    const dls = []
-    const entry = (!folder || folder.endsWith('/')) ? null : await this.entry(folder)
-
-    if (entry) {
-      const b = entry.value.blob
-      if (!b) return
-      const blobs = await this.getBlobs()
-      const download = await blobs.core.download({ start: b.blockOffset, length: b.blockLength })
-      return new Download(toArray(download))
-    }
-
-    // first preload the list so we can use the full power afterwards to actually preload everything
-    // eslint-disable-next-line
-    for await (const _ of this.list(folder, opts)) {
-      // ignore
-    }
-
-    for await (const entry of this.list(folder, opts)) {
-      const b = entry.value.blob
-      if (!b) continue
-
-      const blobs = await this.getBlobs()
-      dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
-    }
-
-    return new Download(dls)
+    return new Download(this, folder, opts)
   }
 
   async has (path) {
@@ -759,8 +734,4 @@ function toIgnoreFunction (ignore) {
 
 function createStreamMapIgnore (ignore) {
   return (node) => ignore(node.key) ? null : node
-}
-
-function toArray (value) {
-  return Array.isArray(value) ? value : [value]
 }

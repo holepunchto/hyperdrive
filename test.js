@@ -683,7 +683,7 @@ test('drive.download(folder, [options])', async (t) => {
   await drive.put('/parent/sibling/grandchild1', nil)
 
   t.is(count, 0)
-  const download = await mirror.drive.download('/parent/child')
+  const download = mirror.drive.download('/parent/child')
   await download.done()
   t.is(max, l - 1)
   const _count = count
@@ -715,7 +715,7 @@ test('drive.download(filename, [options])', async (t) => {
   await eventFlush()
 
   await mirror.drive.getBlobs()
-  const download = await mirror.drive.download('/file')
+  const download = mirror.drive.download('/file')
   await download.done()
 
   t.ok(await mirror.drive.get('/file', { wait: false }))
@@ -830,7 +830,7 @@ test('drive.has(path)', async (t) => {
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
-  const downloadChild = await mirror.drive.download('/parent/child/')
+  const downloadChild = mirror.drive.download('/parent/child/')
   await downloadChild.done()
 
   await eventFlush()
@@ -838,7 +838,7 @@ test('drive.has(path)', async (t) => {
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
 
-  const downloadSibling = await mirror.drive.download('/parent/sibling/')
+  const downloadSibling = mirror.drive.download('/parent/sibling/')
   await downloadSibling.done()
 
   await eventFlush()
@@ -1710,7 +1710,7 @@ test('download can be destroyed', async (t) => {
 
   await eventFlush()
 
-  const download = await mirror.drive.download('/file')
+  const download = mirror.drive.download('/file')
   download.destroy()
 
   await eventFlush()
