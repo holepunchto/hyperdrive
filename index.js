@@ -668,7 +668,8 @@ function makeBee (key, corestore, opts = {}) {
   return new Hyperbee(core, {
     keyEncoding: 'utf-8',
     valueEncoding: 'json',
-    metadata: { contentFeed: null }
+    metadata: { contentFeed: null },
+    extension: opts.extension
   })
 }
 
