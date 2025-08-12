@@ -1375,7 +1375,7 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
 
-  const entry = await mirror.drive.entry('/file.txt')
+  const entry = await mirror.drive.checkout(2).entry('/file.txt')
   t.ok(entry)
   t.ok(entry.value.blob)
 
