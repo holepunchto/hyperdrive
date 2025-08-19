@@ -1309,6 +1309,7 @@ test('drive.entry(key, { timeout })', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1329,6 +1330,7 @@ test('drive.entry(key, { wait })', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1349,6 +1351,7 @@ test('drive.get(key, { timeout })', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   const entry = await mirror.drive.entry('/file.txt')
@@ -1373,6 +1376,7 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   const mirrorCheckout = mirror.drive.checkout(2)
@@ -1399,6 +1403,7 @@ test('drive.get(key, { wait }) without entry', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1419,6 +1424,7 @@ test('drive peek with get() and timeout', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await mirror.drive.db.core.update({ length: 2 })
   await mirror.drive.getBlobs()
 
   const entry = await mirror.drive.entry('/file.txt')
