@@ -363,6 +363,16 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.all(proms)
   }
 
+  async rename (oldPath, newPath, opts) {
+    const b = this.batch()
+    const existingEntry = await b.entry(oldPath, opts)
+    if (existingEntry === null) return b.flush()
+
+    await b.db.del(std(oldPath, false), { keyEncoding })
+    await b.db.put(std(newPath, false), existingEntry.value, { keyEncoding })
+    return b.flush()
+  }
+
   async symlink (name, dst, { metadata = null } = {}) {
     return this.db.put(std(name, false), { executable: false, linkname: dst, blob: null, metadata }, { keyEncoding })
   }

@@ -31,18 +31,20 @@ console.log(entry) // => { seq, key, value: { executable, linkname, blob, metada
 
 await drive.del('/images/old-logo.png')
 
+await drive.rename('/images/blob.txt', '/images/example.txt')
+
 await drive.symlink('/images/logo.shortcut', '/images/logo.png')
 
 for await (const file of drive.list('/images')) {
   console.log('list', file) // => { key, value }
 }
 
-const rs = drive.createReadStream('/blob.txt')
+const rs = drive.createReadStream('/images/example.txt')
 for await (const chunk of rs) {
   console.log('rs', chunk) // => <Buffer ..>
 }
 
-const ws = drive.createWriteStream('/blob.txt')
+const ws = drive.createWriteStream('/images/example.txt')
 ws.write('new example')
 ws.end()
 ws.once('close', () => console.log('file saved'))
@@ -203,6 +205,10 @@ A `blobs: <length>` option can be passed in if you know the corresponding blobs 
 #### `await drive.purge()`
 
 Purge both cores (db and blobs) from your storage, completely removing all the drive's data.
+
+#### `await drive.rename(oldPath, newPath, [options])`
+
+Renames a single `oldPath` entry in the drive to be `newPath`. `options` are the same as in `get`.
 
 #### `await drive.symlink(path, linkname)`
 
