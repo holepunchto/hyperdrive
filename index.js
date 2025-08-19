@@ -163,6 +163,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this._makeCheckout(this.db.checkout(version))
   }
 
+  snapshot () {
+    return this._makeCheckout(this.db.snapshot())
+  }
+
   batch () {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
