@@ -117,8 +117,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       throw BAD_ARGUMENT('Bad truncation length')
     }
 
-    const blobsVersion =
-      blobs === -1 ? await this.getBlobsLength(version) : blobs
+    const blobsVersion = blobs === -1 ? await this.getBlobsLength(version) : blobs
     const bl = await this.getBlobs()
 
     if (blobsVersion > bl.core.length) {
@@ -187,10 +186,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async _close() {
-    if (
-      this.blobs &&
-      (!this._checkout || this.blobs !== this._checkout.blobs)
-    ) {
+    if (this.blobs && (!this._checkout || this.blobs !== this._checkout.blobs)) {
       await this.blobs.core.close()
     }
 
@@ -212,20 +208,16 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (this.blobs) return true
 
     const contentKey =
-      header.metadata &&
-      header.metadata.contentFeed &&
-      header.metadata.contentFeed.subarray(0, 32)
+      header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
     const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
-    if (!blobsKey || blobsKey.length < 32)
-      throw new Error('Invalid or no Blob store key set')
+    if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
     const blobsCore = this.corestore.get({
       key: blobsKey,
       cache: false,
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
-      keyPair:
-        !contentKey && this.db.core.writable ? this.db.core.keyPair : null,
+      keyPair: !contentKey && this.db.core.writable ? this.db.core.keyPair : null,
       active: this._active
     })
     await blobsCore.ready()
@@ -366,8 +358,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async purge() {
-    if (this._checkout || this._batch)
-      throw new Error('Can only purge the main session')
+    if (this._checkout || this._batch) throw new Error('Can only purge the main session')
 
     await this.ready() // Ensure blobs loaded if present
     await this.close()
@@ -418,8 +409,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   diff(length, folder, opts) {
-    if (typeof folder === 'object' && folder && !opts)
-      return this.diff(length, null, folder)
+    if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
 
     folder = std(folder || '/', true)
 
@@ -437,9 +427,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       const b = entry.left.value.blob
       if (!b) continue
       const blobs = await this.getBlobs()
-      dls.push(
-        blobs.core.download({ start: b.blockOffset, length: b.blockLength })
-      )
+      dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
     return new Download(dls)
@@ -465,8 +453,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   entries(range, opts) {
     const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
-    if (opts && opts.ignore)
-      stream._readableState.map = createStreamMapIgnore(opts.ignore)
+    if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
     return stream
   }
 
@@ -487,10 +474,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     for await (const entry of this.list(path)) {
       const b = entry.value.blob
       if (!b) continue
-      const has = await blobs.core.has(
-        b.blockOffset,
-        b.blockOffset + b.blockLength
-      )
+      const has = await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
       if (!has) return false
     }
     return true
