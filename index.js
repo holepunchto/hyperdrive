@@ -18,7 +18,7 @@ const keyEncoding = new SubEncoder('files', 'utf-8')
 const [BLOBS] = crypto.namespace('hyperdrive', 1)
 
 module.exports = class Hyperdrive extends ReadyResource {
-  constructor (corestore, key, opts = {}) {
+  constructor(corestore, key, opts = {}) {
     super()
 
     if (isOptions(key)) {
@@ -43,11 +43,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.ready().catch(safetyCatch)
   }
 
-  [Symbol.asyncIterator] () {
+  [Symbol.asyncIterator]() {
     return this.entries()[Symbol.asyncIterator]()
   }
 
-  static async getDriveKey (corestore) {
+  static async getDriveKey(corestore) {
     const core = makeBee(undefined, corestore)
     await core.ready()
     const key = core.key
@@ -55,7 +55,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return key
   }
 
-  static getContentKey (m, key) {
+  static getContentKey(m, key) {
     if (m instanceof Hypercore) {
       if (m.core.compat) return null
       return Hyperdrive.getContentKey(m.manifest, m.key)
@@ -67,50 +67,50 @@ module.exports = class Hyperdrive extends ReadyResource {
     return Hypercore.key(manifest)
   }
 
-  static getContentManifest (m, key) {
+  static getContentManifest(m, key) {
     return generateContentManifest(m, key)
   }
 
-  _generateBlobsManifest () {
+  _generateBlobsManifest() {
     const m = this.db.core.manifest
     if (this.db.core.core.compat) return null
 
     return generateContentManifest(m, this.core.key)
   }
 
-  get id () {
+  get id() {
     return this.core.id
   }
 
-  get key () {
+  get key() {
     return this.core.key
   }
 
-  get discoveryKey () {
+  get discoveryKey() {
     return this.core.discoveryKey
   }
 
-  get contentKey () {
+  get contentKey() {
     return this.blobs?.core.key
   }
 
-  get version () {
+  get version() {
     return this.db.version
   }
 
-  get writable () {
+  get writable() {
     return this.core.writable
   }
 
-  get readable () {
+  get readable() {
     return this.core.readable
   }
 
-  findingPeers () {
+  findingPeers() {
     return this.corestore.findingPeers()
   }
 
-  async truncate (version, { blobs = -1 } = {}) {
+  async truncate(version, { blobs = -1 } = {}) {
     if (!this.opened) await this.ready()
 
     if (version > this.core.length) {
@@ -128,7 +128,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     await bl.core.truncate(blobsVersion)
   }
 
-  async getBlobsLength (checkout) {
+  async getBlobsLength(checkout) {
     if (!this.opened) await this.ready()
 
     if (!checkout) checkout = this.version
@@ -142,15 +142,15 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
   }
 
-  replicate (isInitiator, opts) {
+  replicate(isInitiator, opts) {
     return this.corestore.replicate(isInitiator, opts)
   }
 
-  update (opts) {
+  update(opts) {
     return this.db.update(opts)
   }
 
-  _makeCheckout (snapshot) {
+  _makeCheckout(snapshot) {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
@@ -159,11 +159,11 @@ module.exports = class Hyperdrive extends ReadyResource {
     })
   }
 
-  checkout (version) {
+  checkout(version) {
     return this._makeCheckout(this.db.checkout(version))
   }
 
-  batch () {
+  batch() {
     return new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
@@ -172,7 +172,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     })
   }
 
-  setActive (bool) {
+  setActive(bool) {
     const active = !!bool
     if (active === this._active) return
     this._active = active
@@ -180,12 +180,12 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (this.blobs) this.blobs.core.setActive(active)
   }
 
-  async flush () {
+  async flush() {
     await this.db.flush()
     return this.close()
   }
 
-  async _close () {
+  async _close() {
     if (this.blobs && (!this._checkout || this.blobs !== this._checkout.blobs)) {
       await this.blobs.core.close()
     }
@@ -199,7 +199,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this.closeMonitors()
   }
 
-  async _openBlobsFromHeader (opts) {
+  async _openBlobsFromHeader(opts) {
     if (this.blobs) return true
 
     const header = await getBee(this.db).getHeader(opts)
@@ -207,7 +207,8 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (this.blobs) return true
 
-    const contentKey = header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
+    const contentKey =
+      header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
     const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
     if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
@@ -216,7 +217,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       cache: false,
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
-      keyPair: (!contentKey && this.db.core.writable) ? this.db.core.keyPair : null,
+      keyPair: !contentKey && this.db.core.writable ? this.db.core.keyPair : null,
       active: this._active
     })
     await blobsCore.ready()
@@ -234,7 +235,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return true
   }
 
-  async _open () {
+  async _open() {
     if (this._checkout) {
       await this._checkout.ready()
       this.blobs = this._checkout.blobs
@@ -253,7 +254,7 @@ module.exports = class Hyperdrive extends ReadyResource {
         encryptionKey: this.encryptionKey,
         compat: this.db.core.core.compat,
         active: this._active,
-        keyPair: (m && this.db.core.writable) ? this.db.core.keyPair : null
+        keyPair: m && this.db.core.writable ? this.db.core.keyPair : null
       })
       await blobsCore.ready()
 
@@ -274,7 +275,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
   }
 
-  async getBlobs () {
+  async getBlobs() {
     if (this.blobs) return this.blobs
 
     if (this._checkout) {
@@ -287,19 +288,19 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.blobs
   }
 
-  monitor (name, opts = {}) {
+  monitor(name, opts = {}) {
     const monitor = new Monitor(this, { name, ...opts })
     this.monitors.add(monitor)
     return monitor
   }
 
-  async closeMonitors () {
+  async closeMonitors() {
     const closing = []
     for (const monitor of this.monitors) closing.push(monitor.close())
     await Promise.allSettled(closing)
   }
 
-  async get (name, opts) {
+  async get(name, opts) {
     const node = await this.entry(name, opts)
     if (!node?.value.blob) return null
     await this.getBlobs()
@@ -309,22 +310,26 @@ module.exports = class Hyperdrive extends ReadyResource {
     return res
   }
 
-  async put (name, buf, { executable = false, metadata = null } = {}) {
+  async put(name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    return this.db.put(std(name, false), { executable, linkname: null, blob, metadata }, { keyEncoding })
+    return this.db.put(
+      std(name, false),
+      { executable, linkname: null, blob, metadata },
+      { keyEncoding }
+    )
   }
 
-  async del (name) {
+  async del(name) {
     return this.db.del(std(name, false), { keyEncoding })
   }
 
-  compare (a, b) {
+  compare(a, b) {
     const diff = a.seq - b.seq
-    return diff > 0 ? 1 : (diff < 0 ? -1 : 0)
+    return diff > 0 ? 1 : diff < 0 ? -1 : 0
   }
 
-  async clear (name, opts) {
+  async clear(name, opts) {
     if (!this.opened) await this.ready()
 
     let node = null
@@ -336,23 +341,23 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
 
     if (node === null || this.blobs === null) {
-      return (opts && opts.diff) ? { blocks: 0 } : null
+      return opts && opts.diff ? { blocks: 0 } : null
     }
 
     return this.blobs.clear(node.value.blob, opts)
   }
 
-  async clearAll (opts) {
+  async clearAll(opts) {
     if (!this.opened) await this.ready()
 
     if (this.blobs === null) {
-      return (opts && opts.diff) ? { blocks: 0 } : null
+      return opts && opts.diff ? { blocks: 0 } : null
     }
 
     return this.blobs.core.clear(0, this.blobs.core.length, opts)
   }
 
-  async purge () {
+  async purge() {
     if (this._checkout || this._batch) throw new Error('Can only purge the main session')
 
     await this.ready() // Ensure blobs loaded if present
@@ -363,11 +368,15 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.all(proms)
   }
 
-  async symlink (name, dst, { metadata = null } = {}) {
-    return this.db.put(std(name, false), { executable: false, linkname: dst, blob: null, metadata }, { keyEncoding })
+  async symlink(name, dst, { metadata = null } = {}) {
+    return this.db.put(
+      std(name, false),
+      { executable: false, linkname: dst, blob: null, metadata },
+      { keyEncoding }
+    )
   }
 
-  async entry (name, opts) {
+  async entry(name, opts) {
     if (!opts || !opts.follow) return this._entry(name, opts)
 
     for (let i = 0; i < 16; i++) {
@@ -380,31 +389,37 @@ module.exports = class Hyperdrive extends ReadyResource {
     throw new Error('Recursive symlink')
   }
 
-  async _entry (name, opts) {
+  async _entry(name, opts) {
     if (typeof name !== 'string') return name
 
     return this.db.get(std(name, false), { ...opts, keyEncoding })
   }
 
-  async exists (name) {
-    return await this.entry(name) !== null
+  async exists(name) {
+    return (await this.entry(name)) !== null
   }
 
-  watch (folder) {
+  watch(folder) {
     folder = std(folder || '/', true)
 
-    return this.db.watch(prefixRange(folder), { keyEncoding, map: (snap) => this._makeCheckout(snap) })
+    return this.db.watch(prefixRange(folder), {
+      keyEncoding,
+      map: (snap) => this._makeCheckout(snap)
+    })
   }
 
-  diff (length, folder, opts) {
+  diff(length, folder, opts) {
     if (typeof folder === 'object' && folder && !opts) return this.diff(length, null, folder)
 
     folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, prefixRange(folder), { ...opts, keyEncoding })
+    return this.db.createDiffStream(length, prefixRange(folder), {
+      ...opts,
+      keyEncoding
+    })
   }
 
-  async downloadDiff (length, folder, opts) {
+  async downloadDiff(length, folder, opts) {
     const dls = []
 
     for await (const entry of this.diff(length, folder, opts)) {
@@ -418,7 +433,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Download(dls)
   }
 
-  async downloadRange (dbRanges, blobRanges) {
+  async downloadRange(dbRanges, blobRanges) {
     const dls = []
 
     await this.ready()
@@ -436,21 +451,21 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Download(dls)
   }
 
-  entries (range, opts) {
+  entries(range, opts) {
     const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
     if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
     return stream
   }
 
-  download (folder = '/', opts) {
+  download(folder = '/', opts) {
     if (typeof folder === 'object') return this.download(undefined, folder)
 
     return new Download(this, folder, opts)
   }
 
-  async has (path) {
+  async has(path) {
     const blobs = await this.getBlobs()
-    const entry = (!path || path.endsWith('/')) ? null : await this.entry(path)
+    const entry = !path || path.endsWith('/') ? null : await this.entry(path)
     if (entry) {
       const b = entry.value.blob
       if (!b) return false
@@ -466,40 +481,43 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   // atm always recursive, but we should add some depth thing to it
-  list (folder, opts = {}) {
+  list(folder, opts = {}) {
     if (typeof folder === 'object') return this.list(undefined, folder)
 
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? toIgnoreFunction(opts.ignore) : null
-    const stream = opts && opts.recursive === false ? shallowReadStream(this.db, folder, false, ignore, opts) : this.entries(prefixRange(folder), { ...opts, ignore })
+    const stream =
+      opts && opts.recursive === false
+        ? shallowReadStream(this.db, folder, false, ignore, opts)
+        : this.entries(prefixRange(folder), { ...opts, ignore })
     return stream
   }
 
-  readdir (folder, opts) {
+  readdir(folder, opts) {
     folder = std(folder || '/', true)
     return shallowReadStream(this.db, folder, true, null, opts)
   }
 
-  mirror (out, opts) {
+  mirror(out, opts) {
     return new MirrorDrive(this, out, opts)
   }
 
-  createReadStream (name, opts) {
+  createReadStream(name, opts) {
     const self = this
 
     let destroyed = false
     let rs = null
 
     const stream = new Readable({
-      open (cb) {
+      open(cb) {
         self.getBlobs().then(onblobs, cb)
 
-        function onblobs () {
+        function onblobs() {
           self.entry(name).then(onnode, cb)
         }
 
-        function onnode (node) {
+        function onnode(node) {
           if (destroyed) return cb(null)
           if (!node) return cb(new Error('Blob does not exist'))
           if (self.closing) return cb(new Error('Closed'))
@@ -526,11 +544,11 @@ module.exports = class Hyperdrive extends ReadyResource {
           cb(null)
         }
       },
-      read (cb) {
+      read(cb) {
         rs.resume()
         cb(null)
       },
-      predestroy () {
+      predestroy() {
         destroyed = true
         if (rs) rs.destroy()
       }
@@ -539,7 +557,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return stream
   }
 
-  createWriteStream (name, { executable = false, metadata = null } = {}) {
+  createWriteStream(name, { executable = false, metadata = null } = {}) {
     const self = this
 
     let destroyed = false
@@ -548,10 +566,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     let onfinish = null
 
     const stream = new Writable({
-      open (cb) {
+      open(cb) {
         self.getBlobs().then(onblobs, cb)
 
-        function onblobs () {
+        function onblobs() {
           if (destroyed) return cb(null)
 
           ws = self.blobs.createWriteStream()
@@ -577,15 +595,15 @@ module.exports = class Hyperdrive extends ReadyResource {
           cb(null)
         }
       },
-      write (data, cb) {
+      write(data, cb) {
         if (ws.write(data) === true) return cb(null)
         ondrain = cb
       },
-      final (cb) {
+      final(cb) {
         onfinish = cb
         ws.end()
       },
-      predestroy () {
+      predestroy() {
         destroyed = true
         if (ws) ws.destroy()
       }
@@ -593,17 +611,23 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     return stream
 
-    function callOnfinish (err) {
+    function callOnfinish(err) {
       if (!onfinish) return
 
       const cb = onfinish
       onfinish = null
 
       if (err) return cb(err)
-      self.db.put(std(name, false), { executable, linkname: null, blob: ws.id, metadata }, { keyEncoding }).then(() => cb(null), cb)
+      self.db
+        .put(
+          std(name, false),
+          { executable, linkname: null, blob: ws.id, metadata },
+          { keyEncoding }
+        )
+        .then(() => cb(null), cb)
     }
 
-    function callOndrain (err) {
+    function callOndrain(err) {
       if (ondrain) {
         const cb = ondrain
         ondrain = null
@@ -612,21 +636,24 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
   }
 
-  static normalizePath (name) {
+  static normalizePath(name) {
     return std(name, false)
   }
 }
 
-function shallowReadStream (files, folder, keys, ignore, opts) {
+function shallowReadStream(files, folder, keys, ignore, opts) {
   let prev = '/'
   let prevName = ''
 
   return new Readable({
-    async read (cb) {
+    async read(cb) {
       let node = null
 
       try {
-        node = await files.peek(prefixRange(folder, prev), { ...opts, keyEncoding })
+        node = await files.peek(prefixRange(folder, prev), {
+          ...opts,
+          keyEncoding
+        })
       } catch (err) {
         return cb(err)
       }
@@ -661,9 +688,17 @@ function shallowReadStream (files, folder, keys, ignore, opts) {
   })
 }
 
-function makeBee (key, corestore, opts = {}) {
+function makeBee(key, corestore, opts = {}) {
   const name = key ? undefined : 'db'
-  const core = corestore.get({ key, name, exclusive: true, onwait: opts.onwait, encryptionKey: opts.encryptionKey, compat: opts.compat, active: opts.active })
+  const core = corestore.get({
+    key,
+    name,
+    exclusive: true,
+    onwait: opts.onwait,
+    encryptionKey: opts.encryptionKey,
+    compat: opts.compat,
+    active: opts.active
+  })
 
   return new Hyperbee(core, {
     keyEncoding: 'utf-8',
@@ -673,12 +708,12 @@ function makeBee (key, corestore, opts = {}) {
   })
 }
 
-function getBee (bee) {
+function getBee(bee) {
   // A Batch instance will have a .tree property for the actual Hyperbee
   return bee.tree || bee
 }
 
-function std (name, removeSlash) {
+function std(name, removeSlash) {
   // Note: only remove slash if you're going to use it as prefix range
   name = unixPathResolve('/', name)
   if (removeSlash && name.endsWith('/')) name = name.slice(0, -1)
@@ -686,16 +721,16 @@ function std (name, removeSlash) {
   return name
 }
 
-function validateFilename (name) {
+function validateFilename(name) {
   if (name === '/') throw new Error('Invalid filename: ' + name)
 }
 
-function prefixRange (name, prev = '/') {
+function prefixRange(name, prev = '/') {
   // '0' is binary +1 of /
   return { gt: name + prev, lt: name + '0' }
 }
 
-function generateContentManifest (m, key) {
+function generateContentManifest(m, key) {
   if (m.version < 1) return null
 
   const signers = []
@@ -717,7 +752,7 @@ function generateContentManifest (m, key) {
   }
 }
 
-async function getBlobsLength (db) {
+async function getBlobsLength(db) {
   let length = 0
 
   for await (const { value } of db.createReadStream()) {
@@ -730,13 +765,13 @@ async function getBlobsLength (db) {
   return length
 }
 
-function toIgnoreFunction (ignore) {
+function toIgnoreFunction(ignore) {
   if (typeof ignore === 'function') return ignore
 
-  const all = [].concat(ignore).map(e => unixPathResolve('/', e))
-  return key => all.some(path => path === key || key.startsWith(path + '/'))
+  const all = [].concat(ignore).map((e) => unixPathResolve('/', e))
+  return (key) => all.some((path) => path === key || key.startsWith(path + '/'))
 }
 
-function createStreamMapIgnore (ignore) {
-  return (node) => ignore(node.key) ? null : node
+function createStreamMapIgnore(ignore) {
+  return (node) => (ignore(node.key) ? null : node)
 }

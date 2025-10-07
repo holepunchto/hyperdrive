@@ -76,7 +76,7 @@ test('drive.put(path, buf) and drive.get(path)', async (t) => {
     const { drive } = await testenv(t)
     const dirpath = await t.tmp()
     const filepath = path.join(dirpath, 'hello-world.js')
-    const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
+    const bndlbuf = b4a.from("module.exports = () => 'Hello, World!'")
     await drive.put(filepath, bndlbuf)
     fs.writeFileSync(filepath, await drive.get(filepath))
     const diskbuf = fs.readFileSync(filepath)
@@ -99,22 +99,23 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
   await otherDrive.entry('/file') // Ensure in bee
 
   await t.exception(() => otherDrive.get('/file', { wait: false }), /BLOCK_NOT_AVAILABLE/)
-  t.is(b4a.toString((await otherDrive.get('/file'))), 'content', 'sanity check: can actually get content')
+  t.is(
+    b4a.toString(await otherDrive.get('/file')),
+    'content',
+    'sanity check: can actually get content'
+  )
 })
 
 test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t) => {
   {
     const { drive } = await testenv(t)
     const diskbuf = await fs.readFileSync(__filename)
-    await pipeline(
-      fs.createReadStream(__filename),
-      drive.createWriteStream(__filename)
-    )
+    await pipeline(fs.createReadStream(__filename), drive.createWriteStream(__filename))
     let bndlbuf = null
     await pipeline(
       drive.createReadStream(__filename),
       new Writable({
-        write (data, cb) {
+        write(data, cb) {
           if (bndlbuf) bndlbuf = b4a.concat(bndlbuf, data)
           else bndlbuf = data
           return cb(null)
@@ -128,15 +129,9 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
     const { drive } = await testenv(t)
     const dirpath = await t.tmp()
     const filepath = path.join(dirpath, 'hello-world.js')
-    const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
-    await pipeline(
-      Readable.from(bndlbuf),
-      drive.createWriteStream(filepath)
-    )
-    await pipeline(
-      drive.createReadStream(filepath),
-      fs.createWriteStream(filepath)
-    )
+    const bndlbuf = b4a.from("module.exports = () => 'Hello, World!'")
+    await pipeline(Readable.from(bndlbuf), drive.createWriteStream(filepath))
+    await pipeline(drive.createReadStream(filepath), fs.createWriteStream(filepath))
     const diskbuf = fs.readFileSync(filepath)
     t.is(b4a.compare(diskbuf, bndlbuf), 0)
     t.is(require(filepath)(), 'Hello, World!')
@@ -146,11 +141,8 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
 test('drive.createReadStream() with start/end options', async (t) => {
   const { drive, paths } = await testenv(t)
   const filepath = path.join(paths.tmp, 'hello-world.js')
-  const bndlbuf = b4a.from('module.exports = () => \'Hello, World!\'')
-  await pipeline(
-    Readable.from(bndlbuf),
-    drive.createWriteStream(filepath)
-  )
+  const bndlbuf = b4a.from("module.exports = () => 'Hello, World!'")
+  await pipeline(Readable.from(bndlbuf), drive.createWriteStream(filepath))
 
   const stream = drive.createReadStream(filepath, {
     start: 0,
@@ -393,7 +385,8 @@ test('watch() basic', async function (t) {
     await drive.put('/a.txt', buf)
   })
 
-  for await (const [current, previous] of watcher) { // eslint-disable-line no-unreachable-loop
+  for await (const [current, previous] of watcher) {
+    // eslint-disable-line no-unreachable-loop
     t.ok(current instanceof Hyperdrive)
     t.ok(previous instanceof Hyperdrive)
     t.is(current.version, 2)
@@ -417,7 +410,7 @@ test('watch(folder) basic', async function (t) {
 
   let next = watcher.next()
   let onchange = null
-  next.then(data => {
+  next.then((data) => {
     next = watcher.next()
     onchange(data)
   })
@@ -443,7 +436,7 @@ test('watch(folder) should normalize folder', async function (t) {
 
   let next = watcher.next()
   let onchange = null
-  next.then(data => {
+  next.then((data) => {
     next = watcher.next()
     onchange(data)
   })
@@ -460,7 +453,10 @@ test('watch(folder) should normalize folder', async function (t) {
 })
 
 test('drive.diff(length)', async (t) => {
-  const { drive, paths: { root, tmp } } = await testenv(t)
+  const {
+    drive,
+    paths: { root, tmp }
+  } = await testenv(t)
   const paths = []
 
   for await (const _path of readdirator(root, { filter })) {
@@ -488,7 +484,10 @@ test('drive.diff(length)', async (t) => {
 })
 
 test('drive.entries()', async (t) => {
-  const { drive, paths: { root } } = await testenv(t)
+  const {
+    drive,
+    paths: { root }
+  } = await testenv(t)
   const entries = new Set()
 
   for await (const path of readdirator(root, { filter })) {
@@ -542,7 +541,10 @@ test('drive.entries() with explicit range and opts', async (t) => {
 
 test('drive.list(folder, { recursive })', async (t) => {
   {
-    const { drive, paths: { root } } = await testenv(t)
+    const {
+      drive,
+      paths: { root }
+    } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -552,7 +554,10 @@ test('drive.list(folder, { recursive })', async (t) => {
   }
 
   {
-    const { drive, paths: { root } } = await testenv(t)
+    const {
+      drive,
+      paths: { root }
+    } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -562,7 +567,10 @@ test('drive.list(folder, { recursive })', async (t) => {
   }
 
   {
-    const { drive, paths: { root } } = await testenv(t)
+    const {
+      drive,
+      paths: { root }
+    } = await testenv(t)
     for await (const path of readdirator(root, { filter })) {
       await drive.put(path, fs.readFileSync(path))
     }
@@ -587,14 +595,21 @@ test('drive.list(folder, { recursive })', async (t) => {
       const set = new Set()
       for await (const entry of drive.list(path)) set.add(entry.key)
       t.ok(paths.slice(0, idx).every((path) => !set.has(path)))
-      t.ok(paths.slice(idx, paths.length).every((path) => Array.from(set).some((_path) => _path.includes(path))))
+      t.ok(
+        paths
+          .slice(idx, paths.length)
+          .every((path) => Array.from(set).some((_path) => _path.includes(path)))
+      )
     }
   }
 })
 
 test('drive.readdir(path)', async (t) => {
   {
-    const { drive, paths: { root } } = await testenv(t)
+    const {
+      drive,
+      paths: { root }
+    } = await testenv(t)
     const files = new Map()
     for await (const path of readdirator(root, { filter })) {
       const buf = fs.readFileSync(path)
@@ -633,7 +648,10 @@ test('drive.readdir(path)', async (t) => {
 })
 
 test('drive.checkout(len)', async (t) => {
-  const { drive, paths: { root } } = await testenv(t)
+  const {
+    drive,
+    paths: { root }
+  } = await testenv(t)
   const lens = new Map()
   for await (const path of readdirator(root, { filter })) {
     const buf = fs.readFileSync(path)
@@ -1445,7 +1463,7 @@ test('non-compat making of cores', async (t) => {
   await drive.close()
 })
 
-test('getBlobsLength happy paths', async t => {
+test('getBlobsLength happy paths', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore.session())
 
@@ -1462,7 +1480,7 @@ test('getBlobsLength happy paths', async t => {
   await corestore.close()
 })
 
-test('getBlobsLength when not ready', async t => {
+test('getBlobsLength when not ready', async (t) => {
   const corestore = new Corestore(await t.tmp())
   {
     const drive = new Hyperdrive(corestore.session())
@@ -1479,7 +1497,7 @@ test('getBlobsLength when not ready', async t => {
   }
 })
 
-test('getBlobsLength of empty drive', async t => {
+test('getBlobsLength of empty drive', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore.session())
   const length = await drive.getBlobsLength()
@@ -1489,7 +1507,7 @@ test('getBlobsLength of empty drive', async t => {
   await corestore.close()
 })
 
-test('truncate happy path', async t => {
+test('truncate happy path', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore.session())
   await drive.ready()
@@ -1511,11 +1529,7 @@ test('truncate happy path', async t => {
   await drive.put('file3', 'here file 3 post truncation')
   t.is(drive.version, 4, 'correct version when putting after truncate')
   t.is(await drive.getBlobsLength(), 3, 'correct blobsLength when putting after truncate')
-  t.is(
-    b4a.toString(await drive.get('file3')),
-    'here file 3 post truncation',
-    'Sanity check'
-  )
+  t.is(b4a.toString(await drive.get('file3')), 'here file 3 post truncation', 'Sanity check')
 
   t.is(drive.db.core.fork, 1, 'sanity check on db fork')
   t.is(drive.blobs.core.fork, 1, 'sanity check on blobs fork')
@@ -1524,7 +1538,7 @@ test('truncate happy path', async t => {
   await corestore.close()
 })
 
-test('truncate throws when truncating future version)', async t => {
+test('truncate throws when truncating future version)', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore)
 
@@ -1578,17 +1592,15 @@ test('drive.list ignore', async (t) => {
   await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
   await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
 
-  const ignore = ['file_A',
+  const ignore = [
+    'file_A',
     'folder_A',
     'folder_B/file_A',
     'folder_B/subfolder_A',
     'folder_B/subfolder_B/file_A'
   ]
 
-  const expectedEntries = ['/file_B',
-    '/folder_B/file_B',
-    '/folder_B/subfolder_B/file_B'
-  ]
+  const expectedEntries = ['/file_B', '/folder_B/file_B', '/folder_B/subfolder_B/file_B']
 
   const entries = []
   for await (const entry of drive.list({ ignore })) {
@@ -1607,9 +1619,7 @@ test('drive.list (recursive false) ignore', async (t) => {
   await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
 
   const ignore = ['file_A', 'folder_A']
-  const expectedEntries = [
-    '/file_B'
-  ]
+  const expectedEntries = ['/file_B']
 
   const entries = []
   for await (const entry of drive.list({ ignore, recursive: false })) {
@@ -1628,9 +1638,7 @@ test('drive.list (recursive false) ignore array', async (t) => {
   await drive.put('/folder_A/subfolder_A/file_A', b4a.alloc(0))
 
   const ignore = ['file_A', 'folder_A']
-  const expectedEntries = [
-    '/file_B'
-  ]
+  const expectedEntries = ['/file_B']
 
   const entries = []
   for await (const entry of drive.list({ ignore, recursive: false })) {
@@ -1660,7 +1668,8 @@ test('drive.list ignore and unignore', async (t) => {
   await drive.put('/folder_B/subfolder_B/file_A', b4a.alloc(0))
   await drive.put('/folder_B/subfolder_B/file_B', b4a.alloc(0))
 
-  const ignores = ['file_A',
+  const ignores = [
+    'file_A',
     'folder_A',
     'folder_B/file_A',
     'folder_B/subfolder_A',
@@ -1683,7 +1692,8 @@ test('drive.list ignore and unignore', async (t) => {
     return false
   }
 
-  const expectedEntries = ['/file_B',
+  const expectedEntries = [
+    '/file_B',
     '/folder_A/subfolder_A/file_A',
     '/folder_B/file_B',
     '/folder_B/subfolder_B/file_B'
@@ -1785,7 +1795,7 @@ test('monitor is removed from the Set on close', async (t) => {
   t.is(drive.monitors.size, 0)
 })
 
-async function testenv (t) {
+async function testenv(t) {
   const { teardown } = t
 
   const corestore = new Corestore(await t.tmp())
@@ -1815,22 +1825,31 @@ async function testenv (t) {
   return { net, paths, corestore, drive, swarm, mirror }
 }
 
-async function * readdirator (parent, { readdir = fs.readdirSync, isDirectory = (x) => fs.statSync(x).isDirectory(), filter = () => true } = {}) {
+async function* readdirator(
+  parent,
+  {
+    readdir = fs.readdirSync,
+    isDirectory = (x) => fs.statSync(x).isDirectory(),
+    filter = () => true
+  } = {}
+) {
   for await (const child of readdir(parent)) {
     const next = path.join(parent, child)
     try {
       if (!filter(child)) continue
-      if (await isDirectory(next)) yield * readdirator(next)
+      if (await isDirectory(next)) yield* readdirator(next)
       else yield next
-    } catch { continue }
+    } catch {
+      continue
+    }
   }
 }
 
-function filter (x) {
-  return !(/node_modules|\.git/.test(x))
+function filter(x) {
+  return !/node_modules|\.git/.test(x)
 }
 
-function downloadShark (core) {
+function downloadShark(core) {
   const telem = { offsets: [], count: 0 }
   core.on('download', (offset) => {
     telem.count++
@@ -1839,7 +1858,7 @@ function downloadShark (core) {
   return telem
 }
 
-async function streamToBuffer (stream) {
+async function streamToBuffer(stream) {
   const chunks = []
   for await (const chunk of stream) {
     chunks.push(chunk)
@@ -1847,13 +1866,16 @@ async function streamToBuffer (stream) {
   return b4a.concat(chunks)
 }
 
-function eventFlush () {
-  return new Promise(resolve => setTimeout(resolve, 1000))
+function eventFlush() {
+  return new Promise((resolve) => setTimeout(resolve, 1000))
 }
 
-async function replicate (drive, swarm, mirror) {
+async function replicate(drive, swarm, mirror) {
   swarm.on('connection', (conn) => drive.corestore.replicate(conn))
-  const discovery = swarm.join(drive.discoveryKey, { server: true, client: false })
+  const discovery = swarm.join(drive.discoveryKey, {
+    server: true,
+    client: false
+  })
   await discovery.flushed()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))

@@ -123,6 +123,7 @@ Returns the blob at `path` in the drive. If no blob exists, returns `null`.
 It also returns `null` for symbolic links.
 
 `options` include:
+
 ```js
 {
   wait: true, // Wait for block to be downloaded
@@ -133,6 +134,7 @@ It also returns `null` for symbolic links.
 #### `const entry = await drive.entry(path, [options])`
 
 Returns the entry at `path` in the drive. It looks like this:
+
 ```js
 {
   seq: Number,
@@ -152,6 +154,7 @@ Returns the entry at `path` in the drive. It looks like this:
 ```
 
 `options` include:
+
 ```js
 {
   follow: false, // Follow symlinks, 16 max or throws an error
@@ -177,6 +180,7 @@ Returns `0` if entries are the same, `1` if `entryA` is older, and `-1` if `entr
 Deletes the blob from storage to free up space, but the file structure reference is kept.
 
 `options` include:
+
 ```js
 {
   diff: false // Returned `cleared` bytes object is null unless you enable this
@@ -188,6 +192,7 @@ Deletes the blob from storage to free up space, but the file structure reference
 Deletes all the blobs from storage to free up space, similar to how `drive.clear()` works.
 
 `options` include:
+
 ```js
 {
   diff: false // Returned `cleared` bytes object is null unless you enable this
@@ -223,6 +228,7 @@ Commit a batch of mutations to the underlying drive.
 Returns a stream of all entries in the drive at paths prefixed with `folder`.
 
 `options` include:
+
 ```js
 {
   recursive: true | false // Whether to descend into all subfolders or not,
@@ -236,6 +242,7 @@ Returns a stream of all entries in the drive at paths prefixed with `folder`.
 Returns a stream of all subpaths of entries in drive stored at paths prefixed by `folder`.
 
 `options` include:
+
 ```js
 {
   wait: true, // Wait for block to be downloaded
@@ -259,6 +266,7 @@ Call `await mirror.done()` to wait for the mirroring to finish.
 Returns an iterator that listens on `folder` to yield changes, by default on `/`.
 
 Usage example:
+
 ```js
 for await (const [current, previous] of watcher) {
   console.log(current.version)
@@ -283,6 +291,7 @@ Stops the watcher. You could also stop it by using `break` in the loop.
 Returns a stream to read out the blob stored in the drive at `path`.
 
 `options` include:
+
 ```js
 {
   start: Number, // `start` and `end` are inclusive
@@ -298,6 +307,7 @@ Returns a stream to read out the blob stored in the drive at `path`.
 Stream a blob into the drive at `path`.
 
 `options` include:
+
 ```js
 {
   executable: Boolean,
@@ -331,6 +341,7 @@ Get a read-only snapshot of a previous version.
 Efficiently create a stream of the shallow changes to `folder` between `version` and `drive.version`.
 
 Each entry is sorted by key and looks like this:
+
 ```js
 {
   left: Object, // Entry in folder at drive.version for some path
@@ -361,7 +372,6 @@ In other words, downloads all the blobs added to `folder` up to `version` of the
 
 Downloads the entries and blobs stored in the [ranges][core-range-docs] `dbRanges` and `blobRanges`. Returns a `Download` object that resolves once all data has been downloaded:
 
-
 ```js
 const download = await drive.downloadRange(dbRanges, blobRanges)
 await download.done()
@@ -386,6 +396,7 @@ Call `done()` when your current discovery iteration is done, i.e. after `swarm.f
 #### `const stream = drive.replicate(isInitiatorOrStream)`
 
 Usage example:
+
 ```js
 const swarm = new Hyperswarm()
 const done = drive.findingPeers()
@@ -401,6 +412,7 @@ See more about how replicate works at [corestore.replicate][store-replicate-docs
 Waits for initial proof of the new drive version until all `findingPeers` are done.
 
 `options` include:
+
 ```js
 {
   wait: false
