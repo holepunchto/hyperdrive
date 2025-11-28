@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Lint
     steps:
-      - uses: holepunchto/actions/node-base@current
+      - uses: holepunchto/actions/node-base@v1
       - run: npm run lint
   test:
     if: ${{ !startsWith(github.ref, 'refs/tags/')}}
@@ -28,8 +28,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Test / ${{ matrix.platform }}
     steps:
-      - uses: holepunchto/actions/node-base@current
-      - run: npm install -g bare-runtime
+      - uses: holepunchto/actions/bare-base@v1
       - run: npm test
   trigger_canary:
     if: startsWith(github.ref, 'refs/tags/')
