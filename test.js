@@ -1437,7 +1437,7 @@ test('drive peek with get() and timeout', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
-  await mirror.drive.getBlobs()
+  await ensureDbLength(mirror.drive, drive.version)
 
   const entry = await mirror.drive.entry('/file.txt')
   t.ok(entry)
@@ -1881,4 +1881,8 @@ async function replicate(drive, swarm, mirror) {
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
+}
+
+async function ensureDbLength(drive, length) {
+  await drive.checkout(length).db.core.get(length - 1)
 }
