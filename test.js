@@ -1437,7 +1437,7 @@ test('drive peek with get() and timeout', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
-  await ensureDbLength(mirror.drive, drive.db.version)
+  await ensureDbLength(mirror.drive, drive.version)
 
   const entry = await mirror.drive.entry('/file.txt')
   t.ok(entry)
