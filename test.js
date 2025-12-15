@@ -1884,7 +1884,5 @@ async function replicate(drive, swarm, mirror) {
 }
 
 async function ensureDbLength(drive, length) {
-  const checkout = drive.checkout(length)
-  await checkout.ready()
-  await checkout.db.core.get(length - 1)
+  await drive.checkout(length).db.core.get(length - 1)
 }
