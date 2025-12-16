@@ -207,7 +207,7 @@ A `blobs: <length>` option can be passed in if you know the corresponding blobs 
 
 #### `await drive.purge()`
 
-Purge both cores (db and blobs) from your storage, completely removing all the drive's data.
+Purge both cores (db and blobs) from your storage, completely removing all the drive's data. Currently unimplemented in Hypercore 11.
 
 #### `await drive.symlink(path, linkname)`
 
