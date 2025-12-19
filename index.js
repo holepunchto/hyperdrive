@@ -423,8 +423,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     const dls = []
 
     for await (const entry of this.diff(length, folder, opts)) {
-      if (!entry.left) continue
-      const b = entry.left.value.blob
+      if (!entry.right) continue
+      const b = entry.right.value.blob
       if (!b) continue
       const blobs = await this.getBlobs()
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
