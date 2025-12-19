@@ -25,7 +25,9 @@
   },
   "homepage": "https://github.com/holepunchto/hyperdrive#readme",
   "dependencies": {
+    "compact-encoding-struct": "^1.3.0",
     "hyperbee": "^2.11.1",
+    "hyperbee2": "^2.2.0",
     "hyperblobs": "^2.3.0",
     "hypercore": "^11.0.0",
     "hypercore-errors": "^1.0.0",
