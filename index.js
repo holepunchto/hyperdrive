@@ -1,4 +1,4 @@
-const Hyperbee = require('hyperbee')
+const Hyperbee = require('hyperbee2')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
 const { Writable, Readable } = require('streamx')
@@ -12,8 +12,10 @@ const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 const Monitor = require('./lib/monitor')
 const Download = require('./lib/download')
+const c = require('compact-encoding')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
+const writeEncoding = require('./lib/encoding')
 
 const [BLOBS] = crypto.namespace('hyperdrive', 1)
 
@@ -73,7 +75,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   _generateBlobsManifest() {
     const m = this.db.core.manifest
-    if (this.db.core.core.compat) return null
+    if (this.db.core.core?.compat) return null
 
     return generateContentManifest(m, this.core.key)
   }
@@ -202,14 +204,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _openBlobsFromHeader(opts) {
     if (this.blobs) return true
 
-    const header = await getBee(this.db).getHeader(opts)
-    if (!header) return false
+    // const header = await getBee(this.db).getHeader(opts)
+    // if (!header) return false
 
     if (this.blobs) return true
 
-    const contentKey =
-      header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
-    const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
+    // const contentKey =
+    //   header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
+    await this.core.ready()
+    const blobsKey = Hypercore.key(this._generateBlobsManifest())
     if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
     const blobsCore = this.corestore.get({
@@ -217,7 +220,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       cache: false,
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
-      keyPair: !contentKey && this.db.core.writable ? this.db.core.keyPair : null,
+      keyPair: this.db.core.writable ? this.db.core.keyPair : null,
       active: this._active
     })
     await blobsCore.ready()
@@ -313,15 +316,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   async put(name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    return this.db.put(
-      std(name, false),
-      { executable, linkname: null, blob, metadata },
-      { keyEncoding }
-    )
+    const w = this.db.write()
+    w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable, linkname: null, blob, metadata }))
+    return w.flush()
   }
 
   async del(name) {
-    return this.db.del(std(name, false), { keyEncoding })
+    const w = this.db.write()
+    w.tryDelete(Buffer.from(std(name, false)))
+    return w.flush()
   }
 
   compare(a, b) {
@@ -369,11 +372,9 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async symlink(name, dst, { metadata = null } = {}) {
-    return this.db.put(
-      std(name, false),
-      { executable: false, linkname: dst, blob: null, metadata },
-      { keyEncoding }
-    )
+    const w = this.db.write()
+    w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable: false, linkname: dst, metadata }))
+    return w.flush()
   }
 
   async entry(name, opts) {
@@ -392,20 +393,14 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _entry(name, opts) {
     if (typeof name !== 'string') return name
 
-    return this.db.get(std(name, false), { ...opts, keyEncoding })
+    const node = await this.db.get(Buffer.from(std(name, false)), { ...opts })
+    if (!node) return null
+
+    return { key: node.key.toString(), value: c.decode(writeEncoding, node.value) }
   }
 
   async exists(name) {
     return (await this.entry(name)) !== null
-  }
-
-  watch(folder) {
-    folder = std(folder || '/', true)
-
-    return this.db.watch(prefixRange(folder), {
-      keyEncoding,
-      map: (snap) => this._makeCheckout(snap)
-    })
   }
 
   diff(length, folder, opts) {
@@ -618,13 +613,10 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.db
-        .put(
-          std(name, false),
-          { executable, linkname: null, blob: ws.id, metadata },
-          { keyEncoding }
-        )
-        .then(() => cb(null), cb)
+
+      const w = self.db.write()
+      w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable, linkname: null, blob: ws.id, metadata }))
+      w.flush().then(() => cb(null), cb)
     }
 
     function callOndrain(err) {
@@ -689,22 +681,22 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
 }
 
 function makeBee(key, corestore, opts = {}) {
-  const name = key ? undefined : 'db'
-  const core = corestore.get({
+  // const name = key ? undefined : 'db'
+  // const core = corestore.get({
+  //   key,
+  //   name,
+  //   exclusive: true,
+  //   onwait: opts.onwait,
+  //   encryptionKey: opts.encryptionKey,
+  //   compat: opts.compat,
+  //   active: opts.active
+  // })
+  //
+  opts.compat = true
+  return new Hyperbee(corestore, {
     key,
-    name,
-    exclusive: true,
-    onwait: opts.onwait,
-    encryptionKey: opts.encryptionKey,
-    compat: opts.compat,
-    active: opts.active
-  })
-
-  return new Hyperbee(core, {
-    keyEncoding: 'utf-8',
-    valueEncoding: 'json',
-    metadata: { contentFeed: null },
-    extension: opts.extension
+    // encryption: opts.encryptionKey,
+    // compat: opts.compat
   })
 }
 
@@ -731,22 +723,22 @@ function prefixRange(name, prev = '/') {
 }
 
 function generateContentManifest(m, key) {
-  if (m.version < 1) return null
+  // if (m.version < 1) return null
 
   const signers = []
 
   if (!key) key = Hypercore.key(m)
 
-  for (const s of m.signers) {
-    const namespace = crypto.hash([BLOBS, key, s.namespace])
-    signers.push({ ...s, namespace })
-  }
+  // for (const s of m.signers) {
+  //   const namespace = crypto.hash([BLOBS, key, s.namespace])
+  //   signers.push({ ...s, namespace })
+  // }
 
   return {
-    version: m.version,
+    version: 1,
     hash: 'blake2b',
-    allowPatch: m.allowPatch,
-    quorum: m.quorum,
+    allowPatch: false,
+    quorum: 1,
     signers,
     prologue: null // TODO: could be configurable through the header still...
   }
