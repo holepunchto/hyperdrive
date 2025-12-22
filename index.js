@@ -11,7 +11,7 @@ const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 const Monitor = require('./lib/monitor')
-const Download = require('./lib/download')
+const { Download, DownloadBatch } = require('./lib/download')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -430,7 +430,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    return new Download(dls)
+    return new DownloadBatch([new Download(this, undefined, { downloads: dls })])
   }
 
   async downloadRange(dbRanges, blobRanges) {
@@ -448,7 +448,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download(range))
     }
 
-    return new Download(dls)
+    return new DownloadBatch([new Download(this, undefined, { downloads: dls })])
   }
 
   entries(range, opts) {

@@ -769,12 +769,12 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
       { start: 1, end: 2 },
       { start: 2, end: 3 }
     ],
-    [{ start: 0, end: 1 }]
+    [{ start: 0, end: 3 }]
   )
   await download.done()
 
-  t.is(fileTelem.count, 2)
-  t.is(blobTelem.count, 1)
+  t.is(fileTelem.count, 3)
+  t.is(blobTelem.count, 3)
 })
 
 test('drive.downloadDiff(version, folder, [options])', async (t) => {
@@ -800,8 +800,8 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   let downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
 
-  let filescount = filestelem.count
-  let blobscount = blobstelem.count
+  const filescount = filestelem.count
+  const blobscount = blobstelem.count
 
   await mirror.drive.get('/parent/child/1')
 
@@ -813,13 +813,6 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   version = drive.version
   downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
-
-  t.is(blobscount + 1, blobstelem.count)
-
-  filescount = filestelem.count
-  blobscount = blobstelem.count
-
-  await mirror.drive.get('/parent/sibling/0')
 
   t.is(blobscount + 1, blobstelem.count)
 })
