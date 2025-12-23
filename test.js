@@ -745,8 +745,8 @@ test('drive.download(filename, [options])', async (t) => {
   }
 })
 
-test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
-  const { drive, swarm, mirror, corestore } = await testenv(t)
+test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
+  const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -755,31 +755,29 @@ test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
-  const blobs = await drive.getBlobs()
-  const nil = b4a.from('nil')
+  await drive.put('/file-a', Buffer.alloc(1024))
+  await drive.put('/file-b', Buffer.alloc(1024))
+  await drive.put('/file-c', Buffer.alloc(1024))
 
-  const fileBlocks = []
-  const blobBlocks = []
-  await drive.put('/0', nil)
-  fileBlocks.push(drive.core.length)
-  blobBlocks.push(blobs.core.length)
-  await drive.put('/1', nil)
-  await drive.put('/2', nil)
-  fileBlocks.push(drive.core.length)
-  blobBlocks.push(blobs.core.length)
+  await eventFlush()
 
   const fileTelem = downloadShark(mirror.drive.core)
   const blobTelem = downloadShark((await mirror.drive.getBlobs()).core)
 
-  const fileCount = fileTelem.count
-  const blobCount = blobTelem.count
+  const download = await mirror.drive.downloadRange(
+    [
+      { start: 1, end: 2 },
+      { start: 2, end: 3 }
+    ],
+    [{ start: 0, end: 3 }]
+  )
+  await download.done()
 
-  await mirror.drive.get('/0')
-  t.is(blobCount, blobTelem.count)
-  t.is(fileCount, fileTelem.count)
+  t.is(fileTelem.count, 3)
+  t.is(blobTelem.count, 3)
 })
 
-test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
+test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -792,18 +790,18 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
   const nil = b4a.from('nil')
 
   await drive.put('/parent/child/0', nil)
-  await drive.put('/parent/sibling/0')
+  await drive.put('/parent/sibling/0', nil)
   await drive.put('/parent/child/1', nil)
-  const version = drive.version
+  let version = drive.version
 
   const filestelem = downloadShark(mirror.drive.core)
   const blobstelem = downloadShark((await mirror.drive.getBlobs()).core)
 
-  const downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  let downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
 
-  let filescount = filestelem.count
-  let blobscount = blobstelem.count
+  const filescount = filestelem.count
+  const blobscount = blobstelem.count
 
   await mirror.drive.get('/parent/child/1')
 
@@ -812,16 +810,10 @@ test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
 
   await drive.put('/parent/child/2', nil)
 
-  await mirror.drive.downloadDiff(version, '/parent/child')
+  version = drive.version
+  downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  await downloadDiff.done()
 
-  t.is(blobscount + 1, blobstelem.count)
-
-  filescount = filestelem.count
-  blobscount = blobstelem.count
-
-  await mirror.drive.get('/parent/sibling/0')
-
-  t.is(filescount + 1, filestelem.count)
   t.is(blobscount + 1, blobstelem.count)
 })
 

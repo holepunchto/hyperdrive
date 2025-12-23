@@ -430,7 +430,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    return new Download(dls)
+    return new Download(this, undefined, { downloads: dls })
   }
 
   async downloadRange(dbRanges, blobRanges) {
@@ -448,7 +448,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download(range))
     }
 
-    return new Download(dls)
+    return new Download(this, undefined, { downloads: dls })
   }
 
   entries(range, opts) {
