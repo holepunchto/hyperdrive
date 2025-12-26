@@ -806,7 +806,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await mirror.drive.get('/parent/child/1')
 
   t.is(filescount, filestelem.count)
-  t.is(blobscount, blobstelem.count)
+  t.is(blobscount + 1, blobstelem.count)
 
   await drive.put('/parent/child/2', nil)
 
