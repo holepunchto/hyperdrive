@@ -430,7 +430,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download({ start: b.blockOffset, length: b.blockLength }))
     }
 
-    return new Download(this, undefined, { downloads: dls })
+    return new Download(this, null, { downloads: dls })
   }
 
   async downloadRange(dbRanges, blobRanges) {
@@ -448,7 +448,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       dls.push(blobs.core.download(range))
     }
 
-    return new Download(this, undefined, { downloads: dls })
+    return new Download(this, null, { downloads: dls })
   }
 
   entries(range, opts) {
@@ -482,7 +482,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   // atm always recursive, but we should add some depth thing to it
   list(folder, opts = {}) {
-    if (typeof folder === 'object') return this.list(undefined, folder)
+    if (typeof folder === 'object' && folder !== null) return this.list(undefined, folder)
 
     folder = std(folder || '/', true)
 
