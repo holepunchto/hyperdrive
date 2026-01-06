@@ -1,7 +1,7 @@
 const Hyperbee = require('hyperbee2')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
-const { Writable, Readable } = require('streamx')
+const { Writable, Readable, Transform, pipeline } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
@@ -162,7 +162,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   checkout(version) {
-    return this._makeCheckout(this.db.checkout(version))
+    return this._makeCheckout(this.db.checkout({ length: version }))
   }
 
   batch() {
@@ -317,7 +317,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
     const w = this.db.write()
-    w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable, linkname: null, blob, metadata }))
+    w.tryPut(
+      Buffer.from(std(name, false)),
+      c.encode(writeEncoding, { executable, linkname: null, blob, metadata })
+    )
     return w.flush()
   }
 
@@ -373,7 +376,10 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   async symlink(name, dst, { metadata = null } = {}) {
     const w = this.db.write()
-    w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable: false, linkname: dst, metadata }))
+    w.tryPut(
+      Buffer.from(std(name, false)),
+      c.encode(writeEncoding, { executable: false, linkname: dst, metadata })
+    )
     return w.flush()
   }
 
@@ -447,7 +453,13 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   entries(range, opts) {
-    const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
+    const transform = new Transform({
+      transform(from, cb) {
+        this.push({ key: from.key.toString(), value: c.decode(writeEncoding, from.value) })
+        cb()
+      }
+    })
+    const stream = pipeline(this.db.createReadStream({ ...opts, ...range }), transform)
     if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
     return stream
   }
@@ -482,6 +494,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? toIgnoreFunction(opts.ignore) : null
+    console.log(prefixRange(folder))
     const stream =
       opts && opts.recursive === false
         ? shallowReadStream(this.db, folder, false, ignore, opts)
@@ -615,7 +628,10 @@ module.exports = class Hyperdrive extends ReadyResource {
       if (err) return cb(err)
 
       const w = self.db.write()
-      w.tryPut(Buffer.from(std(name, false)), c.encode(writeEncoding, { executable, linkname: null, blob: ws.id, metadata }))
+      w.tryPut(
+        Buffer.from(std(name, false)),
+        c.encode(writeEncoding, { executable, linkname: null, blob: ws.id, metadata })
+      )
       w.flush().then(() => cb(null), cb)
     }
 
@@ -662,7 +678,7 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
       prev = '/' + name + (i === -1 ? '' : '0')
 
       // just in case someone does /foo + /foo/bar, but we should prop not even support that
-      if (name === prevName) {
+      if (name.equals(Buffer.from(prevName))) {
         this._read(cb)
         return
       }
@@ -674,7 +690,7 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
         return
       }
 
-      this.push(keys ? name : node)
+      this.push(keys ? name.toString() : node)
       cb(null)
     }
   })
@@ -694,7 +710,7 @@ function makeBee(key, corestore, opts = {}) {
   //
   opts.compat = true
   return new Hyperbee(corestore, {
-    key,
+    key
     // encryption: opts.encryptionKey,
     // compat: opts.compat
   })
@@ -719,7 +735,7 @@ function validateFilename(name) {
 
 function prefixRange(name, prev = '/') {
   // '0' is binary +1 of /
-  return { gt: name + prev, lt: name + '0' }
+  return { gt: Buffer.from(name + prev), lt: Buffer.from(name + '0') }
 }
 
 function generateContentManifest(m, key) {

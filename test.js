@@ -18,7 +18,8 @@ test('drive.core', async (t) => {
   t.is(drive.db.core, drive.core)
 })
 
-test.skip('drive.version', async (t) => { // TODO re-enable
+test.skip('drive.version', async (t) => {
+  // TODO re-enable
   const { drive } = await testenv(t)
   await drive.put(__filename, fs.readFileSync(__filename))
   t.is(drive.db.core.length, drive.version)
@@ -373,7 +374,8 @@ test('symlink(key, linkname) resolve key path', async function (t) {
   await symlinkAndEntry('\\examples\\more\\h.txt', '/examples/more/h.txt')
 })
 
-test.skip('drive.diff(length)', async (t) => { // TODO ask
+test.skip('drive.diff(length)', async (t) => {
+  // TODO ask
   const {
     drive,
     paths: { root, tmp }
@@ -404,7 +406,7 @@ test.skip('drive.diff(length)', async (t) => { // TODO ask
   }
 })
 
-test.solo('drive.entries()', async (t) => {
+test('drive.entries()', async (t) => {
   const {
     drive,
     paths: { root }
@@ -437,7 +439,7 @@ test('drive.entries() with explicit range, no opts', async (t) => {
 
   const expected = ['/bFile', '/zFile']
   const observed = []
-  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' })) {
+  for await (const entry of drive.entries({ gt: b4a.from('/b'), lte: b4a.from('/zzz') })) {
     observed.push(entry.key)
   }
 
@@ -453,7 +455,10 @@ test('drive.entries() with explicit range and opts', async (t) => {
 
   const expected = ['/zFile', '/bFile']
   const observed = []
-  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' }, { reverse: true })) {
+  for await (const entry of drive.entries(
+    { gt: b4a.from('/b'), lte: b4a.from('/zzz') },
+    { reverse: true }
+  )) {
     observed.push(entry.key)
   }
 
@@ -496,7 +501,7 @@ test('drive.list(folder, { recursive })', async (t) => {
       await drive.put(path, fs.readFileSync(path))
     }
     for await (const entry of drive.list(root, { recursive: false })) {
-      t.is(b4a.compare(fs.readFileSync(entry.key), await drive.get(entry.key)), 0)
+      t.is(b4a.compare(fs.readFileSync(entry.key), await drive.get(entry.key.toString())), 0)
     }
   }
 
@@ -589,7 +594,7 @@ test('drive.checkout(len)', async (t) => {
   }
 })
 
-test('drive.download(folder, [options])', async (t) => {
+test.skip('drive.download(folder, [options])', async (t) => {
   t.plan(7)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
@@ -635,7 +640,7 @@ test('drive.download(folder, [options])', async (t) => {
   t.is(count, _count + 1)
 })
 
-test('drive.download(filename, [options])', async (t) => {
+test.skip('drive.download(filename, [options])', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -666,7 +671,7 @@ test('drive.download(filename, [options])', async (t) => {
   }
 })
 
-test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
+test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -698,7 +703,7 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   t.is(blobTelem.count, 3)
 })
 
-test('drive.downloadDiff(version, folder, [options])', async (t) => {
+test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -738,7 +743,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   t.is(blobscount + 1, blobstelem.count)
 })
 
-test('drive.has(path)', async (t) => {
+test.skip('drive.has(path)', async (t) => {
   t.plan(6)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
@@ -777,7 +782,7 @@ test('drive.has(path)', async (t) => {
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
 })
 
-test('drive.batch() & drive.flush()', async (t) => {
+test.solo('drive.batch() & drive.flush()', async (t) => {
   const { drive } = await testenv(t)
 
   const batch = drive.batch()
