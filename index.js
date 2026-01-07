@@ -39,8 +39,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     this._active = opts.active !== false
     this._openingBlobs = null
     this._onwait = opts.onwait || null
-    this._batching = !!(opts._checkout === null && opts._db)
     this._checkout = opts._checkout || null
+    this._batch = null
 
     this.ready().catch(safetyCatch)
   }
@@ -166,12 +166,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   batch() {
-    return new Hyperdrive(this.corestore, this.key, {
-      onwait: this._onwait,
-      encryptionKey: this.encryptionKey,
-      _checkout: null,
-      _db: this.db.batch()
-    })
+    this._batch = this.db.write()
+    return this
   }
 
   setActive(bool) {
@@ -183,8 +179,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async flush() {
-    await this.db.flush()
-    return this.close()
+    await this._batch.flush()
+    this._batch = null
   }
 
   async _close() {
@@ -194,7 +190,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     await this.db.close()
 
-    if (!this._checkout && !this._batching) {
+    if (!this._checkout && !this._batch) {
       await this.corestore.close()
     }
 
@@ -316,12 +312,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   async put(name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    const w = this.db.write()
+    const w = this._batch || this.db.write()
     w.tryPut(
       Buffer.from(std(name, false)),
       c.encode(writeEncoding, { executable, linkname: null, blob, metadata })
     )
-    return w.flush()
+
+    if (!this._batch) {
+      return w.flush()
+    }
   }
 
   async del(name) {
@@ -402,7 +401,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     const node = await this.db.get(Buffer.from(std(name, false)), { ...opts })
     if (!node) return null
 
-    return { key: node.key.toString(), value: c.decode(writeEncoding, node.value) }
+    return { key: node.key.toString(), seq: node.seq, value: c.decode(writeEncoding, node.value) }
   }
 
   async exists(name) {
@@ -494,7 +493,6 @@ module.exports = class Hyperdrive extends ReadyResource {
     folder = std(folder || '/', true)
 
     const ignore = opts.ignore ? toIgnoreFunction(opts.ignore) : null
-    console.log(prefixRange(folder))
     const stream =
       opts && opts.recursive === false
         ? shallowReadStream(this.db, folder, false, ignore, opts)
