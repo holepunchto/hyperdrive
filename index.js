@@ -97,7 +97,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   get version() {
-    return this.db.version
+    return this.db.core.length
   }
 
   get writable() {
@@ -135,7 +135,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (!checkout) checkout = this.version
 
-    const c = this.db.checkout(checkout)
+    const c = this.db.checkout({ length: checkout })
 
     try {
       return await getBlobsLength(c)
@@ -669,6 +669,7 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
         return cb(null)
       }
 
+      node.key = node.key.toString()
       const suffix = node.key.slice(folder.length + 1)
       const i = suffix.indexOf('/')
       const name = i === -1 ? suffix : suffix.slice(0, i)
@@ -676,7 +677,7 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
       prev = '/' + name + (i === -1 ? '' : '0')
 
       // just in case someone does /foo + /foo/bar, but we should prop not even support that
-      if (name.equals(Buffer.from(prevName))) {
+      if (name === prevName) {
         this._read(cb)
         return
       }
@@ -760,11 +761,10 @@ function generateContentManifest(m, key) {
 
 async function getBlobsLength(db) {
   let length = 0
-
   for await (const { value } of db.createReadStream()) {
-    const b = value && value.blob
+    const b = value ? c.decode(writeEncoding, value) : null
     if (!b) continue
-    const len = b.blockOffset + b.blockLength
+    const len = b.blob.blockOffset + b.blob.blockLength
     if (len > length) length = len
   }
 
@@ -775,7 +775,8 @@ function toIgnoreFunction(ignore) {
   if (typeof ignore === 'function') return ignore
 
   const all = [].concat(ignore).map((e) => unixPathResolve('/', e))
-  return (key) => all.some((path) => path === key || key.startsWith(path + '/'))
+  return (key) =>
+    all.some((path) => path === key.toString() || key.toString().startsWith(path + '/'))
 }
 
 function createStreamMapIgnore(ignore) {
