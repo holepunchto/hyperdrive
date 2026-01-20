@@ -465,7 +465,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Download(this, null, { downloads: dls })
   }
 
-  entries(range, opts) {
+  entries(range = {}, opts = {}) {
     const transform = new Transform({
       transform(from, cb) {
         this.push({ key: from.key.toString(), value: c.decode(writeEncoding, from.value) })
@@ -716,9 +716,12 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
 function makeBee(key, corestore, opts = {}) {
   return new Hyperbee(corestore, {
     key,
-    autoUpdate: true,
-    encryption: opts.encryptionKey,
-    compat: opts.compat
+    exclusive: true,
+    onwait: opts.onwait,
+    encryptionKey: opts.encryptionKey,
+    compat: opts.compat,
+    active: opts.active,
+    autoUpdate: true
   })
 }
 

@@ -463,7 +463,7 @@ test('drive.entries() with explicit range and opts', async (t) => {
   t.alike(observed, expected)
 })
 
-test.solo('drive.list(folder, { recursive })', async (t) => {
+test('drive.list(folder, { recursive })', async (t) => {
   {
     const {
       drive,
