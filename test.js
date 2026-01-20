@@ -638,7 +638,7 @@ test('drive.download(folder, [options])', async (t) => {
   t.is(count, _count + 1)
 })
 
-test.skip('drive.download(filename, [options])', async (t) => {
+test('drive.download(filename, [options])', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -701,7 +701,7 @@ test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   t.is(blobTelem.count, 3)
 })
 
-test.skip('drive.downloadDiff(version, folder, [options])', async (t) => {
+test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -787,9 +787,8 @@ test('drive.batch() & drive.flush()', async (t) => {
 
   await batch.put('/file.txt', b4a.from('abc'))
   t.absent(await drive.get('/file.txt'))
-
   await batch.flush()
-  // t.ok(batch.blobs.core.closed)
+
   t.absent(drive.blobs.core.closed)
   t.absent(drive.db.closed)
   t.absent(drive.db.core.closed)
@@ -844,7 +843,6 @@ test('drive.batch() on non-ready drive', async (t) => {
   await batch.put('/x', 'something')
 
   await batch.flush()
-  // t.is(batch.blobs.core.closed, true)
 
   t.ok(await drive.get('/x'))
 
