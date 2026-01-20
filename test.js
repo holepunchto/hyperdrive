@@ -96,6 +96,8 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
   await drive.put('/file', 'content')
   await eventFlush()
 
+  await otherDrive.entry('/file') // Ensure in bee
+
   await t.exception(() => otherDrive.get('/file', { wait: false }), /BLOCK_NOT_AVAILABLE/)
   t.is(
     b4a.toString(await otherDrive.get('/file')),
@@ -438,7 +440,7 @@ test('drive.entries() with explicit range, no opts', async (t) => {
 
   const expected = ['/bFile', '/zFile']
   const observed = []
-  for await (const entry of drive.entries({ gt: b4a.from('/b'), lte: b4a.from('/zzz') })) {
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' })) {
     observed.push(entry.key)
   }
 
@@ -454,17 +456,14 @@ test('drive.entries() with explicit range and opts', async (t) => {
 
   const expected = ['/zFile', '/bFile']
   const observed = []
-  for await (const entry of drive.entries(
-    { gt: b4a.from('/b'), lte: b4a.from('/zzz') },
-    { reverse: true }
-  )) {
+  for await (const entry of drive.entries({ gt: '/b', lte: '/zzz' }, { reverse: true })) {
     observed.push(entry.key)
   }
 
   t.alike(observed, expected)
 })
 
-test('drive.list(folder, { recursive })', async (t) => {
+test.solo('drive.list(folder, { recursive })', async (t) => {
   {
     const {
       drive,
@@ -500,7 +499,7 @@ test('drive.list(folder, { recursive })', async (t) => {
       await drive.put(path, fs.readFileSync(path))
     }
     for await (const entry of drive.list(root, { recursive: false })) {
-      t.is(b4a.compare(fs.readFileSync(entry.key), await drive.get(entry.key.toString())), 0)
+      t.is(b4a.compare(fs.readFileSync(entry.key), await drive.get(entry.key)), 0)
     }
   }
 

@@ -472,7 +472,10 @@ module.exports = class Hyperdrive extends ReadyResource {
         cb()
       }
     })
-    const stream = pipeline(this.db.createReadStream({ ...opts, ...range }), transform)
+    const stream = pipeline(
+      this.db.createReadStream({ ...opts, ...transformRange(range) }),
+      transform
+    )
     if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
     return stream
   }
@@ -785,4 +788,13 @@ function toIgnoreFunction(ignore) {
 
 function createStreamMapIgnore(ignore) {
   return (node) => (ignore(node.key) ? null : node)
+}
+
+function transformRange(range) {
+  return {
+    gt: range.gt ? Buffer.from(range.gt) : range.gt,
+    gte: range.gte ? Buffer.from(range.gte) : range.gte,
+    lt: range.lt ? Buffer.from(range.lt) : range.lt,
+    lte: range.lte ? Buffer.from(range.lte) : range.lte
+  }
 }
