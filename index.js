@@ -716,12 +716,8 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
 function makeBee(key, corestore, opts = {}) {
   return new Hyperbee(corestore, {
     key,
-    exclusive: true,
-    onwait: opts.onwait,
-    encryptionKey: opts.encryptionKey,
-    compat: opts.compat,
-    active: opts.active,
-    autoUpdate: true
+    autoUpdate: true,
+    ...opts
   })
 }
 
