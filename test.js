@@ -1329,18 +1329,14 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   }
 })
 
-test.skip('drive.get(key, { wait }) without entry', async (t) => {
-  // TODO ask
+test('drive.get(key, { wait }) without entry', async (t) => {
   t.plan(1)
 
   const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
-  await mirror.drive.getBlobs()
-
-  await swarm.destroy()
-  await drive.close()
+  await eventFlush()
 
   try {
     await mirror.drive.get('/file.txt', { wait: false })
