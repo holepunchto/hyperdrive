@@ -1257,7 +1257,7 @@ test('drive.entry(key, { timeout })', async (t) => {
   }
 })
 
-test('drive.entry(key, { wait })', async (t) => { // time dependent
+test('drive.entry(key, { wait })', async (t) => {
   t.plan(1)
 
   const { drive, swarm, mirror } = await testenv(t)
@@ -1279,13 +1279,15 @@ test('drive.entry(key, { wait })', async (t) => { // time dependent
   }
 })
 
-test.skip('drive.get(key, { timeout })', async (t) => {
+test('drive.get(key, { timeout })', async (t) => {
   t.plan(3)
 
   const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   const entry = await mirror.drive.entry('/file.txt')
@@ -1339,6 +1341,11 @@ test('drive.get(key, { wait }) without entry', async (t) => {
 
   await drive.put('/file.txt', b4a.from('hi'))
   await eventFlush()
+
+  await mirror.drive.getBlobs()
+
+  await swarm.destroy()
+  await drive.close()
 
   try {
     await mirror.drive.get('/file.txt', { wait: false })
