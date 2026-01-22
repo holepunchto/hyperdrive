@@ -849,6 +849,7 @@ test('drive.batch() on non-ready drive', async (t) => {
   await drive.close()
 })
 
+// TODO fix in hyperbee2
 test('drive.close() for future checkout', async (t) => {
   const { drive } = await testenv(t)
   await drive.put('some', 'thing')
@@ -856,7 +857,7 @@ test('drive.close() for future checkout', async (t) => {
   await checkout.close()
 
   t.is(checkout.closed, true)
-  // t.is(checkout.db.core.closed, true) hyperbee2 snapshot core is not closed TODO ask
+  t.is(checkout.db.core.closed, true)
   t.is(drive.closed, false)
   t.is(drive.db.core.closed, false)
 })
@@ -1010,8 +1011,8 @@ test.skip('drive.clearAll() with diff', async (t) => {
   await b.close()
 })
 
-test.skip('entry(key) cancelled when checkout closes', async function (t) {
-  // TODO wait for fix
+// TODO fix
+test('entry(key) cancelled when checkout closes', async function (t) {
   const { drive } = await testenv(t)
   await drive.put('some', '1')
 
