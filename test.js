@@ -669,7 +669,7 @@ test('drive.download(filename, [options])', async (t) => {
   }
 })
 
-test.skip('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
+test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1237,8 +1237,7 @@ test('non-existing follow entry', async function (t) {
   await drive.close()
 })
 
-test.skip('drive.entry(key, { timeout })', async (t) => {
-  // TODO ask about timeout
+test('drive.entry(key, { timeout })', async (t) => {
   t.plan(1)
 
   const { drive, swarm, mirror } = await testenv(t)
@@ -1258,14 +1257,15 @@ test.skip('drive.entry(key, { timeout })', async (t) => {
   }
 })
 
-test.skip('drive.entry(key, { wait })', async (t) => {
-  // TODO fix
+test('drive.entry(key, { wait })', async (t) => { // time dependent
   t.plan(1)
 
   const { drive, swarm, mirror } = await testenv(t)
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1310,6 +1310,8 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   const mirrorCheckout = mirror.drive.checkout(1)
