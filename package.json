@@ -1,6 +1,6 @@
 {
   "name": "hyperdrive",
-  "version": "13.1.1",
+  "version": "13.1.2",
   "description": "Hyperdrive is a secure, real-time distributed file system",
   "main": "index.js",
   "files": [
