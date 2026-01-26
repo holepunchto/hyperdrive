@@ -1787,6 +1787,34 @@ test('monitor is removed from the Set on close', async (t) => {
   t.is(drive.monitors.size, 0)
 })
 
+test('monitor range download', async (t) => {
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  await drive.put('/file-a', Buffer.alloc(1024))
+  await drive.put('/file-b', Buffer.alloc(1024))
+  await drive.put('/file-c', Buffer.alloc(1024))
+
+  await eventFlush()
+
+  const monitor = mirror.drive.monitor('download-monitor')
+  await monitor.ready()
+
+  const download = await mirror.drive.downloadRange([], [{ start: 0, end: 3 }])
+  await download.done()
+
+  t.is(monitor.downloadStats.peers, 1)
+  t.ok(monitor.downloadStats.speed > 0)
+  t.ok(monitor.downloadStats.blocks > 0)
+  t.ok(monitor.downloadStats.totalBytes, 3072)
+})
+
 async function testenv(t) {
   const { teardown } = t
 
