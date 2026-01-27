@@ -745,7 +745,7 @@ test('drive.download(filename, [options])', async (t) => {
   }
 })
 
-test.solo('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
+test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
