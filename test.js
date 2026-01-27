@@ -773,7 +773,7 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   )
   await download.done()
 
-  t.is(fileTelem.count, 3)
+  t.is(fileTelem.count, 2)
   t.is(blobTelem.count, 3)
 })
 
