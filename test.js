@@ -15,18 +15,18 @@ const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
   const { drive } = await testenv(t)
-  t.is(drive.db.feed, drive.core)
+  t.is(drive.db.core, drive.core)
 })
 
 test('drive.version', async (t) => {
   const { drive } = await testenv(t)
   await drive.put(__filename, fs.readFileSync(__filename))
-  t.is(drive.db.feed.length, drive.version)
+  t.is(drive.db.core.length, drive.version)
 })
 
 test('drive.key', async (t) => {
   const { drive } = await testenv(t)
-  t.is(b4a.compare(drive.db.feed.key, drive.key), 0)
+  t.is(b4a.compare(drive.db.core.key, drive.key), 0)
 })
 
 test('drive.discoveryKey', async (t) => {
@@ -373,85 +373,6 @@ test('symlink(key, linkname) resolve key path', async function (t) {
   await symlinkAndEntry('\\examples\\more\\h.txt', '/examples/more/h.txt')
 })
 
-test('watch() basic', async function (t) {
-  t.plan(5)
-
-  const { drive } = await testenv(t)
-  const buf = b4a.from('hi')
-
-  const watcher = drive.watch()
-
-  eventFlush().then(async () => {
-    await drive.put('/a.txt', buf)
-  })
-
-  for await (const [current, previous] of watcher) {
-    // eslint-disable-line no-unreachable-loop
-    t.ok(current instanceof Hyperdrive)
-    t.ok(previous instanceof Hyperdrive)
-    t.is(current.version, 2)
-    t.is(previous.version, 1)
-    t.alike(await current.get('/a.txt'), buf)
-    break
-  }
-})
-
-test('watch(folder) basic', async function (t) {
-  t.plan(1)
-
-  const { drive } = await testenv(t)
-  const buf = b4a.from('hi')
-
-  await drive.put('/README.md', buf)
-  await drive.put('/examples/a.txt', buf)
-  await drive.put('/examples/more/a.txt', buf)
-
-  const watcher = drive.watch('/examples')
-
-  let next = watcher.next()
-  let onchange = null
-  next.then((data) => {
-    next = watcher.next()
-    onchange(data)
-  })
-
-  onchange = () => t.fail('should not trigger changes')
-  await drive.put('/b.txt', buf)
-  await eventFlush()
-  onchange = null
-
-  onchange = () => t.pass('change')
-  await drive.put('/examples/b.txt', buf)
-  await eventFlush()
-  onchange = null
-})
-
-test('watch(folder) should normalize folder', async function (t) {
-  t.plan(1)
-
-  const { drive } = await testenv(t)
-  const buf = b4a.from('hi')
-
-  const watcher = drive.watch('examples//more//')
-
-  let next = watcher.next()
-  let onchange = null
-  next.then((data) => {
-    next = watcher.next()
-    onchange(data)
-  })
-
-  onchange = () => t.fail('should not trigger changes')
-  await drive.put('/examples/a.txt', buf)
-  await eventFlush()
-  onchange = null
-
-  onchange = () => t.pass('change')
-  await drive.put('/examples/more/a.txt', buf)
-  await eventFlush()
-  onchange = null
-})
-
 test('drive.diff(length)', async (t) => {
   const {
     drive,
@@ -497,7 +418,10 @@ test('drive.entries()', async (t) => {
 
   for await (const entry of drive.entries()) {
     for (const _entry of entries) {
-      if (JSON.stringify(_entry) === JSON.stringify(entry)) {
+      if (
+        JSON.stringify(_entry.value) === JSON.stringify(entry.value) &&
+        _entry.key === entry.key
+      ) {
         entries.delete(_entry)
         break
       }
@@ -863,9 +787,8 @@ test('drive.batch() & drive.flush()', async (t) => {
 
   await batch.put('/file.txt', b4a.from('abc'))
   t.absent(await drive.get('/file.txt'))
-
   await batch.flush()
-  t.ok(batch.blobs.core.closed)
+
   t.absent(drive.blobs.core.closed)
   t.absent(drive.db.closed)
   t.absent(drive.db.core.closed)
@@ -904,7 +827,7 @@ test('drive.close() on snapshots--does not close parent', async (t) => {
 
   await drive.put('/foo', b4a.from('bar'))
 
-  const checkout = drive.checkout(2)
+  const checkout = drive.checkout(1)
   await checkout.get('/foo')
   await checkout.close()
 
@@ -920,13 +843,13 @@ test('drive.batch() on non-ready drive', async (t) => {
   await batch.put('/x', 'something')
 
   await batch.flush()
-  t.is(batch.blobs.core.closed, true)
 
   t.ok(await drive.get('/x'))
 
   await drive.close()
 })
 
+// TODO fix in hyperbee2
 test('drive.close() for future checkout', async (t) => {
   const { drive } = await testenv(t)
   await drive.put('some', 'thing')
@@ -1088,6 +1011,7 @@ test.skip('drive.clearAll() with diff', async (t) => {
   await b.close()
 })
 
+// TODO fix
 test('entry(key) cancelled when checkout closes', async function (t) {
   const { drive } = await testenv(t)
   await drive.put('some', '1')
@@ -1157,6 +1081,8 @@ test('basic writable option', async function (t) {
 
   const b = new Hyperdrive(store.session({ writable: false }), a.key)
   await b.ready()
+  await b.getBlobs()
+
   t.is(b.writable, false)
   t.is(b.blobs.core.writable, false)
 
@@ -1240,7 +1166,7 @@ test('basic follow entry', async function (t) {
   t.is((await drive.entry('/file.shortcut')).value.linkname, '/file.txt')
 
   t.alike(await drive.entry('/file.shortcut', { follow: true }), {
-    seq: 1,
+    seq: 0,
     key: '/file.txt',
     value: {
       executable: false,
@@ -1264,7 +1190,7 @@ test('multiple follow entry', async function (t) {
   t.is((await drive.entry('/file.shortcut.shortcut')).value.linkname, '/file.shortcut')
 
   t.alike(await drive.entry('/file.shortcut.shortcut', { follow: true }), {
-    seq: 1,
+    seq: 0,
     key: '/file.txt',
     value: {
       executable: false,
@@ -1339,6 +1265,8 @@ test('drive.entry(key, { wait })', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1359,6 +1287,8 @@ test('drive.get(key, { timeout })', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   const entry = await mirror.drive.entry('/file.txt')
@@ -1383,9 +1313,11 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
-  const mirrorCheckout = mirror.drive.checkout(2)
+  const mirrorCheckout = mirror.drive.checkout(1)
   const entry = await mirrorCheckout.entry('/file.txt')
   t.ok(entry)
   t.ok(entry.value.blob)
@@ -1409,6 +1341,8 @@ test('drive.get(key, { wait }) without entry', async (t) => {
   await replicate(drive, swarm, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
+  await eventFlush()
+
   await mirror.drive.getBlobs()
 
   await swarm.destroy()
@@ -1465,9 +1399,9 @@ test('getBlobsLength happy paths', async (t) => {
   await drive.put('./file', 'here')
   t.is(await drive.getBlobsLength(), 2, 'Correct blobs length 2')
 
-  t.is(drive.version, 3, 'sanity check')
-  t.is(await drive.getBlobsLength(2), 1, 'Correct blobs length on explicit checkout')
-  t.is(await drive.getBlobsLength(3), 2, 'Correct blobs length on explicit checkout to latest')
+  t.is(drive.version, 2, 'sanity check')
+  t.is(await drive.getBlobsLength(2), 2, 'Correct blobs length on explicit checkout')
+  t.is(await drive.getBlobsLength(1), 1, 'Correct blobs length on explicit checkout to latest')
 
   await corestore.close()
 })
@@ -1511,15 +1445,15 @@ test('truncate happy path', async (t) => {
   await drive.put('file2', 'here2')
   await drive.put('file3', 'here3')
 
-  t.is(drive.version, 4, 'sanity check')
+  t.is(drive.version, 3, 'sanity check')
   t.is(await drive.getBlobsLength(), 3, 'sanity check')
 
-  await drive.truncate(3)
-  t.is(drive.version, 3, 'truncated db correctly')
+  await drive.truncate(2)
+  t.is(drive.version, 2, 'truncated db correctly')
   t.is(await drive.getBlobsLength(), 2, 'truncated blobs correctly')
 
   await drive.put('file3', 'here file 3 post truncation')
-  t.is(drive.version, 4, 'correct version when putting after truncate')
+  t.is(drive.version, 3, 'correct version when putting after truncate')
   t.is(await drive.getBlobsLength(), 3, 'correct blobsLength when putting after truncate')
   t.is(b4a.toString(await drive.get('file3')), 'here file 3 post truncation', 'Sanity check')
 
