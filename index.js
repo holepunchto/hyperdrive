@@ -12,6 +12,7 @@ const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
 const Monitor = require('./lib/monitor')
 const Download = require('./lib/download')
+const header = require('./lib/header')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -565,13 +566,15 @@ module.exports = class Hyperdrive extends ReadyResource {
     return stream
   }
 
-  createWriteStream(name, { executable = false, metadata = null } = {}) {
+  createWriteStream(name, { executable = false, metadata = null, dedup = false } = {}) {
     const self = this
 
     let destroyed = false
     let ws = null
     let ondrain = null
     let onfinish = null
+
+    const blocks = dedup ? { blocks: [], byteLengths: [] } : null
 
     const stream = new Writable({
       open(cb) {
@@ -604,6 +607,10 @@ module.exports = class Hyperdrive extends ReadyResource {
         }
       },
       write(data, cb) {
+        if (blocks) {
+          blocks.blocks.push(self.blobs.core.length)
+          blocks.byteLengths.push(data.byteLength)
+        }
         if (ws.write(data) === true) return cb(null)
         ondrain = cb
       },
@@ -626,13 +633,24 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.db
-        .put(
-          std(name, false),
-          { executable, linkname: null, blob: ws.id, metadata },
-          { keyEncoding }
-        )
-        .then(() => cb(null), cb)
+
+      flush().then(() => cb(null), cb)
+    }
+
+    async function flush() {
+      let b = null
+
+      if (blocks) {
+        const blks = header.encode(blocks)
+        b = { blockOffset: self.blobs.core.length, blockLength: blks.length }
+        await self.blobs.core.append(blks)
+      }
+
+      await self.db.put(
+        std(name, false),
+        { executable, linkname: null, blob: ws.id, metadata, blocks: b },
+        { keyEncoding }
+      )
     }
 
     function callOndrain(err) {
