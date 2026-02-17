@@ -311,11 +311,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async putEntry(name, { executable = false, linkname = null, blob = null, metadata = null } = {}) {
-    return this.db.put(
-      std(name, false),
-      { executable, linkname, blob, metadata },
-      { keyEncoding }
-    )
+    return this.db.put(std(name, false), { executable, linkname, blob, metadata }, { keyEncoding })
   }
 
   async put(name, buf, { executable = false, metadata = null } = {}) {
