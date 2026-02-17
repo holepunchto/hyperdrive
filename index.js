@@ -565,7 +565,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     return stream
   }
 
-  createWriteStream(name, { executable = false, metadata = null } = {}) {
+  createWriteStream(name, { executable = false, metadata = null, dedup = false } = {}) {
     const self = this
 
     let destroyed = false
@@ -573,35 +573,39 @@ module.exports = class Hyperdrive extends ReadyResource {
     let ondrain = null
     let onfinish = null
 
+    async function open() {
+      await self.getBlobs()
+      if (destroyed) return
+
+      if (dedup) {
+        const entry = await self.entry(name)
+        ws = self.blobs.createWriteStream({ dedup: true, blob: entry && entry.value.blob })
+      } else {
+        ws = self.blobs.createWriteStream()
+      }
+
+      ws.on('error', function (err) {
+        stream.destroy(err)
+      })
+
+      ws.on('close', function () {
+        const err = new Error('Closed')
+        callOndrain(err)
+        callOnfinish(err)
+      })
+
+      ws.on('finish', function () {
+        callOnfinish(null)
+      })
+
+      ws.on('drain', function () {
+        callOndrain(null)
+      })
+    }
+
     const stream = new Writable({
       open(cb) {
-        self.getBlobs().then(onblobs, cb)
-
-        function onblobs() {
-          if (destroyed) return cb(null)
-
-          ws = self.blobs.createWriteStream()
-
-          ws.on('error', function (err) {
-            stream.destroy(err)
-          })
-
-          ws.on('close', function () {
-            const err = new Error('Closed')
-            callOndrain(err)
-            callOnfinish(err)
-          })
-
-          ws.on('finish', function () {
-            callOnfinish(null)
-          })
-
-          ws.on('drain', function () {
-            callOndrain(null)
-          })
-
-          cb(null)
-        }
+        open().then(cb, cb)
       },
       write(data, cb) {
         if (ws.write(data) === true) return cb(null)
