@@ -1815,6 +1815,36 @@ test('monitor range download', async (t) => {
   t.ok(monitor.downloadStats.totalBytes, 3072)
 })
 
+test('dedup mode', async (t) => {
+  const { drive } = await testenv(t)
+
+  {
+    const ws = drive.createWriteStream('/test', { dedup: true })
+
+    ws.write(Buffer.alloc(1024))
+    ws.write(Buffer.alloc(1024))
+    ws.write(Buffer.alloc(1024))
+    ws.end()
+
+    await new Promise((resolve) => ws.once('finish', resolve))
+  }
+
+  const len = drive.blobs.core.length
+
+  {
+    const ws = drive.createWriteStream('/test', { dedup: true })
+
+    ws.write(Buffer.alloc(1024))
+    ws.write(Buffer.alloc(1024))
+    ws.write(Buffer.alloc(1024))
+    ws.end()
+
+    await new Promise((resolve) => ws.once('finish', resolve))
+  }
+
+  t.is(drive.blobs.core.length, len + 1)
+})
+
 async function testenv(t) {
   const { teardown } = t
 
