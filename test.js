@@ -11,6 +11,7 @@ const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
 const getTmpDir = require('test-tmp')
 const unixPathResolve = require('unix-path-resolve')
+const DebuggingStream = require('debugging-stream')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
@@ -1499,6 +1500,36 @@ test('getBlobsLength of empty drive', async (t) => {
   await corestore.close()
 })
 
+test('getBlobsLength large db - prefetch', async (t) => {
+  const store = new Corestore(await t.tmp())
+  t.teardown(() => store.close())
+  const a = new Hyperdrive(store.session())
+  t.teardown(() => a.close())
+
+  for (let i = 0; i < 1_000; i++) {
+    await a.put('./file' + i, 'here')
+  }
+
+  const store2 = new Corestore(await t.tmp())
+  t.teardown(() => store2.close())
+  const b = new Hyperdrive(store2.session(), a.key)
+  t.teardown(() => b.close())
+
+  const start = Date.now()
+
+  const gotAppend = once(b.core, 'append')
+  replicateDebugStream(t, a, b, { latency: 10 })
+  await gotAppend
+
+  const bBlobsLength = await b.getBlobsLength()
+  const end = Date.now()
+
+  t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
+
+  t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
+  t.ok(end - start < 2_000, 'synced in a reasonable time')
+})
+
 test('truncate happy path', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore.session())
@@ -1931,6 +1962,38 @@ async function replicate(drive, swarm, mirror) {
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
+}
+
+function replicateDebugStream(t, a, b, opts = {}) {
+  const { latency, speed, jitter } = opts
+
+  const s1 = a.replicate(true, { keepAlive: false, ...opts })
+  const s2Base = b.replicate(false, { keepAlive: false, ...opts })
+  const s2 = new DebuggingStream(s2Base, { latency, speed, jitter })
+
+  s1.on('error', (err) => t.comment(`replication stream error (initiator): ${err}`))
+  s2.on('error', (err) => t.comment(`replication stream error (responder): ${err}`))
+
+  if (opts.teardown !== false) {
+    t.teardown(async function () {
+      let missing = 2
+      await new Promise((resolve) => {
+        s1.on('close', onclose)
+        s1.destroy()
+
+        s2.on('close', onclose)
+        s2.destroy()
+
+        function onclose() {
+          if (--missing === 0) resolve()
+        }
+      })
+    })
+  }
+
+  s1.pipe(s2).pipe(s1)
+
+  return [s1, s2]
 }
 
 async function ensureDbLength(drive, length) {
