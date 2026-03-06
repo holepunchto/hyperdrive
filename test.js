@@ -11,7 +11,7 @@ const Hyperswarm = require('hyperswarm')
 const b4a = require('b4a')
 const getTmpDir = require('test-tmp')
 const unixPathResolve = require('unix-path-resolve')
-const safetyCatch = require('safety-catch')
+const DebuggingStream = require('debugging-stream')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
@@ -1500,13 +1500,13 @@ test('getBlobsLength of empty drive', async (t) => {
   await corestore.close()
 })
 
-test('getBlobsLength large db - prefetch', { timeout: 40_000 }, async (t) => {
+test('getBlobsLength large db - prefetch', async (t) => {
   const store = new Corestore(await t.tmp())
   t.teardown(() => store.close())
   const a = new Hyperdrive(store.session())
   t.teardown(() => a.close())
 
-  for (let i = 0; i < 30_000; i++) {
+  for (let i = 0; i < 1_000; i++) {
     await a.put('./file' + i, 'here')
   }
 
@@ -1518,7 +1518,7 @@ test('getBlobsLength large db - prefetch', { timeout: 40_000 }, async (t) => {
   const start = Date.now()
 
   const gotAppend = once(b.core, 'append')
-  replicateDirect(t, a, b)
+  replicateDebugStream(t, a, b, { latency: 10 })
   await gotAppend
 
   const bBlobsLength = await b.getBlobsLength()
@@ -1527,7 +1527,7 @@ test('getBlobsLength large db - prefetch', { timeout: 40_000 }, async (t) => {
   t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
 
   t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
-  t.ok(end - start < 4_000, 'synced in a reasonable time')
+  t.ok(end - start < 1_000, 'synced in a reasonable time')
 })
 
 test('truncate happy path', async (t) => {
@@ -1964,28 +1964,30 @@ async function replicate(drive, swarm, mirror) {
   await mirror.swarm.flush()
 }
 
-async function replicateDirect(t, a, b, opts = {}) {
+function replicateDebugStream(t, a, b, opts = {}) {
+  const { latency, speed, jitter } = opts
+
   const s1 = a.replicate(true, { keepAlive: false, ...opts })
-  const s2 = b.replicate(false, { keepAlive: false, ...opts })
+  const s2Base = b.replicate(false, { keepAlive: false, ...opts })
+  const s2 = new DebuggingStream(s2Base, { latency, speed, jitter })
 
-  const closed1 = new Promise((resolve) => s1.once('close', resolve))
-  const closed2 = new Promise((resolve) => s2.once('close', resolve))
-
-  s1.on('error', (err) => {
-    safetyCatch(err)
-    t.comment(`replication stream error (initiator): ${err}`)
-  })
-  s2.on('error', (err) => {
-    safetyCatch(err)
-    t.comment(`replication stream error (responder): ${err}`)
-  })
+  s1.on('error', (err) => t.comment(`replication stream error (initiator): ${err}`))
+  s2.on('error', (err) => t.comment(`replication stream error (responder): ${err}`))
 
   if (opts.teardown !== false) {
     t.teardown(async function () {
-      s1.destroy()
-      s2.destroy()
-      await closed1
-      await closed2
+      let missing = 2
+      await new Promise((resolve) => {
+        s1.on('close', onclose)
+        s1.destroy()
+
+        s2.on('close', onclose)
+        s2.destroy()
+
+        function onclose() {
+          if (--missing === 0) resolve()
+        }
+      })
     })
   }
 
