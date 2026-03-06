@@ -763,6 +763,10 @@ function generateContentManifest(m, key) {
 async function getBlobsLength(db) {
   let length = 0
 
+  // Prefetch db core
+  await db.ready() // Ensure length is loaded
+  await db.core.download({ start: 0, end: db.core.length }).done()
+
   for await (const { value } of db.createReadStream()) {
     const b = value && value.blob
     if (!b) continue
