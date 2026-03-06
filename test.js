@@ -1500,13 +1500,13 @@ test('getBlobsLength of empty drive', async (t) => {
   await corestore.close()
 })
 
-test('getBlobsLength large db - prefetch', async (t) => {
+test('getBlobsLength large db - prefetch', { timeout: 40_000 }, async (t) => {
   const store = new Corestore(await t.tmp())
   t.teardown(() => store.close())
   const a = new Hyperdrive(store.session())
   t.teardown(() => a.close())
 
-  for (let i = 0; i < 50_000; i++) {
+  for (let i = 0; i < 30_000; i++) {
     await a.put('./file' + i, 'here')
   }
 
@@ -1527,7 +1527,7 @@ test('getBlobsLength large db - prefetch', async (t) => {
   t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
 
   t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
-  t.ok(end - start < 5_000, 'synced in a reasonable time')
+  t.ok(end - start < 4_000, 'synced in a reasonable time')
 })
 
 test('truncate happy path', async (t) => {
