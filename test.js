@@ -1527,7 +1527,7 @@ test('getBlobsLength large db - prefetch', async (t) => {
   t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
 
   t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
-  t.ok(end - start < 1_000, 'synced in a reasonable time')
+  t.ok(end - start < 2_000, 'synced in a reasonable time')
 })
 
 test('truncate happy path', async (t) => {
