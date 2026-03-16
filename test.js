@@ -1502,7 +1502,6 @@ test('getBlobsLength of empty drive', async (t) => {
 
 test('getBlobsLength large db - prefetch', async (t) => {
   const store = new Corestore(await t.tmp())
-  t.teardown(() => store.close())
   const a = new Hyperdrive(store.session())
   t.teardown(() => a.close())
 
@@ -1511,7 +1510,6 @@ test('getBlobsLength large db - prefetch', async (t) => {
   }
 
   const store2 = new Corestore(await t.tmp())
-  t.teardown(() => store2.close())
   const b = new Hyperdrive(store2.session(), a.key)
   t.teardown(() => b.close())
 
