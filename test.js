@@ -1504,6 +1504,7 @@ test('getBlobsLength large db - prefetch', async (t) => {
   const store = new Corestore(await t.tmp())
   t.teardown(() => store.close())
   const a = new Hyperdrive(store.session())
+  t.teardown(() => a.close())
 
   for (let i = 0; i < 1_000; i++) {
     await a.put('./file' + i, 'here')
@@ -1512,6 +1513,7 @@ test('getBlobsLength large db - prefetch', async (t) => {
   const store2 = new Corestore(await t.tmp())
   t.teardown(() => store2.close())
   const b = new Hyperdrive(store2.session(), a.key)
+  t.teardown(() => b.close())
 
   const start = Date.now()
 
