@@ -1846,7 +1846,7 @@ test('dedup mode', async (t) => {
 })
 
 test('write after close should not corrupt drive', async (t) => {
-  const platformCorestore = new Corestore(await t.tmp() , {
+  const platformCorestore = new Corestore(await t.tmp(), {
     manifestVersion: 1,
     compat: false,
     wait: true
@@ -1868,7 +1868,7 @@ test('write after close should not corrupt drive', async (t) => {
     try {
       for (let i = 0; i < 14; i++) {
         const stream = batch.createWriteStream('/file' + i + '.txt')
-        const close = new Promise(resolve => stream.on('close', resolve))
+        const close = new Promise((resolve) => stream.on('close', resolve))
         stream.end('hello world' + i)
         await close
 
