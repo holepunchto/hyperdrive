@@ -45,6 +45,7 @@
     "bare-path": "^3.0.0",
     "brittle": "^3.1.0",
     "corestore": "^7.0.0",
+    "debugging-stream": "^3.1.0",
     "hypercore-crypto": "^3.4.0",
     "hyperdht": "^6.6.0",
     "hyperswarm": "^4.0.0",
