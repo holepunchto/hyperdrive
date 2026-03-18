@@ -475,13 +475,15 @@ module.exports = class Hyperdrive extends ReadyResource {
       if (!b) return false
       return await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
     }
+    let isDir = false
     for await (const entry of this.list(path)) {
+      isDir = true
       const b = entry.value.blob
       if (!b) continue
       const has = await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
       if (!has) return false
     }
-    return true
+    return isDir
   }
 
   // atm always recursive, but we should add some depth thing to it

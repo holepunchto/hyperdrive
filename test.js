@@ -819,7 +819,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
 })
 
 test('drive.has(path)', async (t) => {
-  t.plan(6)
+  t.plan(8)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -838,6 +838,8 @@ test('drive.has(path)', async (t) => {
 
   t.absent(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/child/grandchild2'))
+  t.absent(await mirror.drive.has('/non-existent.txt'), 'returns false for non-existent files')
+  t.absent(await mirror.drive.has('/non-existent/'), 'returns false for non-existent directory')
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
