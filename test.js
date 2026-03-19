@@ -1927,6 +1927,8 @@ test('write after close should not corrupt drive', async (t) => {
     const manifest = await drive.db.get('manifest')
     t.is(manifest.value, 'hello world', 'should correctly read manifest')
   }
+
+  await platformCorestore.close()
 })
 
 async function testenv(t) {
