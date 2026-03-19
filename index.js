@@ -569,6 +569,8 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   createWriteStream(name, { executable = false, metadata = null, dedup = false } = {}) {
+    if (this.closing) throw new Error('Closed')
+
     const self = this
 
     let destroyed = false
