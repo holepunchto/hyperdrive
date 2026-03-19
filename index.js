@@ -195,6 +195,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       await this.blobs.core.close()
     }
 
+    for (const batch of this.batches) await batch.close()
+
     await this.db.close()
 
     if (!this._checkout && !this._batching) {
