@@ -33,6 +33,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.supportsMetadata = true
     this.encryptionKey = opts.encryptionKey || null
     this.monitors = new Set()
+    this.batches = new Set()
 
     this._active = opts.active !== false
     this._openingBlobs = null
@@ -164,12 +165,16 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   batch() {
-    return new Hyperdrive(this.corestore, this.key, {
+    const batch = new Hyperdrive(this.corestore, this.key, {
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
       _checkout: null,
       _db: this.db.batch()
     })
+    batch.on('close', () => this.batches.delete(batch))
+    this.batches.add(batch)
+
+    return batch
   }
 
   setActive(bool) {
