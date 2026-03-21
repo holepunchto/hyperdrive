@@ -1852,6 +1852,7 @@ test('write after close should not corrupt drive', async (t) => {
     wait: true
   })
   await platformCorestore.ready()
+  t.teardown(() => platformCorestore.close())
 
   {
     const corestore = platformCorestore.session({ writable: true })
