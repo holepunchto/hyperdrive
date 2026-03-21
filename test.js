@@ -1878,6 +1878,58 @@ test('dedup mode', async (t) => {
   t.is(drive.blobs.core.length, len + 1)
 })
 
+test('write after close should not corrupt drive', async (t) => {
+  const platformCorestore = new Corestore(await t.tmp(), {
+    manifestVersion: 1,
+    compat: false,
+    wait: true
+  })
+  await platformCorestore.ready()
+  t.teardown(() => platformCorestore.close())
+
+  {
+    const corestore = platformCorestore.session({ writable: true })
+    await corestore.ready()
+    t.teardown(() => corestore.close())
+
+    const drive = new Hyperdrive(corestore)
+    await drive.ready()
+    t.teardown(() => drive.close())
+
+    await drive.db.put('manifest', 'hello world')
+
+    const batch = drive.batch()
+    try {
+      for (let i = 0; i < 14; i++) {
+        const stream = batch.createWriteStream('/file' + i + '.txt')
+        const close = new Promise((resolve) => stream.on('close', resolve))
+        stream.end('hello world' + i)
+        await close
+
+        if (i === 2) await drive.close()
+      }
+      await batch.flush()
+      t.fail('batch should have errored when drive is closed')
+    } catch (err) {
+      t.pass('batch should error when drive is closed')
+    }
+    await corestore.close()
+  }
+
+  {
+    const corestore = platformCorestore.session({ writable: false })
+    await corestore.ready()
+    t.teardown(() => corestore.close())
+
+    const drive = new Hyperdrive(corestore)
+    await drive.ready()
+    t.teardown(() => drive.close())
+
+    const manifest = await drive.db.get('manifest')
+    t.is(manifest.value, 'hello world', 'should correctly read manifest')
+  }
+})
+
 async function testenv(t) {
   const { teardown } = t
 
