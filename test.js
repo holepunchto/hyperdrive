@@ -795,6 +795,10 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await drive.put('/parent/child/1', nil)
   let version = drive.version
 
+  while (mirror.drive.version < version) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
   const filestelem = downloadShark(mirror.drive.core)
   const blobstelem = downloadShark((await mirror.drive.getBlobs()).core)
 
