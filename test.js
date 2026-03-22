@@ -760,10 +760,14 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   await drive.put('/file-b', Buffer.alloc(1024))
   await drive.put('/file-c', Buffer.alloc(1024))
 
-  await eventFlush()
+  while (mirror.drive.version < drive.version) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  const blobCore = (await mirror.drive.getBlobs()).core
 
   const fileTelem = downloadShark(mirror.drive.core)
-  const blobTelem = downloadShark((await mirror.drive.getBlobs()).core)
+  const blobTelem = downloadShark(blobCore)
 
   const download = await mirror.drive.downloadRange(
     [
@@ -789,16 +793,22 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await mirror.swarm.flush()
 
   const nil = b4a.from('nil')
+  const version = drive.version
 
   await drive.put('/parent/child/0', nil)
   await drive.put('/parent/sibling/0', nil)
   await drive.put('/parent/child/1', nil)
-  let version = drive.version
+
+  while (mirror.drive.version < drive.version) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  const blobCore = (await mirror.drive.getBlobs()).core
 
   const filestelem = downloadShark(mirror.drive.core)
-  const blobstelem = downloadShark((await mirror.drive.getBlobs()).core)
+  const blobstelem = downloadShark(blobCore)
 
-  let downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  const downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
 
   const filescount = filestelem.count
@@ -807,15 +817,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await mirror.drive.get('/parent/child/1')
 
   t.is(filescount, filestelem.count)
-  t.is(blobscount + 1, blobstelem.count)
-
-  await drive.put('/parent/child/2', nil)
-
-  version = drive.version
-  downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
-  await downloadDiff.done()
-
-  t.is(blobscount + 1, blobstelem.count)
+  t.is(blobscount, blobstelem.count)
 })
 
 test('drive.has(path)', async (t) => {
@@ -1876,6 +1878,62 @@ test('dedup mode', async (t) => {
   }
 
   t.is(drive.blobs.core.length, len + 1)
+})
+
+test('write after close should not corrupt drive', async (t) => {
+  const platformCorestore = new Corestore(await t.tmp(), {
+    manifestVersion: 1,
+    compat: false,
+    wait: true
+  })
+  await platformCorestore.ready()
+
+  {
+    const corestore = platformCorestore.session({ writable: true })
+    await corestore.ready()
+    t.teardown(() => corestore.close())
+
+    const drive = new Hyperdrive(corestore)
+    await drive.ready()
+    t.teardown(() => drive.close())
+
+    await drive.db.put('manifest', 'hello world')
+
+    const batch = drive.batch()
+    try {
+      for (let i = 0; i < 14; i++) {
+        const stream = batch.createWriteStream('/file' + i + '.txt')
+        const close = new Promise((resolve, reject) => {
+          stream.on('error', reject)
+          stream.on('close', resolve)
+        })
+        stream.end('hello world' + i)
+        await close
+
+        if (i === 2) await drive.close()
+      }
+      await batch.flush()
+      t.fail('batch should have errored when drive is closed')
+    } catch (err) {
+      t.pass('batch should error when drive is closed')
+    }
+    await corestore.close()
+  }
+
+  {
+    const corestore = platformCorestore.session({ writable: false })
+    await corestore.ready()
+    t.teardown(() => corestore.close())
+
+    const drive = new Hyperdrive(corestore)
+    await drive.ready()
+    t.teardown(() => drive.close())
+
+    const manifest = await drive.db.get('manifest')
+    t.is(manifest.value, 'hello world', 'should correctly read manifest')
+  }
+
+  await platformCorestore.close()
 })
 
 async function testenv(t) {

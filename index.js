@@ -39,6 +39,8 @@ module.exports = class Hyperdrive extends ReadyResource {
     this._onwait = opts.onwait || null
     this._batching = !!(opts._checkout === null && opts._db)
     this._checkout = opts._checkout || null
+    this._sessions = opts._sessions || new Set()
+    this._sessions.add(this)
 
     this.ready().catch(safetyCatch)
   }
@@ -155,7 +157,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
       _checkout: this._checkout || this,
-      _db: snapshot
+      _db: snapshot,
+      _sessions: this._sessions
     })
   }
 
@@ -168,7 +171,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
       _checkout: null,
-      _db: this.db.batch()
+      _db: this.db.batch(),
+      _sessions: this._sessions
     })
   }
 
@@ -193,10 +197,19 @@ module.exports = class Hyperdrive extends ReadyResource {
     await this.db.close()
 
     if (!this._checkout && !this._batching) {
+      const all = this._sessions.size > 1 ? [...this._sessions] : []
+      for (const s of all) {
+        if (s === this) continue
+        try {
+          await s.close()
+        } catch {}
+      }
+
       await this.corestore.close()
     }
 
     await this.closeMonitors()
+    this._sessions.delete(this)
   }
 
   async _openBlobsFromHeader(opts) {
