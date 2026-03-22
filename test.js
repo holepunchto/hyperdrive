@@ -1901,7 +1901,10 @@ test('write after close should not corrupt drive', async (t) => {
     try {
       for (let i = 0; i < 14; i++) {
         const stream = batch.createWriteStream('/file' + i + '.txt')
-        const close = new Promise((resolve) => stream.on('close', resolve))
+        const close = new Promise((resolve, reject) => {
+          stream.on('error', reject)
+          stream.on('close', resolve)
+        })
         stream.end('hello world' + i)
         await close
 
