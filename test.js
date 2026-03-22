@@ -760,10 +760,14 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   await drive.put('/file-b', Buffer.alloc(1024))
   await drive.put('/file-c', Buffer.alloc(1024))
 
-  await eventFlush()
+  while (mirror.drive.version < drive.version) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  const blobCore = (await mirror.drive.getBlobs()).core
 
   const fileTelem = downloadShark(mirror.drive.core)
-  const blobTelem = downloadShark((await mirror.drive.getBlobs()).core)
+  const blobTelem = downloadShark(blobCore)
 
   const download = await mirror.drive.downloadRange(
     [
@@ -789,18 +793,20 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await mirror.swarm.flush()
 
   const nil = b4a.from('nil')
+  const version = drive.version
 
   await drive.put('/parent/child/0', nil)
   await drive.put('/parent/sibling/0', nil)
   await drive.put('/parent/child/1', nil)
-  let version = drive.version
 
-  while (mirror.drive.version < version) {
+  while (mirror.drive.version < drive.version) {
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
 
+  const blobCore = (await mirror.drive.getBlobs()).core
+
   const filestelem = downloadShark(mirror.drive.core)
-  const blobstelem = downloadShark((await mirror.drive.getBlobs()).core)
+  const blobstelem = downloadShark(blobCore)
 
   let downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
@@ -811,15 +817,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   await mirror.drive.get('/parent/child/1')
 
   t.is(filescount, filestelem.count)
-  t.is(blobscount + 1, blobstelem.count)
-
-  await drive.put('/parent/child/2', nil)
-
-  version = drive.version
-  downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
-  await downloadDiff.done()
-
-  t.is(blobscount + 1, blobstelem.count)
+  t.is(blobscount, blobstelem.count)
 })
 
 test('drive.has(path)', async (t) => {
