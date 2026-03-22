@@ -808,7 +808,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const filestelem = downloadShark(mirror.drive.core)
   const blobstelem = downloadShark(blobCore)
 
-  let downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  const downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
   await downloadDiff.done()
 
   const filescount = filestelem.count
