@@ -1365,6 +1365,7 @@ test('drive.get(key, { timeout })', async (t) => {
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
+  await ensureDbLength(mirror.drive, drive.version)
 
   const entry = await mirror.drive.entry('/file.txt')
   t.ok(entry)
