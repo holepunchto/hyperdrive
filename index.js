@@ -546,6 +546,11 @@ module.exports = class Hyperdrive extends ReadyResource {
             return cb(null)
           }
 
+          if (node.value.blob.byteLength === 0) {
+            stream.push(null)
+            return cb(null)
+          }
+
           rs = self.blobs.createReadStream(node.value.blob, opts)
 
           rs.on('data', function (data) {
