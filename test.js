@@ -381,24 +381,25 @@ test('watch() basic', async function (t) {
   const buf = b4a.from('hi')
 
   const watcher = drive.watch()
+  await watcher.ready()
 
-  eventFlush().then(async () => {
-    await drive.put('/a.txt', buf)
-  })
+  const next = watcher.next()
+  await drive.put('/a.txt', buf)
 
-  for await (const [current, previous] of watcher) {
-    // eslint-disable-line no-unreachable-loop
-    t.ok(current instanceof Hyperdrive)
-    t.ok(previous instanceof Hyperdrive)
-    t.is(current.version, 2)
-    t.is(previous.version, 1)
-    t.alike(await current.get('/a.txt'), buf)
-    break
-  }
+  const { value } = await next
+  const [current, previous] = value
+
+  t.ok(current instanceof Hyperdrive)
+  t.ok(previous instanceof Hyperdrive)
+  t.is(current.version, 2)
+  t.is(previous.version, 1)
+  t.alike(await current.get('/a.txt'), buf)
+
+  await watcher.destroy()
 })
 
 test('watch(folder) basic', async function (t) {
-  t.plan(1)
+  t.plan(2)
 
   const { drive } = await testenv(t)
   const buf = b4a.from('hi')
@@ -408,49 +409,41 @@ test('watch(folder) basic', async function (t) {
   await drive.put('/examples/more/a.txt', buf)
 
   const watcher = drive.watch('/examples')
+  await watcher.ready()
 
-  let next = watcher.next()
-  let onchange = null
-  next.then((data) => {
-    next = watcher.next()
-    onchange(data)
-  })
-
-  onchange = () => t.fail('should not trigger changes')
+  const next = watcher.next()
   await drive.put('/b.txt', buf)
-  await eventFlush()
-  onchange = null
-
-  onchange = () => t.pass('change')
   await drive.put('/examples/b.txt', buf)
-  await eventFlush()
-  onchange = null
+
+  const { value } = await next
+  const [current, previous] = value
+
+  t.is(await previous.get('/examples/b.txt'), null)
+  t.alike(await current.get('/examples/b.txt'), buf)
+
+  await watcher.destroy()
 })
 
 test('watch(folder) should normalize folder', async function (t) {
-  t.plan(1)
+  t.plan(2)
 
   const { drive } = await testenv(t)
   const buf = b4a.from('hi')
 
   const watcher = drive.watch('examples//more//')
+  await watcher.ready()
 
-  let next = watcher.next()
-  let onchange = null
-  next.then((data) => {
-    next = watcher.next()
-    onchange(data)
-  })
-
-  onchange = () => t.fail('should not trigger changes')
+  const next = watcher.next()
   await drive.put('/examples/a.txt', buf)
-  await eventFlush()
-  onchange = null
-
-  onchange = () => t.pass('change')
   await drive.put('/examples/more/a.txt', buf)
-  await eventFlush()
-  onchange = null
+
+  const { value } = await next
+  const [current, previous] = value
+
+  t.is(await previous.get('/examples/more/a.txt'), null)
+  t.alike(await current.get('/examples/more/a.txt'), buf)
+
+  await watcher.destroy()
 })
 
 test('drive.diff(length)', async (t) => {
@@ -1750,15 +1743,17 @@ test('download can be destroyed', async (t) => {
 
   await drive.put('/file', b4a.allocUnsafe(1024 * 1024 * 30))
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version)
+  const blobs = await mirror.drive.getBlobs()
 
   const download = mirror.drive.download('/file')
+  await waitForAppendIfEmpty(blobs.core, 'Timed out waiting for blobs length')
   download.destroy()
 
   // not needed, just for test timing
   await download.close()
 
-  t.ok(mirror.drive.blobs.core.contiguousLength < mirror.drive.blobs.core.length)
+  t.ok(blobs.core.contiguousLength < blobs.core.length)
 })
 
 // VERY TIMING DEPENDENT, NEEDS FIX
@@ -2010,10 +2005,6 @@ async function streamToBuffer(stream) {
   return b4a.concat(chunks)
 }
 
-function eventFlush() {
-  return new Promise((resolve) => setTimeout(resolve, 1000))
-}
-
 async function replicate(drive, swarm, mirror) {
   swarm.on('connection', (conn) => drive.corestore.replicate(conn))
   const discovery = swarm.join(drive.discoveryKey, {
@@ -2061,4 +2052,12 @@ function replicateDebugStream(t, a, b, opts = {}) {
 
 async function ensureDbLength(drive, length, timeout = 20000) {
   await drive.checkout(length).db.core.get(length - 1, { timeout })
+}
+
+async function waitForAppendIfEmpty(core, timeout = 20000, message) {
+  if (core.length !== 0) return
+  await Promise.race([
+    once(core, 'append'),
+    new Promise((_, reject) => setTimeout(reject, timeout, new Error(message)))
+  ])
 }
