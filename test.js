@@ -688,7 +688,7 @@ test('drive.download(folder, [options])', async (t) => {
   await drive.put('/parent/child/grandchild1', nil)
   await drive.put('/parent/child/grandchild2', nil)
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version)
 
   const blobs = await mirror.drive.getBlobs()
 
@@ -2057,6 +2057,6 @@ function replicateDebugStream(t, a, b, opts = {}) {
   return [s1, s2]
 }
 
-async function ensureDbLength(drive, length) {
-  await drive.checkout(length).db.core.get(length - 1)
+async function ensureDbLength(drive, length, timeout = 20000) {
+  await drive.checkout(length).db.core.get(length - 1, { timeout })
 }
