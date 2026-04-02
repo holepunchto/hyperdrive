@@ -382,6 +382,7 @@ test('watch() basic', async function (t) {
 
   const watcher = drive.watch()
   await watcher.ready()
+  const baseVersion = drive.version
 
   const next = watcher.next()
   await drive.put('/a.txt', buf)
@@ -391,8 +392,8 @@ test('watch() basic', async function (t) {
 
   t.ok(current instanceof Hyperdrive)
   t.ok(previous instanceof Hyperdrive)
-  t.is(current.version, 2)
-  t.is(previous.version, 1)
+  t.is(current.version, baseVersion + 1)
+  t.is(previous.version, baseVersion)
   t.alike(await current.get('/a.txt'), buf)
 
   await watcher.destroy()
@@ -411,8 +412,8 @@ test('watch(folder) basic', async function (t) {
   const watcher = drive.watch('/examples')
   await watcher.ready()
 
-  const next = watcher.next()
   await drive.put('/b.txt', buf)
+  const next = watcher.next()
   await drive.put('/examples/b.txt', buf)
 
   const { value } = await next
@@ -433,8 +434,8 @@ test('watch(folder) should normalize folder', async function (t) {
   const watcher = drive.watch('examples//more//')
   await watcher.ready()
 
-  const next = watcher.next()
   await drive.put('/examples/a.txt', buf)
+  const next = watcher.next()
   await drive.put('/examples/more/a.txt', buf)
 
   const { value } = await next
