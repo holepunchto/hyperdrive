@@ -845,12 +845,12 @@ test('drive.has(path)', async (t) => {
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
-  await ensureDbLength(mirror.drive, drive.version, 20_000)
+  await ensureDbLength(mirror.drive, drive.version)
 
   const downloadChild = mirror.drive.download('/parent/child/')
   await downloadChild.done()
 
-  await ensureDbLength(mirror.drive, drive.version, 20_000)
+  await ensureDbLength(mirror.drive, drive.version)
 
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
@@ -858,7 +858,7 @@ test('drive.has(path)', async (t) => {
   const downloadSibling = mirror.drive.download('/parent/sibling/')
   await downloadSibling.done()
 
-  await ensureDbLength(mirror.drive, drive.version, 20_000)
+  await ensureDbLength(mirror.drive, drive.version)
   t.ok(await mirror.drive.has('/parent/'))
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
 })
