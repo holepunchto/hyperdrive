@@ -2055,7 +2055,7 @@ async function ensureDbLength(drive, length, timeout = 20000) {
   await drive.checkout(length).db.core.get(length - 1, { timeout })
 }
 
-async function waitForAppendIfEmpty(core, timeout = 20000, message) {
+async function waitForAppendIfEmpty(core, message, timeout = 20000) {
   if (core.length !== 0) return
   await Promise.race([
     once(core, 'append'),
