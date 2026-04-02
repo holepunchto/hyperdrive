@@ -95,7 +95,7 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
   s1.pipe(s2).pipe(s1)
 
   await drive.put('/file', 'content')
-  await eventFlush()
+  await ensureDbLength(otherDrive, drive.version)
 
   await otherDrive.entry('/file') // Ensure in bee
 
@@ -731,7 +731,7 @@ test('drive.download(filename, [options])', async (t) => {
   await drive.put('/file', nil)
   await drive.put('/parent/grandchild2', nil)
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version)
 
   await mirror.drive.getBlobs()
   const download = mirror.drive.download('/file')
@@ -836,7 +836,7 @@ test('drive.has(path)', async (t) => {
   await drive.put('/parent/child/grandchild1', nil)
   await drive.put('/parent/child/grandchild2', nil)
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version)
 
   t.absent(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/child/grandchild2'))
@@ -845,10 +845,12 @@ test('drive.has(path)', async (t) => {
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
+  await ensureDbLength(mirror.drive, drive.version, 20_000)
+
   const downloadChild = mirror.drive.download('/parent/child/')
   await downloadChild.done()
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version, 20_000)
 
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
@@ -856,7 +858,7 @@ test('drive.has(path)', async (t) => {
   const downloadSibling = mirror.drive.download('/parent/sibling/')
   await downloadSibling.done()
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version, 20_000)
   t.ok(await mirror.drive.has('/parent/'))
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
 })
@@ -1837,7 +1839,7 @@ test('monitor range download', async (t) => {
   await drive.put('/file-b', Buffer.alloc(1024))
   await drive.put('/file-c', Buffer.alloc(1024))
 
-  await eventFlush()
+  await ensureDbLength(mirror.drive, drive.version)
 
   const monitor = mirror.drive.monitor('download-monitor')
   await monitor.ready()
