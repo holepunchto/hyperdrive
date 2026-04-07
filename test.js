@@ -1784,7 +1784,7 @@ test('download can be destroyed', async (t) => {
 })
 
 test('upload/download can be monitored', async (t) => {
-  t.plan(14)
+  t.plan(16)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1821,10 +1821,35 @@ test('upload/download can be monitored', async (t) => {
     downloadMonitor.downloadStats.blocks === downloadMonitor.downloadStats.targetBlocks &&
     downloadMonitor.downloadStats.percentage === 100
 
+  let uploadUpdates = 0
+  let downloadUpdates = 0
+
+  // if upload / download events were emmitted before they were complete
+  let uploadSawIntermediate = false
+  let downloadSawIntermediate = false
+
+  function onUploadUpdate() {
+    uploadUpdates++
+    if (uploadMonitor.uploadStats.percentage !== 100) uploadSawIntermediate = true
+  }
+
+  function onDownloadUpdate() {
+    downloadUpdates++
+    if (downloadMonitor.downloadStats.percentage !== 100) downloadSawIntermediate = true
+  }
+
+  uploadMonitor.on('update', onUploadUpdate)
+  downloadMonitor.on('update', onDownloadUpdate)
+
   const getting = mirror.drive.get(file)
 
-  const sawUpload = await waitForEvent(uploadMonitor, 'update', uploadDone)
-  const sawDownload = await waitForEvent(downloadMonitor, 'update', downloadDone)
+  const sawUpload = (async () => {
+    if (!uploadDone()) await waitForEvent(uploadMonitor, 'update', uploadDone)
+  })()
+
+  const sawDownload = (async () => {
+    if (!downloadDone()) await waitForEvent(downloadMonitor, 'update', downloadDone)
+  })()
 
   await Promise.all([getting, sawUpload, sawDownload])
 
@@ -1836,6 +1861,17 @@ test('upload/download can be monitored', async (t) => {
   t.is(downloadMonitor.downloadStats.percentage, 100)
   t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
   t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
+  t.ok(
+    !uploadSawIntermediate || uploadUpdates >= 2,
+    'upload intermediate update should be followed by final update'
+  )
+  t.ok(
+    !downloadSawIntermediate || downloadUpdates >= 2,
+    'download intermediate update should be followed by final update'
+  )
+
+  uploadMonitor.removeListener('update', onUploadUpdate)
+  downloadMonitor.removeListener('update', onDownloadUpdate)
 
   await uploadMonitor.close()
   await downloadMonitor.close()
