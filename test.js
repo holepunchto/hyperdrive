@@ -1811,28 +1811,21 @@ test('upload/download can be monitored', async (t) => {
   t.is(downloadMonitor.downloadStats.targetBytes, bytes)
   t.ok(downloadMonitor.downloadStats.targetBlocks > 0)
 
-  const sawUpload = waitForMonitorUpdate(
-    uploadMonitor,
-    () =>
-      uploadMonitor.uploadStats.monitoringBytes === bytes &&
-      uploadMonitor.uploadStats.blocks === uploadMonitor.uploadStats.targetBlocks &&
-      uploadMonitor.uploadStats.percentage === 100,
-    () => {
-      t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
-    }
-  )
-  const sawDownload = waitForMonitorUpdate(
-    downloadMonitor,
-    () =>
-      downloadMonitor.downloadStats.monitoringBytes === bytes &&
-      downloadMonitor.downloadStats.blocks === downloadMonitor.downloadStats.targetBlocks &&
-      downloadMonitor.downloadStats.percentage === 100,
-    () => {
-      t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
-    }
-  )
+  const uploadDone = () =>
+    uploadMonitor.uploadStats.monitoringBytes === bytes &&
+    uploadMonitor.uploadStats.blocks === uploadMonitor.uploadStats.targetBlocks &&
+    uploadMonitor.uploadStats.percentage === 100
+
+  const downloadDone = () =>
+    downloadMonitor.downloadStats.monitoringBytes === bytes &&
+    downloadMonitor.downloadStats.blocks === downloadMonitor.downloadStats.targetBlocks &&
+    downloadMonitor.downloadStats.percentage === 100
 
   const getting = mirror.drive.get(file)
+
+  const sawUpload = await waitForEvent(uploadMonitor, 'update', uploadDone)
+  const sawDownload = await waitForEvent(downloadMonitor, 'update', downloadDone)
+
   await Promise.all([getting, sawUpload, sawDownload])
 
   t.is(uploadMonitor.uploadStats.monitoringBytes, bytes)
@@ -1841,6 +1834,8 @@ test('upload/download can be monitored', async (t) => {
   t.is(downloadMonitor.downloadStats.blocks, downloadMonitor.downloadStats.targetBlocks)
   t.is(uploadMonitor.uploadStats.percentage, 100)
   t.is(downloadMonitor.downloadStats.percentage, 100)
+  t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
+  t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
 
   await uploadMonitor.close()
   await downloadMonitor.close()
@@ -2092,65 +2087,13 @@ async function ensureDbLength(drive, length, timeout = 20000) {
 
 async function waitForAppendIfEmpty(core, message, timeout = 20000) {
   if (core.length !== 0) return
-  await new Promise((resolve, reject) => {
-    let timer = null
-
-    function cleanup() {
-      if (timer) clearTimeout(timer)
-      core.removeListener('append', onappend)
-    }
-
-    function onappend() {
-      cleanup()
-      resolve()
-    }
-
-    core.once('append', onappend)
-    timer = setTimeout(() => {
-      cleanup()
-      reject(new Error(message))
-    }, timeout)
-  })
-}
-
-async function waitForMonitorUpdate(
-  monitor,
-  predicate,
-  onSatisfied,
-  timeout = 20000,
-  message = 'Timed out waiting for monitor update'
-) {
-  if (predicate()) {
-    if (onSatisfied) onSatisfied()
-    return
-  }
-
-  await new Promise((resolve, reject) => {
-    let timer = null
-
-    function cleanup() {
-      if (timer) clearTimeout(timer)
-      monitor.removeListener('update', onupdate)
-    }
-
-    function onupdate() {
-      if (!predicate()) return
-      if (onSatisfied) onSatisfied()
-      cleanup()
-      resolve()
-    }
-
-    monitor.on('update', onupdate)
-    timer = setTimeout(() => {
-      cleanup()
-      reject(new Error(message))
-    }, timeout)
-  })
+  await waitForEvent(core, 'append', () => core.length !== 0, timeout, message)
 }
 
 async function waitForEvent(
   emitter,
   event,
+  predicate = null,
   timeout = 20000,
   message = `Timed out waiting for ${event}`
 ) {
@@ -2162,7 +2105,8 @@ async function waitForEvent(
       emitter.removeListener(event, onevent)
     }
 
-    function onevent() {
+    function onevent(...args) {
+      if (predicate && !predicate(...args)) return
       cleanup()
       resolve()
     }
@@ -2172,5 +2116,10 @@ async function waitForEvent(
       cleanup()
       reject(new Error(message))
     }, timeout)
+
+    if (predicate && predicate()) {
+      cleanup()
+      resolve()
+    }
   })
 }
