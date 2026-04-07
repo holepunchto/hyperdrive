@@ -400,7 +400,7 @@ test('watch() basic', async function (t) {
 })
 
 test('watch(folder) basic', async function (t) {
-  t.plan(2)
+  t.plan(3)
 
   const { drive } = await testenv(t)
   const buf = b4a.from('hi')
@@ -413,12 +413,14 @@ test('watch(folder) basic', async function (t) {
   await watcher.ready()
 
   await drive.put('/b.txt', buf)
+  const prevVersion = drive.version
   const next = watcher.next()
   await drive.put('/examples/b.txt', buf)
 
   const { value } = await next
   const [current, previous] = value
 
+  t.is(previous.version, prevVersion)
   t.is(await previous.get('/examples/b.txt'), null)
   t.alike(await current.get('/examples/b.txt'), buf)
 
@@ -839,12 +841,8 @@ test('drive.has(path)', async (t) => {
 
   await drive.put('/parent/sibling/grandchild1', nil)
 
-  await ensureDbLength(mirror.drive, drive.version)
-
   const downloadChild = mirror.drive.download('/parent/child/')
   await downloadChild.done()
-
-  await ensureDbLength(mirror.drive, drive.version)
 
   t.ok(await mirror.drive.has('/parent/child/'))
   t.absent(await mirror.drive.has('/parent/'))
@@ -852,7 +850,6 @@ test('drive.has(path)', async (t) => {
   const downloadSibling = mirror.drive.download('/parent/sibling/')
   await downloadSibling.done()
 
-  await ensureDbLength(mirror.drive, drive.version)
   t.ok(await mirror.drive.has('/parent/'))
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
 })
@@ -2052,13 +2049,28 @@ function replicateDebugStream(t, a, b, opts = {}) {
 }
 
 async function ensureDbLength(drive, length, timeout = 20000) {
-  await drive.checkout(length).db.core.get(length - 1, { timeout })
+  while (drive.db.core.length < length) await once(drive.db.core, 'append')
 }
 
 async function waitForAppendIfEmpty(core, message, timeout = 20000) {
   if (core.length !== 0) return
-  await Promise.race([
-    once(core, 'append'),
-    new Promise((_, reject) => setTimeout(reject, timeout, new Error(message)))
-  ])
+  await new Promise((resolve, reject) => {
+    let timer = null
+
+    function cleanup() {
+      if (timer) clearTimeout(timer)
+      core.removeListener('append', onappend)
+    }
+
+    function onappend() {
+      cleanup()
+      resolve()
+    }
+
+    core.once('append', onappend)
+    timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(message))
+    }, timeout)
+  })
 }
