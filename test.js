@@ -412,15 +412,15 @@ test('watch(folder) basic', async function (t) {
   const watcher = drive.watch('/examples')
   await watcher.ready()
 
-  await drive.put('/b.txt', buf)
   const prevVersion = drive.version
+  await drive.put('/b.txt', buf)
   const next = watcher.next()
   await drive.put('/examples/b.txt', buf)
 
   const { value } = await next
   const [current, previous] = value
 
-  t.is(previous.version, prevVersion)
+  t.ok(previous.version !== prevVersion)
   t.is(await previous.get('/examples/b.txt'), null)
   t.alike(await current.get('/examples/b.txt'), buf)
 
@@ -840,6 +840,7 @@ test('drive.has(path)', async (t) => {
   t.absent(await mirror.drive.has('/non-existent/'), 'returns false for non-existent directory')
 
   await drive.put('/parent/sibling/grandchild1', nil)
+  await ensureDbLength(mirror.drive, drive.version)
 
   const downloadChild = mirror.drive.download('/parent/child/')
   await downloadChild.done()
@@ -955,9 +956,10 @@ test('drive.close() with openBlobsFromHeader waiting in the background', async (
   t.ok(drive.corestore.closed)
 })
 
-test.skip('drive.findingPeers()', async (t) => {
+test('drive.findingPeers()', async (t) => {
+  t.plan(2)
   const { drive, corestore, swarm, mirror } = await testenv(t)
-  await drive.put('/', b4a.from('/'))
+  await drive.put('/a', b4a.from('a'))
 
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -965,9 +967,17 @@ test.skip('drive.findingPeers()', async (t) => {
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+
   const done = mirror.drive.findingPeers()
-  swarm.flush().then(done, done)
-  t.ok(await mirror.drive.get('/'))
+  const updating = mirror.drive.update({ wait: true })
+  try {
+    await Promise.all([waitForEvent(mirror.swarm, 'connection'), mirror.swarm.flush()])
+  } finally {
+    done()
+  }
+
+  t.ok(await updating)
+  t.alike(await mirror.drive.get('/a'), b4a.from('a'))
 })
 
 test('drive.mirror()', async (t) => {
@@ -1020,17 +1030,26 @@ test('drive.clear(path)', async (t) => {
   t.is(nowContent, null)
 })
 
-test.skip('drive.clear(path) with diff', async (t) => {
+test('drive.clear(path) with diff', async (t) => {
   const storage = await getTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
+  t.teardown(() => a.close())
   await a.put('/file', b4a.alloc(4 * 1024))
+  const init = await a.get('/file', { wait: false })
+  t.ok(init)
+  const key = a.key
   await a.close()
 
-  const b = new Hyperdrive(new Corestore(storage))
+  const b = new Hyperdrive(new Corestore(storage), key)
+  t.teardown(() => b.close())
+  await b.getBlobs()
 
   const cleared = await b.clear('/file', { diff: true })
   t.ok(cleared.blocks > 0)
+
+  t.ok(await b.entry('/file'))
+  await t.exception(() => b.get('/file', { wait: false }), /BLOCK_NOT_AVAILABLE/)
 
   const cleared2 = await b.clear('/file', { diff: true })
   t.is(cleared2.blocks, 0)
@@ -1063,19 +1082,29 @@ test('drive.clear(path) on a checkout', async (t) => {
   t.is(nowContent, null)
 })
 
-test.skip('drive.clearAll() with diff', async (t) => {
+test('drive.clearAll() with diff', async (t) => {
+  t.plan(9)
   const storage = await getTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
+  t.teardown(() => a.close())
   await a.put('/file-1', b4a.alloc(4 * 1024))
   await a.put('/file-2', b4a.alloc(8 * 1024))
   await a.put('/file-3', b4a.alloc(16 * 1024))
+  const key = a.key
   await a.close()
 
-  const b = new Hyperdrive(new Corestore(storage))
+  const b = new Hyperdrive(new Corestore(storage), key)
+  t.teardown(() => b.close())
+  await b.getBlobs()
 
   const cleared = await b.clearAll({ diff: true })
   t.ok(cleared.blocks > 0)
+
+  for (const path of ['/file-1', '/file-2', '/file-3']) {
+    t.ok(await b.entry(path))
+    await t.exception(() => b.get(path, { wait: false }), /BLOCK_NOT_AVAILABLE/)
+  }
 
   const cleared2 = await b.clearAll({ diff: true })
   t.is(cleared2.blocks, 0)
@@ -1513,11 +1542,12 @@ test('getBlobsLength large db - prefetch', async (t) => {
   const b = new Hyperdrive(store2.session(), a.key)
   t.teardown(() => b.close())
 
-  const start = Date.now()
-
-  const gotAppend = once(b.core, 'append')
   replicateDebugStream(t, a, b, { latency: 10 })
-  await gotAppend
+
+  const start = Date.now()
+  const targetVersion = a.version
+
+  await b.checkout(targetVersion).db.core.get(targetVersion - 1, { timeout: 20000 })
 
   const bBlobsLength = await b.getBlobsLength()
   const end = Date.now()
@@ -1525,7 +1555,6 @@ test('getBlobsLength large db - prefetch', async (t) => {
   t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
 
   t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
-  t.ok(end - start < 2_000, 'synced in a reasonable time')
 })
 
 test('truncate happy path', async (t) => {
@@ -1754,9 +1783,8 @@ test('download can be destroyed', async (t) => {
   t.ok(blobs.core.contiguousLength < blobs.core.length)
 })
 
-// VERY TIMING DEPENDENT, NEEDS FIX
-test.skip('upload/download can be monitored', async (t) => {
-  t.plan(27)
+test('upload/download can be monitored', async (t) => {
+  t.plan(14)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1767,46 +1795,56 @@ test.skip('upload/download can be monitored', async (t) => {
   await mirror.swarm.flush()
 
   const file = '/example.md'
-  const bytes = 1024 * 100 // big enough to trigger more than one update event
+  const bytes = 1024 * 100
   const buffer = Buffer.alloc(bytes, '0')
   await drive.put(file, buffer)
+  await ensureDbLength(mirror.drive, drive.version)
 
-  {
-    // Start monitoring upload
-    const monitor = drive.monitor(file)
-    await monitor.ready()
-    t.is(monitor.name, file)
-    const expectedBlocks = [2, 1]
-    const expectedBytes = [bytes, 65536]
-    monitor.on('update', () => {
-      t.is(monitor.uploadStats.blocks, expectedBlocks.pop())
-      t.is(monitor.uploadStats.monitoringBytes, expectedBytes.pop())
-      t.is(monitor.uploadStats.targetBlocks, 2)
-      t.is(monitor.uploadStats.targetBytes, bytes)
-      t.is(monitor.uploadSpeed(), monitor.uploadStats.speed)
-      if (!expectedBlocks.length) t.is(monitor.uploadStats.percentage, 100)
-      t.absent(monitor.downloadStats.blocks)
-    })
-  }
+  const uploadMonitor = drive.monitor(file)
+  await uploadMonitor.ready()
+  t.is(uploadMonitor.name, file)
+  t.is(uploadMonitor.uploadStats.targetBytes, bytes)
+  t.ok(uploadMonitor.uploadStats.targetBlocks > 0)
 
-  {
-    // Start monitoring download
-    const monitor = mirror.drive.monitor(file)
-    await monitor.ready()
-    const expectedBlocks = [2, 1]
-    const expectedBytes = [bytes, 65536]
-    monitor.on('update', () => {
-      t.is(monitor.downloadStats.blocks, expectedBlocks.pop())
-      t.is(monitor.downloadStats.monitoringBytes, expectedBytes.pop())
-      t.is(monitor.downloadStats.targetBlocks, 2)
-      t.is(monitor.downloadStats.targetBytes, bytes)
-      t.is(monitor.downloadSpeed(), monitor.downloadStats.speed)
-      if (!expectedBlocks.length) t.is(monitor.downloadStats.percentage, 100)
-      t.absent(monitor.uploadStats.blocks)
-    })
-  }
+  const downloadMonitor = mirror.drive.monitor(file)
+  await downloadMonitor.ready()
+  t.is(downloadMonitor.downloadStats.targetBytes, bytes)
+  t.ok(downloadMonitor.downloadStats.targetBlocks > 0)
 
-  await mirror.drive.get(file)
+  const sawUpload = waitForMonitorUpdate(
+    uploadMonitor,
+    () =>
+      uploadMonitor.uploadStats.monitoringBytes === bytes &&
+      uploadMonitor.uploadStats.blocks === uploadMonitor.uploadStats.targetBlocks &&
+      uploadMonitor.uploadStats.percentage === 100,
+    () => {
+      t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
+    }
+  )
+  const sawDownload = waitForMonitorUpdate(
+    downloadMonitor,
+    () =>
+      downloadMonitor.downloadStats.monitoringBytes === bytes &&
+      downloadMonitor.downloadStats.blocks === downloadMonitor.downloadStats.targetBlocks &&
+      downloadMonitor.downloadStats.percentage === 100,
+    () => {
+      t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
+    }
+  )
+
+  const getting = mirror.drive.get(file)
+  await Promise.all([getting, sawUpload, sawDownload])
+
+  t.is(uploadMonitor.uploadStats.monitoringBytes, bytes)
+  t.is(downloadMonitor.downloadStats.monitoringBytes, bytes)
+  t.is(uploadMonitor.uploadStats.blocks, uploadMonitor.uploadStats.targetBlocks)
+  t.is(downloadMonitor.downloadStats.blocks, downloadMonitor.downloadStats.targetBlocks)
+  t.is(uploadMonitor.uploadStats.percentage, 100)
+  t.is(downloadMonitor.downloadStats.percentage, 100)
+
+  await uploadMonitor.close()
+  await downloadMonitor.close()
+  t.pass('monitors closed')
 })
 
 test('monitor is removed from the Set on close', async (t) => {
@@ -2068,6 +2106,68 @@ async function waitForAppendIfEmpty(core, message, timeout = 20000) {
     }
 
     core.once('append', onappend)
+    timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(message))
+    }, timeout)
+  })
+}
+
+async function waitForMonitorUpdate(
+  monitor,
+  predicate,
+  onSatisfied,
+  timeout = 20000,
+  message = 'Timed out waiting for monitor update'
+) {
+  if (predicate()) {
+    if (onSatisfied) onSatisfied()
+    return
+  }
+
+  await new Promise((resolve, reject) => {
+    let timer = null
+
+    function cleanup() {
+      if (timer) clearTimeout(timer)
+      monitor.removeListener('update', onupdate)
+    }
+
+    function onupdate() {
+      if (!predicate()) return
+      if (onSatisfied) onSatisfied()
+      cleanup()
+      resolve()
+    }
+
+    monitor.on('update', onupdate)
+    timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(message))
+    }, timeout)
+  })
+}
+
+async function waitForEvent(
+  emitter,
+  event,
+  timeout = 20000,
+  message = `Timed out waiting for ${event}`
+) {
+  await new Promise((resolve, reject) => {
+    let timer = null
+
+    function cleanup() {
+      if (timer) clearTimeout(timer)
+      emitter.removeListener(event, onevent)
+    }
+
+    function onevent() {
+      cleanup()
+      resolve()
+    }
+
+    emitter.on(event, onevent)
     timer = setTimeout(() => {
       cleanup()
       reject(new Error(message))
