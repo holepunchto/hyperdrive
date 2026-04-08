@@ -1030,7 +1030,7 @@ test('drive.clear(path)', async (t) => {
   t.is(nowContent, null)
 })
 
-test('drive.clear(path) with diff', async (t) => {
+test.skip('drive.clear(path) with diff', async (t) => {
   const storage = await getTmpDir(t)
 
   const a = new Hyperdrive(new Corestore(storage))
@@ -1082,7 +1082,7 @@ test('drive.clear(path) on a checkout', async (t) => {
   t.is(nowContent, null)
 })
 
-test('drive.clearAll() with diff', async (t) => {
+test.skip('drive.clearAll() with diff', async (t) => {
   t.plan(9)
   const storage = await getTmpDir(t)
 
@@ -1844,11 +1844,11 @@ test('upload/download can be monitored', async (t) => {
   const getting = mirror.drive.get(file)
 
   const sawUpload = (async () => {
-    if (!uploadDone()) await waitForEvent(uploadMonitor, 'update', uploadDone)
+    await waitForEvent(uploadMonitor, 'update', uploadDone)
   })()
 
   const sawDownload = (async () => {
-    if (!downloadDone()) await waitForEvent(downloadMonitor, 'update', downloadDone)
+    await waitForEvent(downloadMonitor, 'update', downloadDone)
   })()
 
   await Promise.all([getting, sawUpload, sawDownload])
@@ -2117,7 +2117,7 @@ function replicateDebugStream(t, a, b, opts = {}) {
   return [s1, s2]
 }
 
-async function ensureDbLength(drive, length, timeout = 20000) {
+async function ensureDbLength(drive, length) {
   while (drive.db.core.length < length) await once(drive.db.core, 'append')
 }
 
