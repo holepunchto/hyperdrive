@@ -1811,47 +1811,21 @@ test('upload/download can be monitored', async (t) => {
   t.is(downloadMonitor.downloadStats.targetBytes, bytes)
   t.ok(downloadMonitor.downloadStats.targetBlocks > 0)
 
-  const uploadDone = () =>
-    uploadMonitor.uploadStats.monitoringBytes === bytes &&
-    uploadMonitor.uploadStats.blocks === uploadMonitor.uploadStats.targetBlocks &&
-    uploadMonitor.uploadStats.percentage === 100
-
-  const downloadDone = () =>
-    downloadMonitor.downloadStats.monitoringBytes === bytes &&
-    downloadMonitor.downloadStats.blocks === downloadMonitor.downloadStats.targetBlocks &&
-    downloadMonitor.downloadStats.percentage === 100
-
   let uploadUpdates = 0
   let downloadUpdates = 0
 
-  // if upload / download events were emmitted before they were complete
-  let uploadSawIntermediate = false
-  let downloadSawIntermediate = false
-
   function onUploadUpdate() {
     uploadUpdates++
-    if (uploadMonitor.uploadStats.percentage !== 100) uploadSawIntermediate = true
   }
 
   function onDownloadUpdate() {
     downloadUpdates++
-    if (downloadMonitor.downloadStats.percentage !== 100) downloadSawIntermediate = true
   }
 
   uploadMonitor.on('update', onUploadUpdate)
   downloadMonitor.on('update', onDownloadUpdate)
 
-  const getting = mirror.drive.get(file)
-
-  const sawUpload = (async () => {
-    await waitForEvent(uploadMonitor, 'update', uploadDone)
-  })()
-
-  const sawDownload = (async () => {
-    await waitForEvent(downloadMonitor, 'update', downloadDone)
-  })()
-
-  await Promise.all([getting, sawUpload, sawDownload])
+  await mirror.drive.get(file)
 
   t.is(uploadMonitor.uploadStats.monitoringBytes, bytes)
   t.is(downloadMonitor.downloadStats.monitoringBytes, bytes)
@@ -1861,14 +1835,8 @@ test('upload/download can be monitored', async (t) => {
   t.is(downloadMonitor.downloadStats.percentage, 100)
   t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
   t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
-  t.ok(
-    !uploadSawIntermediate || uploadUpdates >= 2,
-    'upload intermediate update should be followed by final update'
-  )
-  t.ok(
-    !downloadSawIntermediate || downloadUpdates >= 2,
-    'download intermediate update should be followed by final update'
-  )
+  t.ok(uploadUpdates >= 2, 'upload should emit multiple update events')
+  t.ok(downloadUpdates >= 2, 'download should emit multiple update events')
 
   uploadMonitor.removeListener('update', onUploadUpdate)
   downloadMonitor.removeListener('update', onDownloadUpdate)
