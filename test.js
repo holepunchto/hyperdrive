@@ -1533,28 +1533,27 @@ test('getBlobsLength large db - prefetch', async (t) => {
   const a = new Hyperdrive(store.session())
   t.teardown(() => a.close())
 
-  for (let i = 0; i < 1_000; i++) {
+  const num = 1_000
+  for (let i = 0; i < num; i++) {
     await a.put('./file' + i, 'here')
   }
 
   const store2 = new Corestore(await t.tmp())
   t.teardown(() => store2.close())
+
   const b = new Hyperdrive(store2.session(), a.key)
   t.teardown(() => b.close())
 
+  const gotAppend = once(b.core, 'append')
   replicateDebugStream(t, a, b, { latency: 10 })
+  await gotAppend
 
-  const start = Date.now()
-  const targetVersion = a.version
-
-  await b.checkout(targetVersion).db.core.get(targetVersion - 1, { timeout: 20000 })
-
-  const bBlobsLength = await b.getBlobsLength()
-  const end = Date.now()
-
-  t.is(bBlobsLength, await a.getBlobsLength(), 'blob lengths match')
-
-  t.comment('getBlobsLength() time in secs ' + (end - start) / 1000)
+  t.is(await b.getBlobsLength(), await a.getBlobsLength(), 'blob lengths match')
+  t.comment('wireRequest sent', b.core.replicator.stats.wireRequest.tx)
+  t.ok(
+    b.core.replicator.stats.wireRequest.tx < 1.1 * num,
+    'synced within a reasonable amount of requests'
+  )
 })
 
 test('truncate happy path', async (t) => {
