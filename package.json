@@ -15,8 +15,11 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && lunte",
     "test": "npm run test:node && npm run test:bare",
-    "test:bare": "brittle-bare --coverage test.js",
-    "test:node": "brittle-node --coverage test.js"
+    "test:bare": "brittle-bare --coverage test/unit.js test/integration.js test/e2e.js",
+    "test:node": "brittle-node --coverage test/unit.js test/integration.js test/e2e.js",
+    "test:unit": "brittle-node test/unit.js",
+    "test:integration": "brittle-node test/integration.js",
+    "test:e2e": "brittle-node test/e2e.js"
   },
   "author": "Holepunch",
   "license": "Apache-2.0",
