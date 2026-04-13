@@ -168,6 +168,19 @@ async function ensureDbLength(drive, length) {
   while (drive.db.core.length < length) await once(drive.db.core, 'append')
 }
 
+function pipeReplicate(drive, mirror) {
+  const s1 = drive.corestore.replicate(true, { keepAlive: false })
+  const s2 = mirror.corestore.replicate(false, { keepAlive: false })
+  s1.pipe(s2).pipe(s1)
+  return [s1, s2]
+}
+
+async function syncDriveVersion(mirrorDrive, targetVersion) {
+  while (mirrorDrive.version < targetVersion) {
+    await once(mirrorDrive.db.core, 'append')
+  }
+}
+
 async function waitForAppendIfEmpty(core, message, timeout = 20000) {
   if (core.length !== 0) return
   await waitForEvent(core, 'append', () => core.length !== 0, timeout, message)
@@ -220,6 +233,8 @@ module.exports = {
   replicate,
   replicateDebugStream,
   ensureDbLength,
+  pipeReplicate,
+  syncDriveVersion,
   waitForAppendIfEmpty,
   waitForEvent,
   Hyperdrive
