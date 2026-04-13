@@ -121,15 +121,11 @@ async function streamToBuffer(stream) {
 
 async function replicate(drive, swarm, mirror) {
   swarm.on('connection', (conn) => drive.corestore.replicate(conn))
-  const discovery = swarm.join(drive.discoveryKey, {
-    server: true,
-    client: false
-  })
-  await discovery.flushed()
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
 
   mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
-  await mirror.swarm.flush()
 }
 
 function replicateDebugStream(t, a, b, opts = {}) {

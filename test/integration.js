@@ -33,9 +33,7 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
   const { drive, mirror } = await testenvWithMirror(t)
 
   const otherDrive = mirror.drive
-  const s1 = drive.corestore.replicate(true)
-  const s2 = otherDrive.corestore.replicate(false)
-  s1.pipe(s2).pipe(s1)
+  pipeReplicate(drive, otherDrive)
 
   await drive.put('/file', 'content')
   await ensureDbLength(otherDrive, drive.version)
