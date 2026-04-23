@@ -75,7 +75,7 @@ async function e2eTestenv(t) {
   const tmp = await getTmpDir(t)
   const paths = { tmp, root: pkgRoot }
 
-  return { net, paths, corestore, drive, swarm, mirror }
+  return { net, paths, corestore, drive, hyperSwarm: swarm, mirror }
 }
 
 async function* readdirator(
@@ -99,7 +99,7 @@ async function* readdirator(
 }
 
 function filter(x) {
-  return !/node_modules|\.git/.test(x)
+  return !/^(?:node_modules|coverage|\.git)$/.test(x)
 }
 
 function downloadShark(core) {
@@ -119,7 +119,7 @@ async function streamToBuffer(stream) {
   return b4a.concat(chunks)
 }
 
-async function replicate(drive, swarm, mirror) {
+async function swarm(drive, swarm, mirror) {
   swarm.on('connection', (conn) => drive.corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
   await swarm.flush()
@@ -164,7 +164,7 @@ async function ensureDbLength(drive, length) {
   while (drive.db.core.length < length) await once(drive.db.core, 'append')
 }
 
-function pipeReplicate(drive, mirror) {
+function replicate(drive, mirror) {
   const s1 = drive.corestore.replicate(true, { keepAlive: false })
   const s2 = mirror.corestore.replicate(false, { keepAlive: false })
   s1.pipe(s2).pipe(s1)
@@ -226,10 +226,10 @@ module.exports = {
   filter,
   downloadShark,
   streamToBuffer,
-  replicate,
+  swarm,
   replicateDebugStream,
   ensureDbLength,
-  pipeReplicate,
+  replicate,
   syncDriveVersion,
   waitForAppendIfEmpty,
   waitForEvent,

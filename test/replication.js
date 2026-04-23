@@ -8,7 +8,7 @@ const {
   localTestenv: testenv,
   localTestenvWithMirror: testenvWithMirror,
   replicateDebugStream,
-  pipeReplicate,
+  replicate,
   syncDriveVersion,
   ensureDbLength,
   downloadShark,
@@ -33,7 +33,7 @@ test('drive.get(path, { wait: false }) throws if entry exists but not found', as
   const { drive, mirror } = await testenvWithMirror(t)
 
   const otherDrive = mirror.drive
-  pipeReplicate(drive, otherDrive)
+  replicate(drive, otherDrive)
 
   await drive.put('/file', 'content')
   await ensureDbLength(otherDrive, drive.version)
@@ -114,7 +114,7 @@ test('getBlobsLength large db - prefetch', { timeout: 120_000 }, async (t) => {
 test('drive.download(folder, [options])', async (t) => {
   t.plan(7)
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   const nil = b4a.from('nil')
 
@@ -153,7 +153,7 @@ test('drive.download(folder, [options])', async (t) => {
 
 test('drive.download(filename, [options])', async (t) => {
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   const nil = b4a.from('nil')
 
@@ -178,7 +178,7 @@ test('drive.download(filename, [options])', async (t) => {
 
 test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   await drive.put('/file-a', Buffer.alloc(1024))
   await drive.put('/file-b', Buffer.alloc(1024))
@@ -206,7 +206,7 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
 
 test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   const nil = b4a.from('nil')
   const version = drive.version
@@ -237,7 +237,7 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
 test('drive.has(path)', async (t) => {
   t.plan(8)
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   const nil = b4a.from('nil')
 
@@ -271,7 +271,7 @@ test('drive.entry(key, { timeout })', async (t) => {
   t.plan(1)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  const [s1, s2] = pipeReplicate(drive, mirror)
+  const [s1, s2] = replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
@@ -292,7 +292,7 @@ test('drive.entry(key, { wait })', async (t) => {
   t.plan(1)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  const [s1, s2] = pipeReplicate(drive, mirror)
+  const [s1, s2] = replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
@@ -313,7 +313,7 @@ test('drive.get(key, { timeout })', async (t) => {
   t.plan(3)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  const [s1, s2] = pipeReplicate(drive, mirror)
+  const [s1, s2] = replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
@@ -339,7 +339,7 @@ test('drive.get(key, { wait }) with entry but no blob', async (t) => {
   t.plan(3)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  const [s1, s2] = pipeReplicate(drive, mirror)
+  const [s1, s2] = replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
@@ -366,7 +366,7 @@ test('drive.get(key, { wait }) without entry', async (t) => {
   t.plan(1)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  const [s1, s2] = pipeReplicate(drive, mirror)
+  const [s1, s2] = replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await mirror.drive.getBlobs()
@@ -387,7 +387,7 @@ test('drive peek with get() and timeout', async (t) => {
   t.plan(3)
 
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   await drive.put('/file.txt', b4a.from('hi'))
   await ensureDbLength(mirror.drive, drive.version)
@@ -407,7 +407,7 @@ test('drive peek with get() and timeout', async (t) => {
 test('download can be destroyed', async (t) => {
   t.plan(1)
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   await drive.put('/file', b4a.allocUnsafe(1024 * 1024 * 30))
 
@@ -427,7 +427,7 @@ test('download can be destroyed', async (t) => {
 test('upload/download can be monitored', async (t) => {
   t.plan(16)
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   const file = '/example.md'
   const bytes = 1024 * 100
@@ -483,7 +483,7 @@ test('upload/download can be monitored', async (t) => {
 
 test('monitor range download', async (t) => {
   const { drive, mirror } = await testenvWithMirror(t)
-  pipeReplicate(drive, mirror)
+  replicate(drive, mirror)
 
   await drive.put('/file-a', Buffer.alloc(1024))
   await drive.put('/file-b', Buffer.alloc(1024))
