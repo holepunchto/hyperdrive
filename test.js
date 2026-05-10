@@ -1783,7 +1783,7 @@ test('download can be destroyed', async (t) => {
 })
 
 test('upload/download can be monitored', async (t) => {
-  t.plan(16)
+  t.plan(18)
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
   swarm.join(drive.discoveryKey, { server: true, client: false })
@@ -1826,12 +1826,20 @@ test('upload/download can be monitored', async (t) => {
 
   await mirror.drive.get(file)
 
-  t.is(uploadMonitor.uploadStats.monitoringBytes, bytes)
-  t.is(downloadMonitor.downloadStats.monitoringBytes, bytes)
+  t.is(uploadMonitor.uploadStats.blobBytes, bytes)
+  t.is(downloadMonitor.downloadStats.blobBytes, bytes)
+  t.is(
+    uploadMonitor.uploadStats.totalBytes,
+    uploadMonitor.uploadStats.dbBytes + uploadMonitor.uploadStats.blobBytes
+  )
+  t.is(
+    downloadMonitor.downloadStats.totalBytes,
+    downloadMonitor.downloadStats.dbBytes + downloadMonitor.downloadStats.blobBytes
+  )
+  t.is(downloadMonitor.downloadStats.percentage, 100)
+  t.is(uploadMonitor.uploadStats.percentage, 100)
   t.is(uploadMonitor.uploadStats.blocks, uploadMonitor.uploadStats.targetBlocks)
   t.is(downloadMonitor.downloadStats.blocks, downloadMonitor.downloadStats.targetBlocks)
-  t.is(uploadMonitor.uploadStats.percentage, 100)
-  t.is(downloadMonitor.downloadStats.percentage, 100)
   t.is(uploadMonitor.uploadSpeed(), uploadMonitor.uploadStats.speed)
   t.is(downloadMonitor.downloadSpeed(), downloadMonitor.downloadStats.speed)
   t.ok(uploadUpdates >= 2, 'upload should emit multiple update events')
@@ -1879,7 +1887,14 @@ test('monitor range download', async (t) => {
   t.is(monitor.downloadStats.peers, 1)
   t.ok(monitor.downloadStats.speed > 0)
   t.ok(monitor.downloadStats.blocks > 0)
-  t.ok(monitor.downloadStats.totalBytes, 3072)
+  t.is(monitor.downloadStats.blobBytes, 3072)
+  t.ok(monitor.downloadStats.dbBytes > 0)
+  t.ok(monitor.downloadStats.totalBytes >= 3072)
+  t.is(
+    monitor.downloadStats.totalBytes,
+    monitor.downloadStats.dbBytes + monitor.downloadStats.blobBytes
+  )
+  t.ok(monitor.downloadStats.percentage, 100)
 })
 
 test('dedup mode', async (t) => {
