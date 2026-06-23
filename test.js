@@ -816,6 +816,70 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   t.is(blobscount, blobstelem.count)
 })
 
+test('drive.download dedup entry', async (t) => {
+  t.plan(2)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const ws = await drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const download = await mirror.drive.download('/entry')
+  await download.done()
+
+  const mirrorBlobs = await mirror.drive.getBlobs()
+  const driveBlobs = await drive.getBlobs()
+
+  const mirrorBlobsHash = await mirrorBlobs.core.treeHash()
+  const driveBlobsHash = await driveBlobs.core.treeHash()
+
+  t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
+  t.is(mirrorBlobsHash.toString('hex'), driveBlobsHash.toString('hex'))
+})
+
+test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
+  t.plan(2)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  {
+    const ws = await drive.createWriteStream('/folder/entry', { dedup: true })
+    ws.write(Buffer.alloc(1024))
+    ws.end()
+  }
+
+  await drive.put('/folder/entry-b', Buffer.from('hello world'))
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const download = await mirror.drive.download('/folder')
+  await download.done()
+
+  const mirrorBlobs = await mirror.drive.getBlobs()
+  const driveBlobs = await drive.getBlobs()
+
+  const mirrorBlobsHash = await mirrorBlobs.core.treeHash()
+  const driveBlobsHash = await driveBlobs.core.treeHash()
+
+  t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
+  t.is(mirrorBlobsHash.toString('hex'), driveBlobsHash.toString('hex'))
+})
+
 test('drive.has(path)', async (t) => {
   t.plan(8)
   const { corestore, drive, swarm, mirror } = await testenv(t)
