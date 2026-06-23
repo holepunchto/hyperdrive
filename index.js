@@ -484,16 +484,16 @@ module.exports = class Hyperdrive extends ReadyResource {
     const blobs = await this.getBlobs()
     const entry = !path || path.endsWith('/') ? null : await this.entry(path)
     if (entry) {
-      const b = entry.value.blob
-      if (!b) return false
-      return await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
+      const blob = entry.value.blob
+      if (!blob) return false
+      return await this._hasEntry(blobs, blob)
     }
     let isDir = false
     for await (const entry of this.list(path)) {
       isDir = true
-      const b = entry.value.blob
-      if (!b) continue
-      const has = await blobs.core.has(b.blockOffset, b.blockOffset + b.blockLength)
+      const blob = entry.value.blob
+      if (!blob) continue
+      const has = await this._hasEntry(blobs, blob)
       if (!has) return false
     }
     return isDir
@@ -656,6 +656,19 @@ module.exports = class Hyperdrive extends ReadyResource {
         ondrain = null
         cb(err)
       }
+    }
+  }
+
+  async _hasEntry(blobs, blob) {
+    if (blob.blockMap) {
+      const map = await blobs.getBlockMap(blob)
+      for (const block of map.blocks) {
+        const has = await blobs.core.has(block.index)
+        if (!has) return false
+      }
+      return true
+    } else {
+      return await blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength)
     }
   }
 

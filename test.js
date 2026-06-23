@@ -919,6 +919,32 @@ test('drive.has(path)', async (t) => {
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
 })
 
+test('drive.has dedup entry is false after getting the blockMap', async (t) => {
+  t.plan(1)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const ws = await drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await ensureDbLength(mirror.drive, drive.version)
+  await mirror.drive.entry('/entry')
+
+  await mirror.drive.getBlobs()
+  await mirror.drive.blobs.core.get(1) // get map block
+
+  t.is(await mirror.drive.has('/entry'), false)
+})
+
 test('drive.batch() & drive.flush()', async (t) => {
   const { drive } = await testenv(t)
 
