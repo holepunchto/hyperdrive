@@ -827,13 +827,13 @@ test('drive.download dedup entry', async (t) => {
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
-  const ws = await drive.createWriteStream('/entry', { dedup: true })
+  const ws = drive.createWriteStream('/entry', { dedup: true })
   ws.write(Buffer.alloc(1024))
   ws.end()
 
   await ensureDbLength(mirror.drive, drive.version)
 
-  const download = await mirror.drive.download('/entry')
+  const download = mirror.drive.download('/entry')
   await download.done()
 
   const mirrorBlobs = await mirror.drive.getBlobs()
@@ -843,7 +843,7 @@ test('drive.download dedup entry', async (t) => {
   const driveBlobsHash = await driveBlobs.core.treeHash()
 
   t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
-  t.is(mirrorBlobsHash.toString('hex'), driveBlobsHash.toString('hex'))
+  t.alike(mirrorBlobsHash, driveBlobsHash, 'blob hashes match')
 })
 
 test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
@@ -858,7 +858,7 @@ test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
   await mirror.swarm.flush()
 
   {
-    const ws = await drive.createWriteStream('/folder/entry', { dedup: true })
+    const ws = drive.createWriteStream('/folder/entry', { dedup: true })
     ws.write(Buffer.alloc(1024))
     ws.end()
   }
@@ -867,7 +867,7 @@ test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
 
   await ensureDbLength(mirror.drive, drive.version)
 
-  const download = await mirror.drive.download('/folder')
+  const download = mirror.drive.download('/folder')
   await download.done()
 
   const mirrorBlobs = await mirror.drive.getBlobs()
@@ -877,7 +877,7 @@ test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
   const driveBlobsHash = await driveBlobs.core.treeHash()
 
   t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
-  t.is(mirrorBlobsHash.toString('hex'), driveBlobsHash.toString('hex'))
+  t.alike(mirrorBlobsHash, driveBlobsHash, 'blob hashes match')
 })
 
 test('drive.has(path)', async (t) => {
@@ -930,7 +930,7 @@ test('drive.has dedup entry is false after getting the blockMap', async (t) => {
   mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
   await mirror.swarm.flush()
 
-  const ws = await drive.createWriteStream('/entry', { dedup: true })
+  const ws = drive.createWriteStream('/entry', { dedup: true })
   ws.write(Buffer.alloc(1024))
   ws.write(Buffer.alloc(1024))
   ws.write(Buffer.alloc(1024))
@@ -942,7 +942,7 @@ test('drive.has dedup entry is false after getting the blockMap', async (t) => {
   await mirror.drive.getBlobs()
   await mirror.drive.blobs.core.get(1) // get map block
 
-  t.is(await mirror.drive.has('/entry'), false)
+  t.absent(await mirror.drive.has('/entry'), 'has() is false w/ map, but w/o blocks')
 })
 
 test('drive.batch() & drive.flush()', async (t) => {

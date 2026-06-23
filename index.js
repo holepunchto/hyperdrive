@@ -486,7 +486,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     if (entry) {
       const blob = entry.value.blob
       if (!blob) return false
-      return await this._hasEntry(blobs, blob)
+      return this._hasEntry(blobs, blob)
     }
     let isDir = false
     for await (const entry of this.list(path)) {
@@ -668,7 +668,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       }
       return true
     } else {
-      return await blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength)
+      return blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength)
     }
   }
 
