@@ -661,6 +661,9 @@ module.exports = class Hyperdrive extends ReadyResource {
 
   async _hasEntry(blobs, blob) {
     if (blob.blockMap) {
+      const hasMap = await blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength)
+      if (!hasMap) return false
+
       const map = await blobs.getBlockMap(blob)
       for (const block of map.blocks) {
         const has = await blobs.core.has(block.index)

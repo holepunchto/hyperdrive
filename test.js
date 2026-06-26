@@ -945,6 +945,54 @@ test('drive.has dedup entry is false after getting the blockMap', async (t) => {
   t.absent(await mirror.drive.has('/entry'), 'has() is false w/ map, but w/o blocks')
 })
 
+test('drive.has dedup entry does not download block map', async (t) => {
+  t.plan(3)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  t.teardown(() => {
+    s1.destroy()
+    s2.destroy()
+  })
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  const done = new Promise((resolve, reject) => {
+    ws.once('error', reject)
+    ws.once('finish', resolve)
+  })
+
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+  await done
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const entry = await mirror.drive.entry('/entry')
+  const blob = entry.value.blob
+  const blobs = await mirror.drive.getBlobs()
+
+  t.absent(
+    await blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength),
+    'sanity: block map is not local before has()'
+  )
+
+  let downloads = 0
+  blobs.core.on('download', ondownload)
+  t.teardown(() => blobs.core.off('download', ondownload))
+
+  t.absent(await mirror.drive.has('/entry'), 'entry data is not local')
+  t.is(downloads, 0, 'has() should not download while checking local state')
+
+  function ondownload() {
+    downloads++
+  }
+})
+
 test('drive.batch() & drive.flush()', async (t) => {
   const { drive } = await testenv(t)
 
