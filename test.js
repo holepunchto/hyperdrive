@@ -816,6 +816,38 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   t.is(blobscount, blobstelem.count)
 })
 
+test('dedup download can be destroyed while block map is unavailable', async (t) => {
+  t.plan(1)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await new Promise((resolve, reject) => {
+    ws.once('error', reject)
+    ws.once('finish', resolve)
+  })
+
+  await ensureDbLength(mirror.drive, drive.version)
+  await mirror.drive.entry('/entry')
+
+  s1.destroy()
+  s2.destroy()
+
+  const download = mirror.drive.download('/entry')
+  download.destroy()
+
+  await download.close()
+  t.pass('download closed')
+})
+
 test('drive.downloadDiff dedup entry', async (t) => {
   t.plan(2)
   const { corestore, drive, swarm, mirror } = await testenv(t)
