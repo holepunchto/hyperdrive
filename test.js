@@ -848,6 +848,30 @@ test('dedup download can be destroyed while block map is unavailable', async (t)
   t.pass('download closed')
 })
 
+test('download can be destroyed before _open completes (folder)', async (t) => {
+  t.plan(1)
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  await drive.put('/folder/a', Buffer.alloc(1024))
+  await drive.put('/folder/b', Buffer.alloc(1024))
+
+  await ensureDbLength(mirror.drive, drive.version)
+  await mirror.drive.entry('/folder/a')
+
+  s1.destroy()
+  s2.destroy()
+
+  const download = mirror.drive.download('/folder')
+  download.destroy()
+  await download.close()
+
+  t.pass('folder download closed cleanly')
+})
+
 test('drive.downloadDiff dedup entry', async (t) => {
   t.plan(2)
   const { corestore, drive, swarm, mirror } = await testenv(t)
