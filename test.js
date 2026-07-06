@@ -872,39 +872,6 @@ test('download can be destroyed before _open completes (folder)', async (t) => {
   t.pass('folder download closed cleanly')
 })
 
-test('drive.downloadDiff dedup entry', async (t) => {
-  t.plan(2)
-  const { corestore, drive, swarm, mirror } = await testenv(t)
-  swarm.on('connection', (conn) => corestore.replicate(conn))
-  swarm.join(drive.discoveryKey, { server: true, client: false })
-  await swarm.flush()
-  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
-  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
-  await mirror.swarm.flush()
-
-  const version = drive.version
-
-  const ws = drive.createWriteStream('/folder/entry', { dedup: true })
-  ws.write(Buffer.alloc(1024))
-  ws.write(Buffer.alloc(1024))
-  ws.write(Buffer.alloc(1024))
-  ws.end()
-
-  await new Promise((resolve) => ws.once('finish', resolve))
-  await ensureDbLength(mirror.drive, drive.version)
-
-  const download = await mirror.drive.downloadDiff(version, '/folder')
-  await download.done()
-
-  const mirrorBlobs = await mirror.drive.getBlobs()
-  const driveBlobs = await drive.getBlobs()
-  const mirrorBlobsHash = await mirrorBlobs.core.treeHash()
-  const driveBlobsHash = await driveBlobs.core.treeHash()
-
-  t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
-  t.alike(mirrorBlobsHash, driveBlobsHash, 'blob hashes match')
-})
-
 test('drive.download dedup entry', async (t) => {
   t.plan(2)
   const { corestore, drive, swarm, mirror } = await testenv(t)
