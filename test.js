@@ -887,6 +887,8 @@ test('drive.download dedup entry', async (t) => {
   ws.write(Buffer.alloc(1024))
   ws.end()
 
+  await once(ws, 'finish')
+
   await ensureDbLength(mirror.drive, drive.version)
 
   const download = mirror.drive.download('/entry')
@@ -917,6 +919,7 @@ test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
     const ws = drive.createWriteStream('/folder/entry', { dedup: true })
     ws.write(Buffer.alloc(1024))
     ws.end()
+    await once(ws, 'finish')
   }
 
   await drive.put('/folder/entry-b', Buffer.from('hello world'))
