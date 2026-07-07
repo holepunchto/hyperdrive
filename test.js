@@ -117,7 +117,7 @@ test('drive.createWriteStream(path) and drive.createReadStream(path)', async (t)
       drive.createReadStream(__filename),
       new Writable({
         write(data, cb) {
-          if (bndlbuf) bndlbuf = b4a.concat(bndlbuf, data)
+          if (bndlbuf) bndlbuf = b4a.concat([bndlbuf, data])
           else bndlbuf = data
           return cb(null)
         }
@@ -816,6 +816,129 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
   t.is(blobscount, blobstelem.count)
 })
 
+test('dedup download can be destroyed while block map is unavailable', async (t) => {
+  t.plan(1)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await new Promise((resolve, reject) => {
+    ws.once('error', reject)
+    ws.once('finish', resolve)
+  })
+
+  await ensureDbLength(mirror.drive, drive.version)
+  await mirror.drive.entry('/entry')
+
+  s1.destroy()
+  s2.destroy()
+
+  const download = mirror.drive.download('/entry')
+  download.destroy()
+
+  await download.close()
+  t.pass('download closed')
+})
+
+test('download can be destroyed before _open completes (folder)', async (t) => {
+  t.plan(1)
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  await drive.put('/folder/a', Buffer.alloc(1024))
+  await drive.put('/folder/b', Buffer.alloc(1024))
+
+  await ensureDbLength(mirror.drive, drive.version)
+  await mirror.drive.entry('/folder/a')
+
+  s1.destroy()
+  s2.destroy()
+
+  const download = mirror.drive.download('/folder')
+  download.destroy()
+  await download.close()
+
+  t.pass('folder download closed cleanly')
+})
+
+test('drive.download dedup entry', async (t) => {
+  t.plan(2)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await once(ws, 'finish')
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const download = mirror.drive.download('/entry')
+  await download.done()
+
+  const mirrorBlobs = await mirror.drive.getBlobs()
+  const driveBlobs = await drive.getBlobs()
+
+  const mirrorBlobsHash = await mirrorBlobs.core.treeHash()
+  const driveBlobsHash = await driveBlobs.core.treeHash()
+
+  t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
+  t.alike(mirrorBlobsHash, driveBlobsHash, 'blob hashes match')
+})
+
+test('drive.download folder mixed dedup: true and dedup: false', async (t) => {
+  t.plan(2)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  {
+    const ws = drive.createWriteStream('/folder/entry', { dedup: true })
+    ws.write(Buffer.alloc(1024))
+    ws.end()
+    await once(ws, 'finish')
+  }
+
+  await drive.put('/folder/entry-b', Buffer.from('hello world'))
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const download = mirror.drive.download('/folder')
+  await download.done()
+
+  const mirrorBlobs = await mirror.drive.getBlobs()
+  const driveBlobs = await drive.getBlobs()
+
+  const mirrorBlobsHash = await mirrorBlobs.core.treeHash()
+  const driveBlobsHash = await driveBlobs.core.treeHash()
+
+  t.is(mirrorBlobs.core.contiguousLength, driveBlobs.core.contiguousLength)
+  t.alike(mirrorBlobsHash, driveBlobsHash, 'blob hashes match')
+})
+
 test('drive.has(path)', async (t) => {
   t.plan(8)
   const { corestore, drive, swarm, mirror } = await testenv(t)
@@ -853,6 +976,82 @@ test('drive.has(path)', async (t) => {
 
   t.ok(await mirror.drive.has('/parent/'))
   t.ok(await mirror.drive.has('/parent/sibling/grandchild1'))
+})
+
+test('drive.has dedup entry is false after getting the blockMap', async (t) => {
+  t.plan(1)
+  const { corestore, drive, swarm, mirror } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+
+  await once(ws, 'finish')
+
+  await ensureDbLength(mirror.drive, drive.version)
+  const entry = await mirror.drive.entry('/entry')
+
+  await mirror.drive.getBlobs()
+  await mirror.drive.blobs.core.get(entry.value.blob.blockOffset) // get map block
+
+  t.absent(await mirror.drive.has('/entry'), 'has() is false w/ map, but w/o blocks')
+})
+
+test('drive.has dedup entry does not download block map', async (t) => {
+  t.plan(3)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  t.teardown(() => {
+    s1.destroy()
+    s2.destroy()
+  })
+
+  const ws = drive.createWriteStream('/entry', { dedup: true })
+  const done = new Promise((resolve, reject) => {
+    ws.once('error', reject)
+    ws.once('finish', resolve)
+  })
+
+  ws.write(Buffer.alloc(1024))
+  ws.write(Buffer.alloc(1024))
+  ws.end()
+  await done
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const entry = await mirror.drive.entry('/entry')
+  const blob = entry.value.blob
+  const blobs = await mirror.drive.getBlobs()
+
+  t.absent(
+    await blobs.core.has(blob.blockOffset, blob.blockOffset + blob.blockLength),
+    'sanity: block map is not local before has()'
+  )
+
+  let downloads = 0
+  blobs.core.on('download', ondownload)
+  t.teardown(() => blobs.core.off('download', ondownload))
+
+  t.absent(await mirror.drive.has('/entry'), 'entry data is not local')
+  t.is(downloads, 0, 'has() should not download while checking local state')
+
+  function ondownload() {
+    downloads++
+  }
 })
 
 test('drive.batch() & drive.flush()', async (t) => {
