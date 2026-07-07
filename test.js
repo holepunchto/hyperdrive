@@ -993,10 +993,10 @@ test('drive.has dedup entry is false after getting the blockMap', async (t) => {
   ws.end()
 
   await ensureDbLength(mirror.drive, drive.version)
-  await mirror.drive.entry('/entry')
+  const entry = await mirror.drive.entry('/entry')
 
   await mirror.drive.getBlobs()
-  await mirror.drive.blobs.core.get(1) // get map block
+  await mirror.drive.blobs.core.get(entry.value.blob.blockOffset) // get map block
 
   t.absent(await mirror.drive.has('/entry'), 'has() is false w/ map, but w/o blocks')
 })
