@@ -992,7 +992,7 @@ test('drive.has dedup entry is false after getting the blockMap', async (t) => {
   ws.write(Buffer.alloc(1024))
   ws.end()
 
-  await new Promise((resolve) => setTimeout(resolve, 100))
+  await once(ws, 'finish')
 
   await ensureDbLength(mirror.drive, drive.version)
   const entry = await mirror.drive.entry('/entry')
