@@ -3,9 +3,11 @@
   "version": "13.3.3",
   "description": "Hyperdrive is a secure, real-time distributed file system",
   "main": "index.js",
+  "types": "index.d.ts",
   "files": [
     "index.js",
-    "lib/**.js"
+    "lib/**.js",
+    "index.d.ts"
   ],
   "repository": {
     "type": "git",
