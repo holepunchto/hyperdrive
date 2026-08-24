@@ -778,6 +778,31 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   t.is(blobTelem.count, 3)
 })
 
+test('downloadDiff destroy does not wait for blobs', async (t) => {
+  const { drive, mirror } = await testenv(t)
+
+  // Do not replicate, so the mirror cannot open its blob store.
+  const download = await mirror.drive.downloadDiff(drive.version, '/')
+  const closed = once(download, 'close')
+  download.destroy()
+  t.ok(await closed, 'download closes without waiting for blobs')
+
+  await mirror.drive.close()
+})
+
+test('downloadDiff handles an empty dedup entry', async (t) => {
+  const { drive } = await testenv(t)
+  const version = drive.version
+
+  const ws = drive.createWriteStream('/empty', { dedup: true })
+  ws.end()
+  await once(ws, 'finish')
+
+  const download = await drive.downloadDiff(version, '/')
+
+  await t.execution(download.done(), 'an empty dedup entry requires no blocks')
+})
+
 test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))

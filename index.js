@@ -437,6 +437,10 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async downloadDiff(length, folder, opts) {
+    if (typeof folder === 'object' && folder && !opts) {
+      return this.downloadDiff(length, null, folder)
+    }
+    folder = std(folder || '/', true)
     return new Download(this, folder, { ...opts, diff: length })
   }
 
