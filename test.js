@@ -778,6 +778,31 @@ test('drive.downloadRange(dbRanges, blobRanges)', async (t) => {
   t.is(blobTelem.count, 3)
 })
 
+test('downloadDiff destroy does not wait for blobs', async (t) => {
+  const { drive, mirror } = await testenv(t)
+
+  // Do not replicate, so the mirror cannot open its blob store.
+  const download = await mirror.drive.downloadDiff(drive.version, '/')
+  const closed = once(download, 'close')
+  download.destroy()
+  t.ok(await closed, 'download closes without waiting for blobs')
+
+  await mirror.drive.close()
+})
+
+test('downloadDiff handles an empty dedup entry', async (t) => {
+  const { drive } = await testenv(t)
+  const version = drive.version
+
+  const ws = drive.createWriteStream('/empty', { dedup: true })
+  ws.end()
+  await once(ws, 'finish')
+
+  const download = await drive.downloadDiff(version, '/')
+
+  await t.execution(download.done(), 'an empty dedup entry requires no blocks')
+})
+
 test('drive.downloadDiff(version, folder, [options])', async (t) => {
   const { drive, swarm, mirror, corestore } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
@@ -814,6 +839,127 @@ test('drive.downloadDiff(version, folder, [options])', async (t) => {
 
   t.is(filescount, filestelem.count)
   t.is(blobscount, blobstelem.count)
+})
+
+test('drive.downloadDiff(version, folder) dedup entries', async (t) => {
+  const { drive, swarm, mirror, corestore } = await testenv(t)
+  swarm.on('connection', (conn) => corestore.replicate(conn))
+  swarm.join(drive.discoveryKey, { server: true, client: false })
+  await swarm.flush()
+
+  mirror.swarm.on('connection', (conn) => mirror.corestore.replicate(conn))
+  mirror.swarm.join(drive.discoveryKey, { server: false, client: true })
+  await mirror.swarm.flush()
+
+  const version = drive.version
+
+  for (const name of ['/parent/child/0', '/parent/child/1', '/parent/sibling/0']) {
+    const ws = drive.createWriteStream(name, { dedup: true })
+    ws.write(b4a.alloc(1024, name))
+    ws.write(b4a.alloc(1024, name))
+    ws.end()
+    await once(ws, 'finish')
+  }
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  const downloadDiff = await mirror.drive.downloadDiff(version, '/parent/child')
+  await downloadDiff.done()
+
+  t.ok(await mirror.drive.has('/parent/child/0'), 'blocks of the block map are downloaded')
+  t.ok(await mirror.drive.has('/parent/child/1'), 'blocks of the block map are downloaded')
+  t.absent(await mirror.drive.has('/parent/sibling/0'), 'outside of the folder')
+})
+
+test('drive.downloadDiff(version, options) with the folder omitted', async (t) => {
+  const drive = new Hyperdrive(new Corestore(await t.tmp()))
+  t.teardown(() => drive.close())
+
+  const nil = b4a.from('nil')
+  const version = drive.version
+
+  await drive.put('/parent/child/0', nil)
+  await drive.put('/parent/sibling/0', nil)
+
+  const scoped = await drive.downloadDiff(version, '/parent/child')
+  await scoped.done()
+  t.is(scoped.downloads.length, 1, 'only the entry inside the folder is diffed')
+
+  const explicitRoot = await drive.downloadDiff(version, '/', {})
+  await explicitRoot.done()
+  t.is(explicitRoot.downloads.length, 2, 'both the child and the sibling are diffed')
+
+  const defaultRoot = await drive.downloadDiff(version, {})
+  await defaultRoot.done()
+  t.is(defaultRoot.downloads.length, 2, 'both the child and the sibling are diffed')
+})
+
+test('downloadDiff can be destroyed', async (t) => {
+  t.plan(1)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  const version = drive.version
+
+  for (const name of ['/a/0', '/a/1', '/a/2', '/a/3']) {
+    const ws = drive.createWriteStream(name, { dedup: true })
+    ws.write(b4a.alloc(1024, name))
+    ws.write(b4a.alloc(1024, name))
+    ws.end()
+
+    await once(ws, 'finish')
+  }
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  s1.destroy()
+  s2.destroy()
+
+  const download = await mirror.drive.downloadDiff(version, '/a')
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  download.destroy()
+
+  await download.close()
+  t.pass('download closed')
+})
+
+test('downloadDiff when the drive closes mid diff', async (t) => {
+  t.plan(2)
+
+  const { corestore, drive, mirror } = await testenv(t)
+
+  const s1 = corestore.replicate(true)
+  const s2 = mirror.corestore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+
+  const version = drive.version
+
+  for (const name of ['/a/0', '/a/1', '/a/2', '/a/3']) {
+    const ws = drive.createWriteStream(name, { dedup: true })
+    ws.write(b4a.alloc(1024, name))
+    ws.write(b4a.alloc(1024, name))
+    ws.end()
+    await once(ws, 'finish')
+  }
+
+  await ensureDbLength(mirror.drive, drive.version)
+
+  // no warmup, so the diff stream stalls on db blocks we never got
+  s1.destroy()
+  s2.destroy()
+
+  const download = await mirror.drive.downloadDiff(version, '/a')
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  await mirror.drive.close()
+
+  await t.execution(download.done(), 'closing the drive cancels instead of throwing')
+  t.is(download.downloads.length, 0, 'no downloads left behind')
 })
 
 test('dedup download can be destroyed while block map is unavailable', async (t) => {
