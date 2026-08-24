@@ -871,6 +871,29 @@ test('drive.downloadDiff(version, folder) dedup entries', async (t) => {
   t.absent(await mirror.drive.has('/parent/sibling/0'), 'outside of the folder')
 })
 
+test('drive.downloadDiff(version, options) with the folder omitted', async (t) => {
+  const drive = new Hyperdrive(new Corestore(await t.tmp()))
+  t.teardown(() => drive.close())
+
+  const nil = b4a.from('nil')
+  const version = drive.version
+
+  await drive.put('/parent/child/0', nil)
+  await drive.put('/parent/sibling/0', nil)
+
+  const scoped = await drive.downloadDiff(version, '/parent/child')
+  await scoped.done()
+  t.is(scoped.downloads.length, 1, 'only the entry inside the folder is diffed')
+
+  const explicitRoot = await drive.downloadDiff(version, '/', {})
+  await explicitRoot.done()
+  t.is(explicitRoot.downloads.length, 2, 'both the child and the sibling are diffed')
+
+  const defaultRoot = await drive.downloadDiff(version, {})
+  await defaultRoot.done()
+  t.is(defaultRoot.downloads.length, 2, 'both the child and the sibling are diffed')
+})
+
 test('downloadDiff can be destroyed', async (t) => {
   t.plan(1)
 
