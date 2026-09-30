@@ -14,6 +14,42 @@ const unixPathResolve = require('unix-path-resolve')
 const DebuggingStream = require('debugging-stream')
 const Hyperdrive = require('./index.js')
 
+test.solo('drive.download() contiguousLength with dedup', async (t) => {
+  const writerStore = new Corestore(await getTmpDir())
+  const readerStore = new Corestore(await getTmpDir())
+  t.teardown(() => Promise.all([writerStore.close(), readerStore.close()]))
+
+  const writer = new Hyperdrive(writerStore)
+  await writer.ready()
+
+  const ws = writer.createWriteStream('/file.bin', { dedup: true })
+  ws.write(Buffer.alloc(65536, 0x42))
+  ws.end()
+  await new Promise((resolve, reject) => ws.once('close', resolve).once('error', reject))
+
+  await writer.getBlobs()
+  const entry = await writer.entry('/file.bin')
+
+  const r1 = writerStore.replicate(true)
+  const r2 = readerStore.replicate(false)
+  r1.pipe(r2).pipe(r1)
+  t.teardown(() => { r1.destroy(); r2.destroy() })
+
+  const reader = new Hyperdrive(readerStore, writer.key)
+  const done = readerStore.findingPeers()
+  await reader.ready()
+  await reader.db.core.update()
+  done()
+
+  await reader.download().done()
+  await reader.getBlobs()
+
+  t.is(reader.blobs.core.contiguousLength, reader.blobs.core.length)
+
+  await writer.close()
+  await reader.close()
+})
+
 test('drive.core', async (t) => {
   const { drive } = await testenv(t)
   t.is(drive.db.feed, drive.core)
