@@ -1,7 +1,7 @@
-const Hyperbee = require('hyperbee')
+const Hyperbee = require('hyperbee2')
 const Hyperblobs = require('hyperblobs')
 const isOptions = require('is-options')
-const { Writable, Readable } = require('streamx')
+const { Writable, Readable, Transform, pipeline } = require('streamx')
 const unixPathResolve = require('unix-path-resolve')
 const MirrorDrive = require('mirror-drive')
 const SubEncoder = require('sub-encoder')
@@ -10,8 +10,10 @@ const safetyCatch = require('safety-catch')
 const crypto = require('hypercore-crypto')
 const Hypercore = require('hypercore')
 const { BLOCK_NOT_AVAILABLE, BAD_ARGUMENT } = require('hypercore-errors')
+const c = require('compact-encoding')
 const Monitor = require('./lib/monitor')
 const Download = require('./lib/download')
+const valueEncoding = require('./lib/encoding')
 
 const keyEncoding = new SubEncoder('files', 'utf-8')
 
@@ -33,12 +35,12 @@ module.exports = class Hyperdrive extends ReadyResource {
     this.supportsMetadata = true
     this.encryptionKey = opts.encryptionKey || null
     this.monitors = new Set()
+    this._downloads = new Set()
 
     this._active = opts.active !== false
-    this._openingBlobs = null
     this._onwait = opts.onwait || null
-    this._batching = !!(opts._checkout === null && opts._db)
     this._checkout = opts._checkout || null
+    this._batch = null
     this._sessions = opts._sessions || new Set()
     this._sessions.add(this)
 
@@ -50,10 +52,10 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   static async getDriveKey(corestore) {
-    const core = makeBee(undefined, corestore)
-    await core.ready()
-    const key = core.key
-    await core.close()
+    const db = makeBee(undefined, corestore)
+    await db.ready()
+    const key = db.core.key
+    await db.close()
     return key
   }
 
@@ -97,7 +99,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   get version() {
-    return this.db.version
+    return this.db.core.length
   }
 
   get writable() {
@@ -127,6 +129,7 @@ module.exports = class Hyperdrive extends ReadyResource {
     }
 
     await this.core.truncate(version)
+    await this.db.update()
     await bl.core.truncate(blobsVersion)
   }
 
@@ -135,7 +138,7 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     if (!checkout) checkout = this.version
 
-    const c = this.db.checkout(checkout)
+    const c = this.db.checkout({ length: checkout })
 
     try {
       return await getBlobsLength(c)
@@ -148,8 +151,10 @@ module.exports = class Hyperdrive extends ReadyResource {
     return this.corestore.replicate(isInitiator, opts)
   }
 
-  update(opts) {
-    return this.db.update(opts)
+  async update(opts) {
+    const res = await this.db.core.update(opts)
+    await this.db.update()
+    return res
   }
 
   _makeCheckout(snapshot) {
@@ -163,17 +168,12 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   checkout(version) {
-    return this._makeCheckout(this.db.checkout(version))
+    return this._makeCheckout(this.db.checkout({ length: version }))
   }
 
   batch() {
-    return new Hyperdrive(this.corestore, this.key, {
-      onwait: this._onwait,
-      encryptionKey: this.encryptionKey,
-      _checkout: null,
-      _db: this.db.batch(),
-      _sessions: this._sessions
-    })
+    this._batch = this.db.write()
+    return this
   }
 
   setActive(bool) {
@@ -185,18 +185,22 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async flush() {
-    await this.db.flush()
-    return this.close()
+    await this._batch.flush()
+    this._batch = null
   }
 
   async _close() {
+    for (const download of this._downloads) {
+      download.destroy()
+    }
+
     if (this.blobs && (!this._checkout || this.blobs !== this._checkout.blobs)) {
       await this.blobs.core.close()
     }
 
     await this.db.close()
 
-    if (!this._checkout && !this._batching) {
+    if (!this._checkout && !this._batch) {
       const all = this._sessions.size > 1 ? [...this._sessions] : []
       for (const s of all) {
         if (s === this) continue
@@ -212,17 +216,12 @@ module.exports = class Hyperdrive extends ReadyResource {
     this._sessions.delete(this)
   }
 
-  async _openBlobsFromHeader(opts) {
+  async _ensureBlobs(opts) {
     if (this.blobs) return true
 
-    const header = await getBee(this.db).getHeader(opts)
-    if (!header) return false
+    await this.core.ready()
 
-    if (this.blobs) return true
-
-    const contentKey =
-      header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
-    const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
+    const blobsKey = Hypercore.key(this._generateBlobsManifest())
     if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
     const blobsCore = this.corestore.get({
@@ -230,7 +229,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       cache: false,
       onwait: this._onwait,
       encryptionKey: this.encryptionKey,
-      keyPair: !contentKey && this.db.core.writable ? this.db.core.keyPair : null,
+      keyPair: this.db.core.writable ? this.db.core.keyPair : null,
       active: this._active
     })
     await blobsCore.ready()
@@ -255,7 +254,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       return
     }
 
-    await this._openBlobsFromHeader({ wait: false })
+    await this.db.ready()
 
     if (this.db.core.writable && !this.blobs) {
       const m = this._generateBlobsManifest()
@@ -273,29 +272,19 @@ module.exports = class Hyperdrive extends ReadyResource {
 
       this.blobs = new Hyperblobs(blobsCore)
 
-      if (!m) getBee(this.db).metadata.contentFeed = this.blobs.core.key
-
       this.emit('blobs', this.blobs)
       this.emit('content-key', blobsCore.key)
-    }
-
-    await this.db.ready()
-
-    if (!this.blobs) {
-      // eagerly load the blob store....
-      this._openingBlobs = this._openBlobsFromHeader()
-      this._openingBlobs.catch(safetyCatch)
     }
   }
 
   async getBlobs() {
+    await this._ensureBlobs()
     if (this.blobs) return this.blobs
 
     if (this._checkout) {
       this.blobs = await this._checkout.getBlobs()
     } else {
       await this.ready()
-      await this._openingBlobs
     }
 
     return this.blobs
@@ -314,6 +303,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async get(name, opts) {
+    await this._ensureBlobs()
     const node = await this.entry(name, opts)
     if (!node?.value.blob) return null
     await this.getBlobs()
@@ -324,21 +314,26 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async putEntry(name, { executable = false, linkname = null, blob = null, metadata = null } = {}) {
-    return this.db.put(std(name, false), { executable, linkname, blob, metadata }, { keyEncoding })
+    const batch = this._batch || this.db.write()
+    const encodedKey = keyEncoding.encode(std(name, false))
+    const encodedValue = c.encode(valueEncoding, { executable, linkname, blob, metadata })
+    batch.tryPut(encodedKey, encodedValue)
+    if (!this._batch) {
+      return await batch.flush()
+    }
   }
 
   async put(name, buf, { executable = false, metadata = null } = {}) {
     await this.getBlobs()
     const blob = await this.blobs.put(buf)
-    return this.db.put(
-      std(name, false),
-      { executable, linkname: null, blob, metadata },
-      { keyEncoding }
-    )
+    return await this.putEntry(name, { executable, linkname: null, blob, metadata })
   }
 
   async del(name) {
-    return this.db.del(std(name, false), { keyEncoding })
+    const batch = this.db.write()
+    const encodedKey = keyEncoding.encode(std(name, false))
+    batch.tryDelete(encodedKey)
+    return await batch.flush()
   }
 
   compare(a, b) {
@@ -385,15 +380,12 @@ module.exports = class Hyperdrive extends ReadyResource {
     await Promise.all(proms)
   }
 
-  async symlink(name, dst, { metadata = null } = {}) {
-    return this.db.put(
-      std(name, false),
-      { executable: false, linkname: dst, blob: null, metadata },
-      { keyEncoding }
-    )
+  symlink(name, dst, { metadata = null } = {}) {
+    return this.putEntry(name, { executable: false, linkname: dst, blob: null, metadata })
   }
 
   async entry(name, opts) {
+    await this._ensureBlobs()
     if (!opts || !opts.follow) return this._entry(name, opts)
 
     for (let i = 0; i < 16; i++) {
@@ -409,20 +401,15 @@ module.exports = class Hyperdrive extends ReadyResource {
   async _entry(name, opts) {
     if (typeof name !== 'string') return name
 
-    return this.db.get(std(name, false), { ...opts, keyEncoding })
+    const encodedKey = keyEncoding.encode(std(name, false))
+    const encodedValue = await this.db.get(encodedKey, { ...opts })
+    if (!encodedValue) return null
+    const decodedValue = c.decode(valueEncoding, encodedValue.value)
+    return { key: keyEncoding.decode(encodedValue.key), seq: encodedValue.seq, value: decodedValue }
   }
 
   async exists(name) {
     return (await this.entry(name)) !== null
-  }
-
-  watch(folder) {
-    folder = std(folder || '/', true)
-
-    return this.db.watch(prefixRange(folder), {
-      keyEncoding,
-      map: (snap) => this._makeCheckout(snap)
-    })
   }
 
   diff(length, folder, opts) {
@@ -430,21 +417,52 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     folder = std(folder || '/', true)
 
-    return this.db.createDiffStream(length, prefixRange(folder), {
-      ...opts,
-      keyEncoding
+    const right = this.db.checkout({ length })
+    const range = prefixRange(folder)
+
+    const decodeNode = (node) => {
+      if (!node) return null
+
+      return {
+        key: keyEncoding.decode(node.key),
+        value: c.decode(valueEncoding, node.value)
+      }
+    }
+
+    const transform = new Transform({
+      transform(from, cb) {
+        this.push({
+          left: decodeNode(from.left),
+          right: decodeNode(from.right)
+        })
+        cb()
+      }
     })
+
+    const stream = pipeline(
+      this.db.createDiffStream(right, {
+        gt: keyEncoding.encode(range.gt),
+        lt: keyEncoding.encode(range.lt),
+        ...opts
+      }),
+      transform
+    )
+    return stream
   }
 
-  async downloadDiff(length, folder, opts) {
+  downloadDiff(length, folder, opts) {
     if (typeof folder === 'object' && folder && !opts) {
       return this.downloadDiff(length, null, folder)
     }
     folder = std(folder || '/', true)
-    return new Download(this, folder, { ...opts, diff: length })
+    const download = new Download(this, folder, { ...opts, diff: length })
+    this._downloads.add(download)
+    download.once('close', () => this._downloads.delete(download))
+    return download
   }
 
   async downloadRange(dbRanges, blobRanges) {
+    await this._ensureBlobs()
     const dls = []
 
     await this.ready()
@@ -462,8 +480,26 @@ module.exports = class Hyperdrive extends ReadyResource {
     return new Download(this, null, { downloads: dls })
   }
 
-  entries(range, opts) {
-    const stream = this.db.createReadStream(range, { ...opts, keyEncoding })
+  entries(range = {}, opts = {}) {
+    const transform = new Transform({
+      transform(from, cb) {
+        this.push({
+          key: keyEncoding.decode(from.key),
+          value: c.decode(valueEncoding, from.value)
+        })
+        cb()
+      }
+    })
+    const stream = pipeline(
+      this.db.createReadStream({
+        ...(range.gt && { gt: keyEncoding.encode(range.gt) }),
+        ...(range.gte && { gte: keyEncoding.encode(range.gte) }),
+        ...(range.lt && { lt: keyEncoding.encode(range.lt) }),
+        ...(range.lte && { lte: keyEncoding.encode(range.lte) }),
+        ...opts
+      }),
+      transform
+    )
     if (opts && opts.ignore) stream._readableState.map = createStreamMapIgnore(opts.ignore)
     return stream
   }
@@ -475,6 +511,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async has(path) {
+    await this._ensureBlobs()
     const blobs = await this.getBlobs()
     const entry = !path || path.endsWith('/') ? null : await this.entry(path)
     if (entry) {
@@ -635,12 +672,8 @@ module.exports = class Hyperdrive extends ReadyResource {
       onfinish = null
 
       if (err) return cb(err)
-      self.db
-        .put(
-          std(name, false),
-          { executable, linkname: null, blob: ws.id, metadata },
-          { keyEncoding }
-        )
+      self
+        .putEntry(name, { executable, linkname: null, blob: ws.id, metadata })
         .then(() => cb(null), cb)
     }
 
@@ -683,9 +716,11 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
       let node = null
 
       try {
-        node = await files.peek(prefixRange(folder, prev), {
-          ...opts,
-          keyEncoding
+        const range = prefixRange(folder, prev)
+        node = await files.peek({
+          gt: keyEncoding.encode(range.gt),
+          lt: keyEncoding.encode(range.lt),
+          ...opts
         })
       } catch (err) {
         return cb(err)
@@ -695,6 +730,9 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
         this.push(null)
         return cb(null)
       }
+
+      node.key = keyEncoding.decode(node.key)
+      node.value = c.decode(valueEncoding, node.value)
 
       const suffix = node.key.slice(folder.length + 1)
       const i = suffix.indexOf('/')
@@ -730,20 +768,15 @@ function makeBee(key, corestore, opts = {}) {
     onwait: opts.onwait,
     encryptionKey: opts.encryptionKey,
     compat: opts.compat,
-    active: opts.active
+    active: opts.active,
+    inflightRange: [256, 512]
   })
 
-  return new Hyperbee(core, {
-    keyEncoding: 'utf-8',
-    valueEncoding: 'json',
-    metadata: { contentFeed: null },
-    extension: opts.extension
+  return new Hyperbee(corestore, {
+    core,
+    autoUpdate: true,
+    ...opts
   })
-}
-
-function getBee(bee) {
-  // A Batch instance will have a .tree property for the actual Hyperbee
-  return bee.tree || bee
 }
 
 function std(name, removeSlash) {
@@ -793,7 +826,7 @@ async function getBlobsLength(db) {
   await db.core.download({ start: 0, end: db.core.length }).done()
 
   for await (const { value } of db.createReadStream()) {
-    const b = value && value.blob
+    const b = value && c.decode(valueEncoding, value).blob
     if (!b) continue
     const len = b.blockOffset + b.blockLength
     if (len > length) length = len
