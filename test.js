@@ -1932,6 +1932,21 @@ test('truncate happy path', async (t) => {
   await corestore.close()
 })
 
+test('truncate to zero truncates blobs too', async (t) => {
+  const corestore = new Corestore(await t.tmp())
+  const drive = new Hyperdrive(corestore)
+  await drive.ready()
+
+  await drive.put('file1', 'here1')
+  await drive.put('file2', 'here2')
+
+  await drive.truncate(0)
+  t.is(drive.blobs.core.length, 0, 'truncated blobs correctly')
+  t.is(await drive.getBlobsLength(), 0, 'no blobs referenced')
+
+  await drive.close()
+})
+
 test('truncate throws when truncating future version)', async (t) => {
   const corestore = new Corestore(await t.tmp())
   const drive = new Hyperdrive(corestore)
