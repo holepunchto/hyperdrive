@@ -357,7 +357,7 @@ module.exports = class Hyperdrive extends ReadyResource {
       // do nothing, prop not available
     }
 
-    if (node === null || this.blobs === null) {
+    if (node === null || !node.value.blob || this.blobs === null) {
       return opts && opts.diff ? { blocks: 0 } : null
     }
 
