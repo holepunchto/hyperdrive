@@ -2199,6 +2199,16 @@ test('monitor is removed from the Set on close', async (t) => {
   t.is(drive.monitors.size, 0)
 })
 
+test('monitor an entry without a blob', async (t) => {
+  const { drive } = await testenv(t)
+  await drive.symlink('/link', '/example.md')
+
+  const monitor = drive.monitor('/link')
+  await monitor.ready()
+  t.is(drive.monitors.size, 1)
+  await monitor.close()
+})
+
 test('monitor range download', async (t) => {
   const { corestore, drive, swarm, mirror } = await testenv(t)
   swarm.on('connection', (conn) => corestore.replicate(conn))
