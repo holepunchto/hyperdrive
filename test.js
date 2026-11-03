@@ -1872,6 +1872,27 @@ test('getBlobsLength of empty drive', async (t) => {
   await corestore.close()
 })
 
+test('getBlobsLength counts blobs of deleted files', async (t) => {
+  const corestore = new Corestore(await t.tmp())
+  const drive = new Hyperdrive(corestore)
+
+  await drive.put('/a', 'xx')
+  await drive.put('/b', 'yy')
+  await drive.del('/b')
+
+  t.is(await drive.getBlobsLength(), 2)
+  t.is(await drive.getBlobsLength(2), 1)
+
+  await drive.truncate(drive.version)
+  t.is(drive.blobs.core.length, 2, 'truncating to the current version keeps all blobs')
+
+  const checkout = drive.checkout(3)
+  t.is(b4a.toString(await checkout.get('/b')), 'yy')
+  await checkout.close()
+
+  await drive.close()
+})
+
 test('getBlobsLength large db - prefetch', async (t) => {
   const store = new Corestore(await t.tmp())
   t.teardown(() => store.close())
