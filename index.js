@@ -677,16 +677,26 @@ module.exports = class Hyperdrive extends ReadyResource {
 function shallowReadStream(files, folder, keys, ignore, opts) {
   let prev = '/'
   let prevName = ''
+  let ite = null
 
   return new Readable({
     async read(cb) {
       let node = null
 
       try {
-        node = await files.peek(prefixRange(folder, prev), {
-          ...opts,
-          keyEncoding
-        })
+        // one iterator walks the files, it is only reopened to jump past a subfolder
+        // (a limit turns off the read-ahead, which a jump would throw away)
+        if (ite === null) {
+          ite = files.createRangeIterator(prefixRange(folder, prev), {
+            ...opts,
+            limit: Number.MAX_SAFE_INTEGER,
+            keyEncoding
+          })
+          await ite.open()
+        }
+
+        node = await ite.next()
+        if (!node) await closeIterator()
       } catch (err) {
         return cb(err)
       }
@@ -701,6 +711,14 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
       const name = i === -1 ? suffix : suffix.slice(0, i)
 
       prev = '/' + name + (i === -1 ? '' : '0')
+
+      if (i !== -1) {
+        try {
+          await closeIterator()
+        } catch (err) {
+          return cb(err)
+        }
+      }
 
       // just in case someone does /foo + /foo/bar, but we should prop not even support that
       if (name === prevName) {
@@ -717,8 +735,18 @@ function shallowReadStream(files, folder, keys, ignore, opts) {
 
       this.push(keys ? name : node)
       cb(null)
+    },
+    destroy(cb) {
+      closeIterator().then(() => cb(null), cb)
     }
   })
+
+  async function closeIterator() {
+    if (ite === null) return
+    const closing = ite
+    ite = null
+    await closing.close()
+  }
 }
 
 function makeBee(key, corestore, opts = {}) {
