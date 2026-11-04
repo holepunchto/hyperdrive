@@ -3,7 +3,7 @@ const path = require('path')
 const { once } = require('events')
 const test = require('brittle')
 const Corestore = require('corestore')
-const { discoveryKey } = require('hypercore-crypto')
+const { discoveryKey, keyPair } = require('hypercore-crypto')
 const { pipelinePromise: pipeline, Writable, Readable } = require('streamx')
 const testnet = require('hyperdht/testnet')
 const DHT = require('hyperdht')
@@ -12,6 +12,7 @@ const b4a = require('b4a')
 const getTmpDir = require('test-tmp')
 const unixPathResolve = require('unix-path-resolve')
 const DebuggingStream = require('debugging-stream')
+const Hyperbee = require('hyperbee')
 const Hyperdrive = require('./index.js')
 
 test('drive.core', async (t) => {
@@ -1826,6 +1827,41 @@ test('non-compat making of cores', async (t) => {
   t.absent(drive.blobs.core.core.compat)
 
   await drive.close()
+})
+
+test('opening a compat bee core as a drive rejects ready() instead of crashing', async (t) => {
+  // A peer can publish a compat Hyperbee key; opening it as a Hyperdrive used to
+  // throw TypeError through safetyCatch (uncaught) after ready() had already resolved.
+  const author = new Corestore(await t.tmp())
+  const reader = new Corestore(await t.tmp())
+  t.teardown(() => author.close())
+  t.teardown(() => reader.close())
+
+  const kp = keyPair()
+  const core = author.get({ key: kp.publicKey, keyPair: kp })
+  await core.ready()
+  await new Hyperbee(core).put('x', 'y')
+
+  const s1 = author.replicate(true)
+  const s2 = reader.replicate(false)
+  s1.pipe(s2).pipe(s1)
+  t.teardown(() => {
+    s1.destroy()
+    s2.destroy()
+  })
+
+  // Wait until the reader has the bee header locally (same as a later offline open).
+  const remote = reader.get({ key: core.key })
+  await remote.ready()
+  while (remote.length < core.length) await once(remote, 'append')
+  await remote.get(0)
+  await remote.close()
+
+  const drive = new Hyperdrive(reader, core.key)
+  t.teardown(() => drive.close().catch(() => {}))
+
+  await t.exception(drive.ready(), /Invalid or no Blob store key set/)
+  t.is(Hyperdrive.getContentKey(drive.core), null)
 })
 
 test('getBlobsLength happy paths', async (t) => {
