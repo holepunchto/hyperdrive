@@ -792,7 +792,8 @@ async function getBlobsLength(db) {
   await db.ready() // Ensure length is loaded
   await db.core.download({ start: 0, end: db.core.length }).done()
 
-  for await (const { value } of db.createReadStream()) {
+  // Every put counts, deleted or not, as older checkouts still reference its blob
+  for await (const { value } of db.createHistoryStream()) {
     const b = value && value.blob
     if (!b) continue
     const len = b.blockOffset + b.blockLength
