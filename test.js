@@ -1271,6 +1271,20 @@ test('drive.batch() on non-ready drive', async (t) => {
   await drive.close()
 })
 
+test('batch cannot purge the drive', async (t) => {
+  const corestore = new Corestore(await t.tmp())
+  const drive = new Hyperdrive(corestore)
+  await drive.put('/file.txt', 'hi')
+
+  const batch = drive.batch()
+  await t.exception(batch.purge(), /Can only purge the main session/)
+  await batch.close()
+
+  t.is(b4a.toString(await drive.get('/file.txt')), 'hi', 'data is intact')
+
+  await drive.close()
+})
+
 test('drive.close() for future checkout', async (t) => {
   const { drive } = await testenv(t)
   await drive.put('some', 'thing')

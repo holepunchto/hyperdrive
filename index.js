@@ -375,7 +375,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   }
 
   async purge() {
-    if (this._checkout || this._batch) throw new Error('Can only purge the main session')
+    if (this._checkout || this._batching) throw new Error('Can only purge the main session')
 
     await this.ready() // Ensure blobs loaded if present
     await this.close()
