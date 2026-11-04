@@ -1427,6 +1427,20 @@ test('drive.clear(path) on a checkout', async (t) => {
   t.is(nowContent, null)
 })
 
+test('drive.clear(path) on an entry without a blob', async (t) => {
+  const corestore = new Corestore(await t.tmp())
+  const drive = new Hyperdrive(corestore)
+
+  await drive.put('/file.txt', 'hi')
+  await drive.symlink('/link', '/file.txt')
+
+  t.is(await drive.clear('/link'), null)
+  t.alike(await drive.clear('/link', { diff: true }), { blocks: 0 })
+  t.is(b4a.toString(await drive.get('/file.txt')), 'hi', 'target is untouched')
+
+  await drive.close()
+})
+
 test.skip('drive.clearAll() with diff', async (t) => {
   t.plan(9)
   const storage = await getTmpDir(t)
