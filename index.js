@@ -222,7 +222,10 @@ module.exports = class Hyperdrive extends ReadyResource {
 
     const contentKey =
       header.metadata && header.metadata.contentFeed && header.metadata.contentFeed.subarray(0, 32)
-    const blobsKey = contentKey || Hypercore.key(this._generateBlobsManifest())
+    // Compat / version-0 cores have no content manifest. Calling Hypercore.key(null)
+    // throws a TypeError that safetyCatch re-throws as an uncaught exception.
+    const blobsManifest = contentKey ? null : this._generateBlobsManifest()
+    const blobsKey = contentKey || (blobsManifest && Hypercore.key(blobsManifest))
     if (!blobsKey || blobsKey.length < 32) throw new Error('Invalid or no Blob store key set')
 
     const blobsCore = this.corestore.get({
