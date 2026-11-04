@@ -133,7 +133,7 @@ module.exports = class Hyperdrive extends ReadyResource {
   async getBlobsLength(checkout) {
     if (!this.opened) await this.ready()
 
-    if (!checkout) checkout = this.version
+    if (checkout === undefined) checkout = this.version
 
     const c = this.db.checkout(checkout)
 
